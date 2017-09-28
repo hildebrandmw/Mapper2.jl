@@ -1,5 +1,6 @@
 using Mapper2
 using Base.Test
 
-# write your own tests here
-@test 1 == 2
+# Tests for the Address Datatype
+include("Address.jl")
+include("Arch-Const.jl")
