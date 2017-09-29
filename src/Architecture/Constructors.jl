@@ -138,7 +138,7 @@ function connect_ports!(c   ::AbstractComponent,
             error("Port ", port, " already has a connection.")
         end
         if !(c.ports[port].class ∈ PORT_SINKS)
-            error("Port ", port, " is not a valid source.")
+            error("Port ", port, " is not a valid sink.")
         end
     end
     #=
@@ -156,47 +156,61 @@ function connect_ports!(c   ::AbstractComponent,
     return nothing
 end
 
+struct OffsetPort
+    offset   ::Address
+    src_ports::Address
+    dst_ports::Address
+end
+
 function connection_rule(tl::TopLevel,
-                         offsets        ::Array{Address,1},
+                         rules          ::Array{OffsetPort,1},
                          src_key        ::String,
                          src_val,
                          src_function   ::Function,
-                         src_ports      ::Array{String,1},
                          dst_key        ::String,
                          dst_val,
                          dst_function   ::Function,
-                         dst_ports      ::Array{String,1};
                          metadata = Dict{String,Any}(),
                          valid_addresses = keys(tl.children),
                          invalid_addresses = Address[],
                         )
+    count = 0
     # Iterate through each valid address 
-    for src_address in setdiff(valid_address, invalid_addresses)
+    for src_address in setdiff(valid_addresses, invalid_addresses)
         # Get the source component
         src = tl.children[src_address]
         # Check if the source component fulfills the requirement.
         # If doesn't - abort and go to the next address
-        search_metadata!(src, src_key, src_value, src_function) || continue
+        search_metadata!(src, src_key, src_val, src_function) || continue
         # Apply all the offsets to the current address
-        for offset in offsets
+        for rule in rules
+            # Unpacek OffsetPort struct
+            offset = rule.offset
+            src_ports = rule.src_ports
+            dst_ports = rule.dst_ports
+            # Calculate destination address
             dst_address = src_address + offset
+            haskey(tl.children, dst_address) || continue
             dst = tl.children[dst_address]
             # Check if the destination fulfills the requirements.
-            search_metadata!(dst, dst_key, dst_value, dst_function) || continue
+            search_metadata!(dst, dst_key, dst_val, dst_function) || continue
             # Now, start iterating through the source and destination ports.
             # if there's a match, connect the ports at the higher level.
-            for (src_port, dest_port) in zip(src_ports, dst_ports)
+            for (src_port, dst_port) in zip(src_ports, dst_ports)
                 if !(haskey(src.ports, src_port) && haskey(dst.ports, dst_port)) 
                     continue
                 end
                 # Build the name for these ports at the top level. If they are
                 # free - connect them.
-                src_port_name = join((string(src_address), src_port, "."))
-                dst_port_name = join((string(dst_address), dst_port, "."))
+                src_port_name = join((string(src_address), src_port), ".")
+                dst_port_name = join((string(dst_address), dst_port), ".")
                 if isfree(tl.ports[src_port_name]) && isfree(tl.ports[dst_port_name])
                     connect_ports!(tl, src_port_name, dst_port_name, metadata)
+                    count += 1
                 end
             end
         end
     end
+    #print_with_color(:green, "Made ", count, " connections.")
+    return nothing
 end

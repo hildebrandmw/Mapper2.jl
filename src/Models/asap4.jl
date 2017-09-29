@@ -25,12 +25,15 @@ function build_asap4()
     # Get a processor tile to instantiate.
     processor = build_processor_tile()
     # Instantiate it at the required addresses
-    for r in 1:24, c in 2:26
-        add_child(arch, processor, Address(r,c))
+    for r in 1:24, c in 2:28
+         add_child(arch, processor, Address(r,c))
     end
-    for r in 1:20, c in 27
-        add_child(arch, processor, Address(r,c))
-    end
+    # for r in 1:24, c in 2:26
+    #     add_child(arch, processor, Address(r,c))
+    # end
+    # for r in 1:20, c in 27
+    #     add_child(arch, processor, Address(r,c))
+    # end
 
     ####################
     # Memory Processor #
@@ -74,7 +77,7 @@ function build_asap4()
     #######################
     # Global Interconnect #
     #######################
-    #connect_processors!(tl)
+    connect_processors(arch)
     return arch
 end
 
@@ -84,13 +87,74 @@ function connect_processors(tl)
     # switched ports.
     src_key = "attributes"
     src_val = ["processor", "input_handler", "output_handler"]
-    src_function = in
+    src_function = oneofin
     dst_key = src_key
     dst_val = src_val
-    dst_function = in
+    dst_function = oneofin
     # Offsets are just unit steps in four directions.
     offsets = [Address(0,1), Address(0,-1), Address(1,0), Address(-1,0)]
+    # Create the list of ports to connect
+    # TODO: Need to fix this so it actually works correctly ...."
+    directions = ("north", "east", "south", "west")
+    rules = OffsetPort[]
+    for dir in directions
+        for i in 0:1
+            src_port = dir * "_out[" * string(i) * "]"
+            push!(src_ports, src_port)
+            dst_port = dir * "_in[" * string(i) * "]"
+            push!(dst_ports, dst_port)
+        end
+    end
+    port_dict = Dict(i => j for (i,j) in zip(src_ports, dst_ports))
+    for k in port_dict
+        println(k)
+    end
+    println()
+    # Add ports for input and output handlers.
+    for dir in ("east", "west")
+        for i = 0:1
+            # Input Handler to processor
+            src_port = "out[" * string(i) * "]"
+            dst_port = dir * "_in[" * string(i) * "]"
+            push!(src_ports, src_port)
+            push!(dst_ports, dst_port)
+            # Processor to output handler
+            src_port = dir * "_out[" * string(i) * "]"
+            dst_port = "in[" * string(i) * "]"
+            push!(src_ports, src_port)
+            push!(dst_ports, dst_port)
+        end
+    end
+    for (a,b) in zip(src_ports, dst_ports)
+        println(a, " => ", b)
+    end
+    # Build metadata dictionary for capacity and cost
+    metadata = Dict(
+        "cost"      => 1.0,
+        "capacity"  => 1,
+    )
 
+    # Launch the function call!
+    connection_rule(tl, offsets,
+                    src_key, src_val, src_function, src_ports,
+                    dst_key, dst_val, dst_function, dst_ports,
+                    metadata = metadata)
+    return nothing
+
+# function connection_rule(tl::TopLevel,
+#                          offsets        ::Array{Address,1},
+#                          src_key        ::String,
+#                          src_val,
+#                          src_function   ::Function,
+#                          src_ports      ::Array{String,1},
+#                          dst_key        ::String,
+#                          dst_val,
+#                          dst_function   ::Function,
+#                          dst_ports      ::Array{String,1};
+#                          metadata = Dict{String,Any}(),
+#                          valid_addresses = keys(tl.children),
+#                          invalid_addresses = Address[],
+#                         )
 end
 
 # COMPLEX BLOCKS
@@ -281,7 +345,7 @@ function build_input_handler()
     metadata["attributes"] = ["input_handler"]
     component = Component("input_handler", primitive = "", metadata = metadata)    
     # Add the input and output ports
-    add_port(component, "circuit_out", "output", 2)
+    add_port(component, "out", "output", 2)
     # Return the created type
     return component
 end
@@ -295,7 +359,7 @@ function build_output_handler()
     metadata["attributes"] = ["output_handler"]
     component = Component("output_handler", primitive = "", metadata = metadata)    
     # Add the input and output ports
-    add_port(component, "circuit_in", "output", 2)
+    add_port(component, "in", "input", 2)
     # Return the created type
     return component
 end
