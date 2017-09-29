@@ -33,7 +33,7 @@ Address(r,c) = Address((r,c))
 Return a 3d address with the given row and column.
 """
 Address(r,c,l) = Address((r,c,l))
-Base.show(io::IO, a::Address) = print(io, string(a))
+Base.show(io::IO, a::Address) = print(io, "Address", a.addr)
 Base.string(a::Address) = join(("Address", string(a.addr)))
 ################################################################################
 # METHODS

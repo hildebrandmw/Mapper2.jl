@@ -97,7 +97,7 @@ mutable struct Port
     Metadata list - associated with characteristics of the link. Can include
     attributes like "capacity", "network" etc.
     """
-    metadata    ::Array{Any,1}
+    metadata    ::Dict{String,Any}
 end
 
 """
@@ -110,7 +110,7 @@ function Port(name::String, class::String)
     @assert class in PORT_CLASSES
     # Create a port without any notion of connection.
     neighbors = String[]
-    metadata  = Any[]
+    metadata  = Dict{String,Any}() 
     return Port(
         name,
         class,
@@ -152,6 +152,18 @@ belong to a child of that component.
 is_top_port(p::Port) = !contains(p.name, ".")
 
 """
+    isfree(p::Port)
+
+Return `true` if port `p` has no neighbors assigned to it yet.
+"""
+isfree(p::Port) = length(p.neighbors) == 0
+
+const _class_dict = Dict(
+        "bidir" => "bidir",
+        "input" => "output",
+        "output" => "input",
+     )
+"""
     flipdir(p::Port)
 
 Flip the direction of a port. Useful for converting a port from a component level
@@ -162,15 +174,10 @@ function flipdir(p::Port)
     class = p.class
     # If the class of the port is input or output, return the opposite of that.
     # If the port if bidirectional, nothing needs to be done.
-    class_dict = Dict(
-        "bidir" => "bidir",
-        "input" => "output",
-        "output" => "input",
-     )
-    if !haskey(class_dict, class)
+    if !haskey(_class_dict, class)
         error("Port class: ", class, " not defined.")
     end
-    return class_dict[class]
+    return _class_dict[class]
 end
 ################################################################################
 #                               COMPONENT TYPES                                #
@@ -235,9 +242,9 @@ Automatically flips the direction of the port to maintain consistency.
 If error_if_conflict = true, thrown an error if redundant port names are discovered.
 Otherwise, take no effect if a port already exists.
 """
-function extract_ports!(c::AbstractComponent, error_if_conflict::Bool=false)
+function extract_ports!(c::AbstractComponent, children = c.children; error_if_conflict::Bool=false)
     # Iterate through the key-value pairs of the component children dictionary.
-    for (name, child) in c.children, port in values(child.ports)
+    for (name, child) in children, port in values(child.ports)
         # Check if port is a top level port of the current child. 
         is_top_port(port) || continue
         # Make a new port name by appending the child instantiation name to
@@ -303,4 +310,23 @@ mutable struct TopLevel{N} <: AbstractComponent
             metadata,
         )
     end
+end
+
+################################################################################
+# METHODS FOR NAVIGATING THE HIERARCHY
+################################################################################
+function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
+    # If it doesn't have the key, than just return flase. Otherwise, apply
+    # the provided function to the value and result.
+    return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
+end
+
+function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
+    # If 'f' evaluates to true here, return true in general.
+    search_metadata(c, key, value, f) && return true
+    # Otherwise, call recursively call search_metadata! on all subcomponents 
+    for child in values(c.children)
+        search_metadata!(child, key, value, f) && return true
+    end
+    return false
 end

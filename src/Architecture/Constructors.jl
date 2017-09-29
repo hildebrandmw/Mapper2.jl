@@ -65,7 +65,7 @@ top level ports of that child.
 """
 function add_child(c::AbstractComponent, child::AbstractComponent, name, number = 1)
     if number == 1
-        locations = [name]    
+        locations = [name]
     else
         locations = [name * "[" * string(i) * "]" for i in 0:number-1]
     end
@@ -74,13 +74,9 @@ function add_child(c::AbstractComponent, child::AbstractComponent, name, number 
             error("Component ", c.name, " already has a child named ", loc)
         else
             c.children[loc] = child
-            #=
-            Call the "extract_ports!" routine to automatically add all child ports
-            to the component. This is not exactly efficient is the running time
-            increasts each time a child is added, but should be good enough for
-            now.
-            =#
-            extract_ports!(c)
+            # Bundle up the location and child as a dictionary to accelerate
+            # the adding of ports to the parent module.
+            extract_ports!(c, Dict(loc => child))
         end
     end
     return nothing
@@ -131,17 +127,17 @@ function connect_ports!(c   ::AbstractComponent,
                         metadata = Dict{String,Any}())
     # Make sure that all the ports listed so far do not have a connection
     # already assigned to them
-    if length(c.ports[src]).neighbors > 0
+    if length(c.ports[src].neighbors) > 0
         error("Port ", src, " already has a connection.")
     end
-    if !c.ports[src].class ∈ PORT_SOURCES
+    if !(c.ports[src].class ∈ PORT_SOURCES)
         error("Port ", src, " is not a valid source.")
     end
     for port in dest
-        if length(c.ports[port]).neighbors > 0
+        if length(c.ports[port].neighbors) > 0
             error("Port ", port, " already has a connection.")
         end
-        if !c.ports[port].class ∈ PORT_SINKS
+        if !(c.ports[port].class ∈ PORT_SINKS)
             error("Port ", port, " is not a valid source.")
         end
     end
@@ -155,21 +151,52 @@ function connect_ports!(c   ::AbstractComponent,
     c.ports[src].metadata = metadata
     for port in dest
         c.ports[port].neighbors = [src]
-        c.ports[port].neighbors = metadata
+        c.ports[port].metadata = metadata
     end
     return nothing
 end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+function connection_rule(tl::TopLevel,
+                         offsets        ::Array{Address,1},
+                         src_key        ::String,
+                         src_val,
+                         src_function   ::Function,
+                         src_ports      ::Array{String,1},
+                         dst_key        ::String,
+                         dst_val,
+                         dst_function   ::Function,
+                         dst_ports      ::Array{String,1};
+                         metadata = Dict{String,Any}(),
+                         valid_addresses = keys(tl.children),
+                         invalid_addresses = Address[],
+                        )
+    # Iterate through each valid address 
+    for src_address in setdiff(valid_address, invalid_addresses)
+        # Get the source component
+        src = tl.children[src_address]
+        # Check if the source component fulfills the requirement.
+        # If doesn't - abort and go to the next address
+        search_metadata!(src, src_key, src_value, src_function) || continue
+        # Apply all the offsets to the current address
+        for offset in offsets
+            dst_address = src_address + offset
+            dst = tl.children[dst_address]
+            # Check if the destination fulfills the requirements.
+            search_metadata!(dst, dst_key, dst_value, dst_function) || continue
+            # Now, start iterating through the source and destination ports.
+            # if there's a match, connect the ports at the higher level.
+            for (src_port, dest_port) in zip(src_ports, dst_ports)
+                if !(haskey(src.ports, src_port) && haskey(dst.ports, dst_port)) 
+                    continue
+                end
+                # Build the name for these ports at the top level. If they are
+                # free - connect them.
+                src_port_name = join((string(src_address), src_port, "."))
+                dst_port_name = join((string(dst_address), dst_port, "."))
+                if isfree(tl.ports[src_port_name]) && isfree(tl.ports[dst_port_name])
+                    connect_ports!(tl, src_port_name, dst_port_name, metadata)
+                end
+            end
+        end
+    end
+end
