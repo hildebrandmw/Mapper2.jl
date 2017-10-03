@@ -16,8 +16,8 @@ const _attributes = [
 
 function build_asap4()
     # Start with a new component - clarify that it is 2 dimensional
-    arch = TopLevel{2}("asap4") 
-    
+    arch = TopLevel{2}("asap4")
+
     ####################
     # Normal Processor #
     ####################
@@ -26,14 +26,11 @@ function build_asap4()
     processor = build_processor_tile()
     # Instantiate it at the required addresses
     for r in 1:24, c in 2:28
-         add_child(arch, processor, Address(r,c))
+        add_child(arch, processor, Address(r,c))
     end
-    # for r in 1:24, c in 2:26
-    #     add_child(arch, processor, Address(r,c))
-    # end
-    # for r in 1:20, c in 27
-    #     add_child(arch, processor, Address(r,c))
-    # end
+    for r in 1:20, c in 29
+        add_child(arch, processor, Address(r,c))
+    end
 
     ####################
     # Memory Processor #
@@ -59,18 +56,18 @@ function build_asap4()
     #################
     # Input Handler #
     #################
-    input_handler = build_input_handler() 
+    input_handler = build_input_handler()
     for r ∈ (1, 13), c = 1
        add_child(arch, input_handler, Address(r,c))
     end
-    for r ∈ (12, 18), c = 29
+    for r ∈ (12, 18), c = 30
        add_child(arch, input_handler, Address(r,c))
     end
     ##################
     # Output Handler #
     ##################
     output_handler = build_output_handler()
-    for (r,c) ∈ zip((12,18,1,14), (1, 1, 29, 29))
+    for (r,c) ∈ zip((12,18,1,14), (1, 1, 30, 30))
        add_child(arch, output_handler, Address(r,c))
     end
 
@@ -78,6 +75,7 @@ function build_asap4()
     # Global Interconnect #
     #######################
     connect_processors(arch)
+    connect_memories(arch)
     return arch
 end
 
@@ -87,77 +85,123 @@ function connect_processors(tl)
     # switched ports.
     src_key = "attributes"
     src_val = ["processor", "input_handler", "output_handler"]
-    src_function = oneofin
-    dst_key = src_key
-    dst_val = src_val
-    dst_function = oneofin
+    src_fn = oneofin
+    src_rule = PortRule(src_key, src_val, src_fn)
+    dst_rule = src_rule
+    # Create offset rules.
     # Offsets are just unit steps in four directions.
-    offsets = [Address(0,1), Address(0,-1), Address(1,0), Address(-1,0)]
-    # Create the list of ports to connect
-    # TODO: Need to fix this so it actually works correctly ...."
-    directions = ("north", "east", "south", "west")
-    rules = OffsetPort[]
-    for dir in directions
+    offsets = [Address(-1,0), Address(1,0), Address(0,1), Address(0,-1)]
+    #=
+    Create two tuples for the source ports and destination ports. In general,
+    if the source link is going out of the north port, the destionation will
+    be coming in the sourth port.
+    =#
+    src_dirs = ("north", "south", "east", "west")
+    dst_dirs = ("south", "north", "west", "east")
+    offset_rules = OffsetRule[]
+    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
+        src_ports = String[]
+        dst_ports = String[]
+        # Iterate through the number of source and destination ports.
         for i in 0:1
-            src_port = dir * "_out[" * string(i) * "]"
+            src_port = src * "_out[" * string(i) * "]"
             push!(src_ports, src_port)
-            dst_port = dir * "_in[" * string(i) * "]"
+            dst_port = dst * "_in[" * string(i) * "]"
             push!(dst_ports, dst_port)
         end
+        # Create the offset rule and add it to the collection
+        new_rule = OffsetRule([offset], src_ports, dst_ports)
+        push!(offset_rules, new_rule)
     end
-    port_dict = Dict(i => j for (i,j) in zip(src_ports, dst_ports))
-    for k in port_dict
-        println(k)
-    end
-    println()
-    # Add ports for input and output handlers.
-    for dir in ("east", "west")
-        for i = 0:1
-            # Input Handler to processor
+    # Create offset rules for the input and output handlers.
+    # Input and output handlers only appear on the left and right hand sides
+    # of the array, so only need the "east" and "west" directions.
+    src_dirs = ("east","west")
+    dst_dirs = ("west","east")
+    # Links can go both directions, so make the offsets an array
+    offsets = [Address(0,1), Address(0,-1)]
+    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
+        src_ports = String[]
+        dst_ports = String[]
+        for i in 0:1
+            # Input handler -> processor
             src_port = "out[" * string(i) * "]"
-            dst_port = dir * "_in[" * string(i) * "]"
+            dst_port = dst * "_in[" * string(i) * "]"
             push!(src_ports, src_port)
             push!(dst_ports, dst_port)
-            # Processor to output handler
-            src_port = dir * "_out[" * string(i) * "]"
+            # processor -> output handler
+            src_port = src * "_out[" * string(i) * "]"
             dst_port = "in[" * string(i) * "]"
             push!(src_ports, src_port)
             push!(dst_ports, dst_port)
         end
-    end
-    for (a,b) in zip(src_ports, dst_ports)
-        println(a, " => ", b)
+        new_rule = OffsetRule([offset], src_ports, dst_ports)
+        push!(offset_rules, new_rule)
     end
     # Build metadata dictionary for capacity and cost
     metadata = Dict(
         "cost"      => 1.0,
         "capacity"  => 1,
+        "network"   => ["circuit_switched"]
     )
-
     # Launch the function call!
-    connection_rule(tl, offsets,
-                    src_key, src_val, src_function, src_ports,
-                    dst_key, dst_val, dst_function, dst_ports,
-                    metadata = metadata)
+    connection_rule(tl, offset_rules, src_rule, dst_rule, metadata = metadata)
     return nothing
-
-# function connection_rule(tl::TopLevel,
-#                          offsets        ::Array{Address,1},
-#                          src_key        ::String,
-#                          src_val,
-#                          src_function   ::Function,
-#                          src_ports      ::Array{String,1},
-#                          dst_key        ::String,
-#                          dst_val,
-#                          dst_function   ::Function,
-#                          dst_ports      ::Array{String,1};
-#                          metadata = Dict{String,Any}(),
-#                          valid_addresses = keys(tl.children),
-#                          invalid_addresses = Address[],
-#                         )
 end
 
-# COMPLEX BLOCKS
+
+function connect_memories(tl)
+    # Create metadata dictionary for the memory links.
+    metadata = Dict(
+        "cost"      => 1.0,
+        "capacity"  => 1,
+        "network"   => ["memory"],
+   )
+    ########################### 
+    # Connect 2 port memories #
+    ########################### 
+    # Create rule for the memory processors
+    proc_key = "attributes"
+    proc_val = "memory_processor"
+    proc_fn = in
+    proc_rule = PortRule(proc_key, proc_val, proc_fn)
+    # Create rule for the 2-port memories.
+    mem_key = "attributes"
+    mem_val = "memory_2port"
+    mem_fn  = in
+    mem_rule = PortRule(mem_key, mem_val, mem_fn)
+    # Make connections from memory to memory-processors
+    offset_rules = OffsetRule[]
+    push!(offset_rules, OffsetRule(Address(-1,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address(-1,1), "out[1]", "memory_in"))
+    connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
+    # Make connections from memory-processors to memories.
+    offset_rules = OffsetRule[]
+    push!(offset_rules, OffsetRule(Address(1,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address(1,-1), "memory_out", "in[1]"))
+    connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
+
+    ########################### 
+    # Connect 1 port memories #
+    ########################### 
+    # Change the memory attribute requirement to a 1 port memory.
+    mem_val = "memory_1port"
+    mem_rule = PortRule(mem_key, mem_val, mem_fn)
+    # Make connections from memory to memory-processors
+    offset_rules = OffsetRule[]
+    push!(offset_rules, OffsetRule(Address(-1,0), "out[0]", "memory_in"))
+    connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
+    # Make connections from memory-processors to memories.
+    offset_rules = OffsetRule[]
+    push!(offset_rules, OffsetRule(Address(1,0), "memory_out", "in[0]"))
+    connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
+
+    return nothing
+end
+
+##################
+# COMPLEX BLOCKS #
+##################
 function build_processor_tile()
     # Working towards parameterizing this. For now, just leave this at two
     # because the "processor" components aren't parameterized for the number
@@ -166,8 +210,8 @@ function build_processor_tile()
     # Create a new component for the processor tile
     # No need to set the primtiive class or metadata because we won't
     # be needing it.
-    comp = Component("processor_tile") 
-    # Add the circuit switched ports    
+    comp = Component("processor_tile")
+    # Add the circuit switched ports
     directions = ("east", "north", "south", "west")
     for dir in directions
         for (suffix,class)  in zip(("_in", "_out"), ("input", "output"))
@@ -180,7 +224,7 @@ function build_processor_tile()
     # to be mapped to them.
     add_port(comp, "memory_in", "input")
     add_port(comp, "memory_out", "output")
-    # Instantiate the processor primitive 
+    # Instantiate the processor primitive
     add_child(comp, build_processor(), "processor")
     # Instantiate the directional routing muxes
     routing_mux = build_mux(5,1)
@@ -195,7 +239,7 @@ function build_processor_tile()
     # defaults to intra-tile routing.
     connect_ports!(comp, "processor.memory_out", "memory_out")
     connect_ports!(comp, "memory_in", "processor.memory_in")
-    
+
     # Connect outputs of muxes to the tile outputs
     for dir in directions, i = 0:num_links-1
         mux_port = join((dir, "_mux[",string(i),"].out"))
@@ -215,8 +259,13 @@ function build_processor_tile()
     # Input Links
     connect_ports!(comp, "fifo_mux[0].out", ["processor.fifo[0]"])
     connect_ports!(comp, "fifo_mux[1].out", ["processor.fifo[1]"])
-    # Connect input ports to inputs of muxes  
-    # TODO: Throw this in a loop to make it easier to do.
+    # Connect input ports to inputs of muxes
+    #=
+    TODO: Throw this in a loop to make it easier to do.
+
+    Also - think about how to parameterize this to allow for more generic
+    routing and construction.
+    =#
     connect_ports!(comp, "north_in[0]", [ "east_mux[0].in[1]",
                                         "south_mux[0].in[1]",
                                         "west_mux[0].in[1]",
@@ -295,7 +344,7 @@ function build_processor()
     # Build the metadata dictionary for the processor component
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["processor"]
-    component = Component("standard_processor", primitive = "", metadata = metadata)    
+    component = Component("standard_processor", primitive = "", metadata = metadata)
     # Add the input fifos
     add_port(component, "fifo", "input", 2)
     # Add the output ports
@@ -312,16 +361,16 @@ function build_processor()
 end
 
 ##############################
-#      1 PORT MEMORY 
+#      1 PORT MEMORY
 ##############################
 function build_memory_1port()
     # Build the metadata dictionary for the processor component
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["memory_1port"]
-    component = Component("memory_1port", primitive = "", metadata = metadata)    
+    component = Component("memory_1port", primitive = "", metadata = metadata)
     # Add the input and output ports
-    add_port(component, "memory_in", "input", 2)
-    add_port(component, "memory_out", "output", 2)
+    add_port(component, "in", "input", 2)
+    add_port(component, "out", "output", 2)
     # Return the created type
     return component
 end
@@ -337,13 +386,13 @@ function build_memory_2port()
 end
 
 ##############################
-#       INPUT HANDLER        # 
+#       INPUT HANDLER        #
 ##############################
 function build_input_handler()
     # Build the metadata dictionary for the input handler
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["input_handler"]
-    component = Component("input_handler", primitive = "", metadata = metadata)    
+    component = Component("input_handler", primitive = "", metadata = metadata)
     # Add the input and output ports
     add_port(component, "out", "output", 2)
     # Return the created type
@@ -351,13 +400,13 @@ function build_input_handler()
 end
 
 ##############################
-#       OUTPUT HANDLER       # 
+#       OUTPUT HANDLER       #
 ##############################
 function build_output_handler()
     # Build the metadata dictionary for the input handler
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["output_handler"]
-    component = Component("output_handler", primitive = "", metadata = metadata)    
+    component = Component("output_handler", primitive = "", metadata = metadata)
     # Add the input and output ports
     add_port(component, "in", "input", 2)
     # Return the created type
