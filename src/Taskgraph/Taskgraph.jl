@@ -101,21 +101,43 @@ abstract type AbstractTaskgraphConstructor end
 """
 Nodes of the taskgraph.
 """
-struct TaskgraphNode <: AbstractTaskgraphType
-    name    ::String,
+mutable struct TaskgraphNode <: AbstractTaskgraphType
+    name    ::String
     metadata::Dict{String,Any}
+    """
+        TaskgraphNode(name, metadata = Dict{String,Any}())
+
+    Create a new `TaskgraphNode` with optional metadata.
+    """
+    function TaskgraphNode(name, metadata = Dict{String,Any}())
+        return new(name, metadata)
+    end
 end
 
 """
 Hypergraph edge for the taskgraph.
 """
-struct TaskgraphEdge <: AbstractTaskgraphType
+mutable struct TaskgraphEdge <: AbstractTaskgraphType
     sources ::Vector{String}
     sinks   ::Vector{String}
     metadata::Dict{String,Any}
+    """
+        TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
+
+    Convenience function allowing construction of an taskgraph edge initialized
+    with an empty metadata array.
+
+    Argument `source` or `sink` can either be strings or vectors of strings.
+    """
+    function TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
+        sources = typeof(source)   <: Vector ? source : [source]
+        sinks = typeof(sink)       <: Vector ? sink   : [sink]
+        return new(sources, sinks, metadata)
+    end
 end
 
-struct Taskgraph <: AbstractTaskgraphType
+
+mutable struct Taskgraph <: AbstractTaskgraphType
     nodes::Dict{String, TaskgraphNode}
     edges::Vector{TaskgraphEdge}
     adjacency_out::Dict{String, Vector{TaskgraphEdge}}
@@ -123,7 +145,7 @@ struct Taskgraph <: AbstractTaskgraphType
     function Taskgraph(node_container, edge_container)
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.
-        nodes = Dict(n.name => n for n in nodes)
+        nodes = Dict(n.name => n for n in node_container)
         # Initialize the adjacency lists with an entry for each node. Initialize
         # the values to empty arrays of edges so down-stream algortihms won't
         # have to check if an adjacency list exists for a node.

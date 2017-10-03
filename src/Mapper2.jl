@@ -1,6 +1,7 @@
 module Mapper2
 
 using IterTools
+using JSON
 export Address, Port, Component, benchmark
 
 # Common types and operations
@@ -9,6 +10,9 @@ include("Common/Helper.jl")
 # Architecture modeling related files.
 include("Architecture/Architecture.jl")
 include("Architecture/Constructors.jl")
+# Taskgraph related files
+include("Taskgraph/Taskgraph.jl")
+include("Taskgraph/Constructors.jl")
 # Architecture generators
 include("Models/asap4.jl")
 
