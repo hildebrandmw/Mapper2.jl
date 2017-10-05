@@ -174,6 +174,43 @@ end
 ################################################################################
 # METHODS FOR THE TASKGRAPH
 ################################################################################
+getnode(tg::Taskgraph, node::String) = tg.nodes[node]
+
+"""
+    add_node(tg::Taskgraph, task::TaskgraphNode)
+
+Add a new node to the taskgraph. If a node with the same name already exists,
+throw an error.
+"""
+function add_node(tg::Taskgraph, task::TaskgraphNode)
+    if haskey(tg.nodes, task.name)
+        error("Task ", task.name, " already exists in taskgraph.")
+    end
+    tg.nodes[task.name] = task
+    # Create adjacency list entries for the new nodes
+    tg.adjacency_out[task.name] = TaskgraphEdge[]
+    tg.adjacency_in[task.name]  = TaskgraphEdge[]
+    return nothing
+end
+
+"""
+    add_edge(tg::Taskgraph, edge::TaskgraphEdge)
+
+Add a new edge to the graph. No check is performed to ensure redundant edges
+are not added.
+"""
+function add_edge(tg::Taskgraph, edge::TaskgraphEdge)
+    # Update the edge array
+    push!(tg.edges, edge)
+    # Update the adjacency lists.
+    for source in edge.sources
+        push!(tg.adjacency_out[source], edge)
+    end
+    for sink in edge.sinks
+        push!(tg.adjacency_in[sink], edge)
+    end
+    return nothing
+end
 
 # Iterator interfaces for nodes. Can easily just grab an itertor over the node
 # data types in the nodes dictionary.
@@ -201,8 +238,23 @@ in_edges(tg::Taskgraph, task::String) = tg.adjacency_in[task]
 "Return the edges for which the task is a sink."
 in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
 
+# Checking methods
+hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
 
 # Methods for accessing metadata - might not necessarily be useful.
 metadata(t::TaskgraphNode) = t.metadata
 metadata(t::TaskgraphEdge) = t.metadata
+
+# Methods for iterating through neighborhoods
+function out_nodes(tg::Taskgraph, node)
+    # Sink node iterators
+    sink_name_iters = (e.sinks for e in out_edges(tg, node))
+    # Flatten the sink iterators and get the distinct results.
+    distinct_sink_names = distinct(Base.Iterators.flatten(sink_name_iters))
+    # Finally, pipe this into a generator to return the actual node object.
+    nodes = (getnode(tg, n) for n in distinct_sink_names)
+    return nodes
+end
+
+#out_nodes(tg::Taskgraph, node::TaskgraphNode) = out_nodes(tg, node.name)
 # ph

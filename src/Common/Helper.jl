@@ -9,3 +9,8 @@ function oneofin(a, b)
    end
    return false
 end
+
+function push_to_dict(dict, k, v)
+    haskey(dict, k) ? push!(dict[k], v) : dict[k] = [v]
+    return nothing
+end
