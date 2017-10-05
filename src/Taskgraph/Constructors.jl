@@ -18,6 +18,19 @@ struct SimDumpConstructor <: AbstractTaskgraphConstructor
     file::String
 end
 
+"""
+    get_transforms(sdc::SimDumpConstructor)
+
+Return the list of transforms needed by the `SimDumpConstructor`.
+"""
+function get_transforms(sdc::SimDumpConstructor)
+    transform_tuple = (
+        t_unpack_attached_memories,
+        t_unpack_type_strings,
+        t_assign_link_weights,
+    )
+    return transform_tuple
+end
 #=
 Question - how to handle loading of j
 =#
@@ -92,13 +105,6 @@ Transforms needed to get Mapper2 to the state of Mapper1:
         and adding distnace limits as one of the options that can be chosen
         by the top level Map data structure.  =#
 
-function c_unpack_attached_memories()
-    return TaskgraphTransform(
-        "unpack_attached_memories",
-        Set{TaskgraphTransform}(),
-        t_unpack_attached_memories,
-     )
-end
 """
     t_unpack_attached_memories(tg::Taskgraph)
 
@@ -112,27 +118,46 @@ run multiple times.
 function t_unpack_attached_memories(tg::Taskgraph)
     nodes_added = 0
     edges_added = 0
+    # Record a set of unpacked memories so a memory that has a node in
+    # the graph isn't accidentally added again.
+    memories_unpacked = Set{String}()
     for node in nodes(tg)
-        haskey(node.metadata, "attached_memory") || continue
-        # Get the memory node - check if it already
-        memory = node.metadata["attached_memory"]::String
-        if !hasnode(tg, memory)
-            # Create metadata with the "Get_Type_String()" attribute
-            metadata = Dict("Get_Type_String()" => "memory")
-            # Create a memory node for the memory
-            add_node(tg, TaskgraphNode(memory, metadata))
-            nodes_added += 1
+        # Check if this has the Get_Type_String() == memory property. If so,
+        # we need to add an output link to its host processor.
+        if get(node.metadata, "Get_Type_String()", "") == "memory"
+            # Get all the input buffers, filter out all entries of "nothing"
+            for output_buffer in filter(x -> x != nothing, node.metadata["output_buffers"])
+                # Create a link from the writer core to the current core
+                # referenced by "name". Use the whole buffer dict as metadata.
+                metadata = output_buffer
+                source   = node.name
+                sink     = output_buffer["reader_core"]::String
+                add_edge(tg, TaskgraphEdge(source, sink, metadata))
+                edges_added += 1
+            end
+        elseif haskey(node.metadata, "attached_memory")
+            # Get the memory node - check if it already
+            memory = node.metadata["attached_memory"]::String
+            if !hasnode(tg, memory)
+                # Create metadata with the "Get_Type_String()" attribute
+                metadata = Dict("Get_Type_String()" => "memory")
+                # Create a memory node for the memory
+                add_node(tg, TaskgraphNode(memory, metadata))
+                push!(memories_unpacked, memory)
+                nodes_added += 1
+            end
+            # Check if this memory was an unpacked memory. If so, create a link.
+            # Otherwise, a link will already exist.
+            if memory in memories_unpacked
+                # Create links
+                add_edge(tg, TaskgraphEdge(node.name, memory))
+                add_edge(tg, TaskgraphEdge(memory, node.name))
+                edges_added += 2
+            end
+            # Delete the attached memory field from the node to make the transform
+            # safe to run multiple times.
+            delete!(node.metadata, "attached_memory")
         end
-        # TODO: Get this to work when there are both attached memories and
-        # separate tasks for memories.
-
-        # Create links
-        add_edge(tg, TaskgraphEdge(node.name, memory))
-        add_edge(tg, TaskgraphEdge(memory, node.name))
-        edges_added += 2
-        # Delete the attached memory field from the node to make the transform
-        # safe to run multiple times.
-        delete!(node.metadata, "attached_memory")
     end
     if DEBUG
         print_with_color(:green, "Nodes added: ", nodes_added, "\n")
@@ -141,13 +166,6 @@ function t_unpack_attached_memories(tg::Taskgraph)
     return tg
 end
 
-function c_unpack_type_strings()
-    return TaskgraphTransform(
-        "unpack_type_strings",
-        Set([c_unpack_attached_memories()]),
-        t_unpack_type_strings,
-     )
-end
 
 """
     t_unpack_type_strings(tg::Taskgraph)
@@ -193,13 +211,6 @@ function t_unpack_type_strings(tg::Taskgraph)
     return tg
 end
 
-function c_assign_link_weight()
-    return TaskgraphTransform(
-        "assign_link_weight",
-        Set([c_unpack_type_strings()]),
-        t_assign_link_weights,
-     )
-end
 
 """
     t_assign_link_weights(tg::Taskgraph)

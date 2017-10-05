@@ -114,6 +114,7 @@ mutable struct TaskgraphNode <: AbstractTaskgraphType
     end
 end
 
+
 """
 Hypergraph edge for the taskgraph.
 """
@@ -169,6 +170,19 @@ mutable struct Taskgraph <: AbstractTaskgraphType
             adjacency_in,
         )
     end
+end
+
+function apply_transforms(tg, atc::AbstractTaskgraphConstructor)
+    # Get the tranformst requested by the constructor.
+    transforms = get_transforms(atc)
+    for t in transforms
+        if DEBUG
+            print_with_color(:yellow, "Applying Transform: ")
+            println(string(t))
+        end
+        tg = t(tg)::Taskgraph
+    end
+    return tg
 end
 
 ################################################################################
