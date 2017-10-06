@@ -139,11 +139,12 @@ end
 
 
 mutable struct Taskgraph <: AbstractTaskgraphType
+    name::String
     nodes::Dict{String, TaskgraphNode}
     edges::Vector{TaskgraphEdge}
     adjacency_out::Dict{String, Vector{TaskgraphEdge}}
     adjacency_in ::Dict{String, Vector{TaskgraphEdge}}
-    function Taskgraph(node_container, edge_container)
+    function Taskgraph(name, node_container, edge_container)
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.
         nodes = Dict(n.name => n for n in node_container)
@@ -164,6 +165,7 @@ mutable struct Taskgraph <: AbstractTaskgraphType
         end
         # Return the data structure
         return new(
+            name,
             nodes,
             edges,
             adjacency_out,

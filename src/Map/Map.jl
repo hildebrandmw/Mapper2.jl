@@ -22,26 +22,40 @@ when the kernel functions are called - everything is type stable.
 """
 Top level data structure. Summary of parameters:
 
-* `D` - The number of dimensions in the architecture. (will usually be 2 or 3).
+* `A` - The architecture type used for the mapping.
+* `D` - The number of dimensions in the architecture (will usually be 2 or 3).
 """
-mutable struct Map{D}
-    architecture::TopLevel{D}
+mutable struct Map{A,D}
+    """
+    The underlying architecture to which the taskgraph is going to be mapped.
+    """
+    architecture::TopLevel{A,D}
+    """
+    The application to be mapped to the architecture.
+    """
+    taskgraph   ::Taskgraph
+    """
+    Options for dispatching and parameterizing placement and routing functions.
+    """
+    options::Dict{Symbol, Any}
     #=
-    taskgraph
     mapping
-
-    # Options
-    # TODO: Need to think about how to do quality control on all the metadata
-    # options that show up in this structure.
-
-    """
-    Options to control all aspects of the mapping process. Data stored in the
-    options dictionary should usually be more dictionaries.
-
-    For example, there can be a dictionary for placement, dictionary for routing,
-    dictionaries controlling what will be dumped into the final file etc.        
-    
-    """
-    options::Dict{Symbol,Any}
     =#
 end
+
+function testmap()
+    options = Dict{Symbol, Any}()
+    arch = build_asap4()
+    sdc  = SimDumpConstructor("alexnet", "alexnet-5-multiport-finetuned.json")
+    tg   = apply_transforms(Taskgraph(sdc), sdc)
+    return Map(arch, tg, options)
+end
+
+
+
+
+
+
+
+
+# ph

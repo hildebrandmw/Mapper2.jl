@@ -16,11 +16,39 @@ include("Architecture/Architecture.jl")
 include("Architecture/Constructors.jl")
 # Taskgraph related files
 include("Taskgraph/Taskgraph.jl")
-include("Taskgraph/Constructors.jl")
-# Architecture generators
-include("Models/asap4.jl")
+# Top-level Map datatype
+include("Map/Map.jl")
+
+# Placement
+include("Placement/SAStruct.jl")
+
+################################################################################
+# Frameworks
+################################################################################
+include("Frameworks/Kilocore/Kilocore.jl")
+
+################################################################################
+# Misc Includes
+################################################################################
 
 # Profile Routines
 include("benchmark.jl")
 
+
+#=
+Just storing this here for later.
+struct PackedFunctionCall
+    function_name   ::Function
+    args            ::Tuple
+    function PackedFunctionCall(function_name, args = ())
+        return new(function_name, args)
+    end
+end
+
+
+#=
+TODO: Error Checking.
+=#
+execute(pc::PackedFunctionCall, kwargs) = pc.function_name(pc.args..., kwargs...)
+=#
 end # module

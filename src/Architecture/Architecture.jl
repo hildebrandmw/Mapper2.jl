@@ -277,7 +277,8 @@ The only difference with the top level is that children are accessed via
 addresses instead of names. Since it subtypes from AbstractComponent, it can
 share many of the methods defined for normal components.
 =#
-mutable struct TopLevel{N} <: AbstractComponent
+abstract type AbstractArchitecture end
+mutable struct TopLevel{T <: AbstractArchitecture,N} <: AbstractComponent
     """The declared name of this component"""
     name    ::String
     """Reference to primitive for special operations. Default is \"\"."""
@@ -296,13 +297,13 @@ mutable struct TopLevel{N} <: AbstractComponent
 
     Create a top level component with the given name and number of dimensions.
     """
-    function TopLevel{N}(name, metadata = Dict{String,Any}()) where {N}
+    function TopLevel{T,N}(name, metadata = Dict{String,Any}()) where {T,N}
         # Add all component level ports to the ports of this component.
         primitive   = "toplevel"
         ports       = Dict{String, Port}()
         children    = Dict{Address{N}, Component}()
         # Return the newly constructed type.
-        return new{N}(
+        return new{T,N}(
             name,
             primitive,
             children,
@@ -310,6 +311,41 @@ mutable struct TopLevel{N} <: AbstractComponent
             metadata,
         )
     end
+end
+################################################################################
+# Convenience methods.
+################################################################################
+"Return an iterator of addresses for the top-level architecture."
+addresses(t::TopLevel) = keys(t.children)
+
+function get_component(c::Component, path::String)
+    # Check if the path is empty, if so - just return the component.
+    isempty(path) && return c
+    # Split up the path and crawl down the hierarchy.
+    split_path = split(path, ".")
+    for name in split_path
+        c = c.children[name]
+    end
+    # Return the final result.
+    return c
+end
+
+function walk_children(c::Component)
+    # Create the components array using the parent. Entries will be tuples:
+    # (component, full-path-name
+    components = [(c, "")]
+    # Create a processing queue. Entries will be tuples:
+    # (component-to-process, name-of-parent)
+    queue = [(child, id) for (id,child) in c.children]
+    while !isempty(queue)
+        # Shift component from the front of the queue
+        component, cid = shift!(queue)
+        # Add to the seen components list.
+        push!(components, (component, cid))
+        # Add all fhildren to the queue
+        push!(queue, ((child, join((cid,id),".")) for (id,child) in component.children)...)
+    end
+    return components
 end
 
 ################################################################################

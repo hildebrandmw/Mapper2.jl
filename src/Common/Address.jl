@@ -59,6 +59,16 @@ import Base: +,-,*
 -(a::Address{N}, b::Address{N}) where {N} = Address(a.addr .- b.addr)
 *(a::Address{N}, b::Address{N}) where {N} = Address(a.addr .* b.addr)
 
+# Function to return the extreme addresses of a collection
+function address_extrema(addresses)
+    # Copy the first element of the address vector. 
+    ex = first(addresses).addr
+    for address in addresses
+        ex = max.(ex, address.addr)
+    end
+    return Address(ex)
+end
+
 ################################################################################
 # Lookup Table Access Methods
 ################################################################################
