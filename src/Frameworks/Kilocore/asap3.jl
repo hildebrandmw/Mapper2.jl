@@ -1,6 +1,6 @@
 function build_asap3()
   # Start with a new component - clarify that it is 2 dimensional
-  arch = TopLevel{2}("asap3")
+  arch = TopLevel{KCArchitecture,2}("asap3")
 
   ####################
   # Normal Processor #
@@ -58,27 +58,27 @@ end
 
 function build_processor_tile_kc1()
 
-  num_links = 2
-  # Create a new component for the processor tile
-  # No need to set the primtiive class or metadata because we won't
-  # be needing it.
-  comp = Component("processor_tile")
-  # Add the circuit switched ports
-  directions = ("east", "north", "south", "west")
-  for dir in directions
-     for (suffix,class) in zip(("_in", "_out"), ("input", "output"))
-         port_name = join((dir, suffix))
-         add_port(comp, port_name, class, num_links)
-     end
-  end
-  # Add memory ports - only memory processor tiles will have the necessary
-  # "memory_processor" attribute in the core to allow memory applicationa
-  # to be mapped to them.
-  add_port(comp, "memory_in", "input")
-  add_port(comp, "memory_out", "output")
-  # Instantiate the processor primitive
-  add_child(comp, build_processor(), "processor")
-  # Instantiate the xbar
+    num_links = 2
+    # Create a new component for the processor tile
+    # No need to set the primtiive class or metadata because we won't
+    # be needing it.
+    comp = Component("processor_tile")
+    # Add the circuit switched ports
+    directions = ("east", "north", "south", "west")
+    for dir in directions
+       for (suffix,class) in zip(("_in", "_out"), ("input", "output"))
+           port_name = join((dir, suffix))
+           add_port(comp, port_name, class, num_links)
+       end
+    end
+    # Add memory ports - only memory processor tiles will have the necessary
+    # "memory_processor" attribute in the core to allow memory applicationa
+    # to be mapped to them.
+    add_port(comp, "memory_in", "input")
+    add_port(comp, "memory_out", "output")
+    # Instantiate the processor primitive
+    add_child(comp, build_processor_kc1(), "processor")
+    # Instantiate the xbar
 	routing_mux = build_mux(5,5)
 	name = "xbar"
 	add_child(comp, routing_mux, name, num_links)

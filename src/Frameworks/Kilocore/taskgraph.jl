@@ -1,7 +1,6 @@
 #=
 Taskgraph constructors will go here. If the number of constructors gets very
-large - may want to think about moving the collection of constructors to
-a subdirectory in the Taskgraphs folder.
+large - may want to think about moving the collection of constructors to a subdirectory in the Taskgraphs folder.
 
 Initially - there will be only one constructor that will take the sim-dump JSON
 directly and import it almost verbatim into the Taskgraph data type.
@@ -24,6 +23,7 @@ function get_transforms(sdc::SimDumpConstructor)
         t_unpack_attached_memories,
         t_unpack_type_strings,
         t_assign_link_weights,
+        t_confirm_and_sort_attributes,
     )
     return transform_tuple
 end
@@ -246,6 +246,32 @@ function t_assign_link_weights(tg::Taskgraph)
         else
             edge.metadata["weight"] = default_weight
         end
+    end
+    return tg
+end
+
+"""
+    t_confirm_and_sort_attributes(tg::Taskgraph)
+
+Confirm that each node in the taskgraph has a non-empty "required_attributes"
+field. Sort that field for consistency.
+"""
+function t_confirm_and_sort_attributes(tg::Taskgraph)
+    badnodes = TaskgraphNode[]
+    for node in nodes(tg)
+        if haskey(node.metadata, "required_attributes")
+            sort!(node.metadata["required_attributes"])
+        else
+            push!(badnodes, node)
+        end
+    end
+    if length(badnodes) > 0
+        print_with_color(:red, "Found ", length(badnodes), " nodes without a",
+                         " \"required_attributes\" metadata.")
+        for node in badnodes
+            println(node)
+        end
+        error()
     end
     return tg
 end

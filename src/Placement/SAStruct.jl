@@ -1,4 +1,4 @@
-# Work out a way of doing "representatives" for each 
+# Work out a way of doing "representatives" for each
 
 #=
 The structure that will be used for placement in the new taskgraph.
@@ -27,22 +27,12 @@ Paramters:
 
 * `A` - The Architecture Type
 * `U` - Element type for the distance calculation LUT.
-* `D` - The number of dimensions for the placement.
 * `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
                     with type parameters)
 * `N` - Task node type.
 * `L` - Link node type.
 """
 mutable struct SAStruct{A,U,D,D2,N <: AbstractSANode,L <: AbstractSAEdge}
-    """
-    Hold an empty reference to the architecure type to make some function
-    dispatches a little easier.
-    """
-    architecture::A
-    dimension::D
-    nodetype::N
-    linktype::L
-
     "Specialized node type."
     nodes::Vector{N}
     "Specialized link type."
@@ -82,7 +72,8 @@ mutable struct SAStruct{A,U,D,D2,N <: AbstractSANode,L <: AbstractSAEdge}
     class are pre-computed and a valid destination address is chosen for move
     generation.
     """
-    special_maptables::Vector{Vector{Address}}
+    special_maptables::Vector{Array{Vector{UInt8}}}
+    special_addresstables::Vector{Vector{Address}}
     """
     Distance look-up table. This is twice the size of the the address dimension
     to allow distances to be calculated from any source address to any
@@ -109,7 +100,7 @@ mutable struct BasicSANode{D} <: AbstractSANode
     in_edges        ::Vector{Int64}
 end
 # Fallback constructor for task nodes.
-function build_sa_node(::AbstractArchitecture, n::TaskgraphNode, D)
+function build_sa_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
     return BasicSANode(Address(D), 0, Int64[], Int64[])
 end
 
@@ -118,7 +109,7 @@ struct BasicSAEdge <: AbstractSAEdge
     sinks  ::Vector{Int64}
 end
 
-function build_sa_edge(::AbstractArchitecture, edge::TaskgraphEdge, node_dict)
+function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
     # Build up adjacency lists.
     # Sources in the task-graphs are strings so we can just use the
     # node-dictionary to convert them into integers.
@@ -139,11 +130,11 @@ function SAStruct(m::Map{A,D}) where {A,D}
     component_table = build_component_table(architecture)
 
     # Next step, build the SA Taskgraph
-    sa_nodes = [build_sa_node(A(), n, D) for n in nodes(taskgraph)]
+    sa_nodes = [build_sa_node(A, n, D) for n in nodes(taskgraph)]
     # Build dictionary to map node names to indices
     node_dict = Dict(n.name => i for (i,n) in enumerate(nodes(taskgraph)))
     # Build the basic links
-    sa_edges = [build_sa_edge(A(), n, node_dict) for n in edges(taskgraph)]
+    sa_edges = [build_sa_edge(A, n, node_dict) for n in edges(taskgraph)]
     # Reverse populate the the nodes so they track their edges.
     record_edges!(sa_nodes, sa_edges)
 
@@ -154,19 +145,41 @@ function SAStruct(m::Map{A,D}) where {A,D}
     2. Get get component equivalence classes
     3. Profit
     =#
-    normal_node_classes, special_node_classes = get_node_equivalence_classes(
-            A(),
+    nodeclass, normal_node_reps, special_node_reps = get_node_equivalence_classes(
+            A,
             taskgraph
         )
-    
-    return sa_nodes, sa_edges
+    # Build the map table based on the normal node equivalence classes.
+    maptables = build_maptables(architecture,
+                                normal_node_reps,
+                                component_table)
+
+    special_maptables = build_maptables(architecture,
+                                        special_node_reps,
+                                        component_table)
+
+    special_addresstables = build_addresstables(architecture,
+                                                special_node_reps,
+                                                component_table)
+
+    arraysize = size(component_table)
+    distance = build_distance_table(architecture)
+    return SAStruct{A,eltype(distance),D,2*D,eltype(sa_nodes), eltype(sa_edges)}(
+        sa_nodes,
+        sa_edges,
+        nodeclass,
+        maptables,
+        special_maptables,
+        special_addresstables,
+        distance,
+        component_table,
+   )
 end
 
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
     table_dims = address_extrema(addresses(tl)).addr
-    println(table_dims)
     component_table = Array{Vector{String}}(table_dims...)
     # Initialize every entry to an empty vector of strings.
     # Could do this using the "fill" function - but that makes every entry
@@ -181,7 +194,7 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
         for (child, name) in walk_children(component)
             # If the component is considered mappable by the current architecture,
             # add the name of the component to the current list.
-            if ismappable(A(), child)
+            if ismappable(A, child)
                 push!(component_table[address], name)
             end
         end
@@ -202,3 +215,204 @@ function record_edges!(nodes, edges)
     return nothing
 end
 
+"""
+    get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+
+Separate the nodes in the taskgraph into equivalence classes based on the rules
+defined by the architecture. Expects the architecture to have defined the
+following two methods:
+
+* `isspecial(::Type{T}, t::TaskgraphNode)::Bool` - Returns whether or not the
+    node should have special move considerations.
+* `isequivalent(::Type{T}, a::TaskgraphNOde, b::Taskgraphnode}::Bool` - Return
+    whether or not the two nodes are equivalent for placement considerations.
+
+Returns a tuple of 3 elements:
+
+* nodeclasses - A vector with length(nodes(taskgraph)) assigning a node index
+    to an integer equivalence class. Normal equivalanece classes are represented
+    by positive integers. Special classes are represented by negative integers.
+* normal_node_reps - A vector of TaskgraphNodes where the node at an index
+    is the representative for the equivalence class for that index.
+* special_node_reps - Similar to the `normal_node_reps` but for special nodes.
+    Take the negative of the index to get the number for the equivalence class.
+
+"""
+function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+    # Allocate the node class vector. This maps task indices to a unique
+    # integer ID for what class it belongs to.
+    nodeclasses = Vector{Int64}(length(nodes(taskgraph)))
+    # Allocate empty vectors to serve as representatives for the normal and
+    # special classes.
+    normal_node_reps = TaskgraphNode[]
+    special_node_reps = TaskgraphNode[]
+    # Start iterating through the nodes in the taskgraph.
+    for (index,node) in enumerate(nodes(taskgraph))
+        if isspecial(A, node)
+            # Check if this node has an equivalent in the special node reps.
+            i = findfirst(x -> isequivalent(A, x, node), special_node_reps)
+            if i == 0
+                # If there is no representative, i == 0 - add this node to the
+                # to end of the represtatives list.
+                push!(special_node_reps, node)
+                # Set `i` to the last index - allows for a little bit of
+                # code factoring.
+                i = length(special_node_reps)
+            end
+            # Negate 'i' to indicate that this is a special node.
+            # Store the node index
+            nodeclasses[index] = -i
+        else
+            # Check if this node has an equivalent in the special node reps.
+            i = findfirst(x -> isequivalent(A, x, node), normal_node_reps)
+            if i == 0
+                push!(normal_node_reps, node)
+                i = length(normal_node_reps)
+            end
+            nodeclasses[index] = i
+        end
+    end
+    # Print out statistics if DEBUG mode is turned on.
+    if DEBUG
+        print_with_color(:cyan, "Finished Classifying Taskgraph Nodes\n")
+        print_with_color(:green, "Number of Normal Representatives: ")
+        println(length(normal_node_reps))
+        for node in normal_node_reps
+            println(node.name)
+        end
+        print_with_color(:green, "Number of Special Representatives: ")
+        println(length(special_node_reps))
+        for node in special_node_reps
+            println(node.name)
+        end
+    end
+    return nodeclasses, normal_node_reps, special_node_reps
+end
+
+
+function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) where {A,D}
+    maptype = UInt8
+    # Preallocate map table
+    maptable = Vector{Array{Vector{maptype},D}}(length(nodes))
+
+    # Do the same trick of using equivalence classes to make the vectors
+    # that actually contain the mapping data small. Everything in the
+    # array is just a reference to the same small set of vectors which will
+    # make things more cache friendly.
+    classes = Vector{maptype}[]
+
+    for (index,node) in enumerate(nodes)
+        # Pre-allocate the map table with empty arrays.
+        this_table = fill(UInt8[], size(component_table))
+        # Iterate through all components of the top level architecture.
+        for (address,component) in architecture.children
+            # Get the mappable component from the "component_table"
+            mappables = component_table[address]
+            component_list = maptype[]
+            for (i,name) in enumerate(mappables)
+                # Get the mappable component.
+                c = get_component(component, name)
+                canmap(A, node, c) && push!(component_list, i)
+            end
+            # Check to see if this component list has already been found. If
+            # so, reference the existing vector. Otherwise create a new entry
+            # in the classes table.
+            j = findfirst(x -> x == component_list, classes)
+            if j == 0
+                push!(classes, component_list)
+                j = length(classes)
+            end
+            # Set the reference for the map table
+            this_table[address] = classes[j]
+         end
+         # Add the map table to the vector of tables.
+         maptable[index] = this_table
+    end
+    return maptable
+end
+
+function build_addresstables(architecture::TopLevel{A,D},
+                             nodes,
+                             component_table) where {A,D}
+
+    # Pre-allocate the table.
+    addresstables = Vector{Vector{Address{D}}}(length(nodes))
+    # Iterate through each node - then through each address.
+    for (index,node) in enumerate(nodes)
+        this_table = Address{D}[]
+        for (address, component) in architecture.children
+            mappables = component_table[address]
+            for (i,name) in enumerate(mappables)
+                c = get_component(component, name)
+                canmap(A, node, c) && push!(this_table, address)
+            end
+        end
+        addresstables[index] = this_table
+    end
+    return addresstables
+end
+
+
+function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
+    # The data type for the LUT
+    dtype = UInt8
+    # Pre-allocate a table of the right dimensions.
+    dims = address_extrema(addresses(architecture)).addr
+    # Replicate the dimensions once to get a 2D sized LUT.
+    distance = Array{dtype}(dims..., dims...)
+    # Get the neighbor table for finding adjacent components in the top level.
+    neighbor_table = build_neighbor_table(architecture)
+
+    DEBUG && print_with_color(:cyan, "Building Distance Table\n")
+    # Run a BFS for each starting address
+    @showprogress 1 for address in addresses(architecture)
+        bfs!(distance, architecture, address, neighbor_table)
+    end
+    return distance
+end
+
+#=
+Simple data structure for keeping track of costs associated with addresses
+Gets put the the queue for the BFS. 
+=#
+struct CostAddress{U,D}
+    cost::U
+    address::Address{D}
+end
+
+function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
+              source::Address{D}, neighbor_table) where {U,N,A,D}
+    # Create a queue for visiting addresses.
+    q = Queue(CostAddress{U,D})
+    # Add the source addresses to the queue
+    enqueue!(q, CostAddress(zero(U), source))
+
+    # Create a set of visited items and add the source to that set.
+    queued_addresses = Set{Address{D}}()
+    push!(queued_addresses, source)
+    # Begin BFS - iterate until the queue is empty.
+    while !isempty(q)
+        u = dequeue!(q)
+        distance[source, u.address] = u.cost
+        for v in neighbor_table[u.address]
+            if v ∉ queued_addresses
+                enqueue!(q, CostAddress(u.cost + one(U), v))
+                push!(queued_addresses, v)
+            end
+        end
+    end
+    return nothing
+end
+
+function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
+    dims = Int64.(address_extrema(addresses(architecture)).addr)
+    DEBUG && print_with_color(:cyan, "Building Neighbor Table\n")
+    # Create a big list of lists
+    neighbor_table = Array{Vector{Address{D}}}(dims)
+    for address in addresses(architecture)
+        neighbor_table[address] = connected_components(architecture,
+                                                       address,
+                                                       class = "output")
+    end
+    return neighbor_table
+end

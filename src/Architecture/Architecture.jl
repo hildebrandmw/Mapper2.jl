@@ -317,6 +317,7 @@ end
 ################################################################################
 "Return an iterator of addresses for the top-level architecture."
 addresses(t::TopLevel) = keys(t.children)
+ports(c::Component) = values(c.ports)
 
 function get_component(c::Component, path::String)
     # Check if the path is empty, if so - just return the component.
@@ -346,6 +347,33 @@ function walk_children(c::Component)
         push!(queue, ((child, join((cid,id),".")) for (id,child) in component.children)...)
     end
     return components
+end
+
+function connected_components(tl::TopLevel, address::Address; class = "")
+    # Get the top level ports at the given address.
+    portlist = collect(Iterators.filter(is_top_port, ports(tl.children[address])))
+    # Is class is not-empty, further filter ports
+    if !isempty(class)
+        portlist = collect(Iterators.filter(x -> x.class == class, portlist))
+    end
+    # Now that we have the port names, generate the upper level port names.
+    tl_port_names = [join((string(address),p.name), ".") for p in portlist]
+    tl_ports = [tl.ports[n] for n in tl_port_names]
+
+    # Get the connecting ports for these ports - check if port list is empty.
+    if length(tl_ports) == 0
+        return eltype(keys(tl.children))[]
+    end
+    connecting_ports = Iterators.flatten((p.neighbors for p in tl_ports))
+    # Get the address string from all of the connecting components.
+    addresses = Set{String}()
+    for port in connecting_ports
+        push!(addresses, split(port, ".")[1])
+    end
+    # Delete the current address if it is present.
+    delete!(addresses, string(address))
+    # Return everything as addresses
+    return eval.(parse.(collect(addresses)))
 end
 
 ################################################################################

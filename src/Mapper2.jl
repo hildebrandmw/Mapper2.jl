@@ -3,6 +3,7 @@ module Mapper2
 using IterTools
 using JSON
 using DataStructures
+using ProgressMeter
 
 export Address, Port, Component, benchmark
 
