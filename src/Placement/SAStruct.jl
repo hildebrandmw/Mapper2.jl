@@ -1,19 +1,39 @@
+# Work out a way of doing "representatives" for each 
+
 #=
 The structure that will be used for placement in the new taskgraph.
 
 Will take a Map structure and spawn off its own specialized structure.
 =#
 """
+Fields required by specialized SANode types:
+* address::Address{D} where D is the dimension of the architecture.
+* component_index <: Integer
+* out_links::Vector{Int64}
+* in_links::Vector{Int64}
+"""
+abstract type AbstractSANode end
+
+"""
+Fields required by specialized SANode types:
+* sources::Vector{Int64}
+* sinks::Vector{Int64}
+* cost::Float64
+"""
+abstract type AbstractSAEdge end
+
+"""
 Paramters:
 
 * `A` - The Architecture Type
 * `U` - Element type for the distance calculation LUT.
 * `D` - The number of dimensions for the placement.
-* `D2`- Twice `D`.
+* `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
+                    with type parameters)
 * `N` - Task node type.
 * `L` - Link node type.
 """
-mutable struct SAStruct{A,U,D,D2,N,L}
+mutable struct SAStruct{A,U,D,D2,N <: AbstractSANode,L <: AbstractSAEdge}
     """
     Hold an empty reference to the architecure type to make some function
     dispatches a little easier.
@@ -56,7 +76,7 @@ mutable struct SAStruct{A,U,D,D2,N,L}
         The order of components at an address will be determined at structure
         creation time.
     """
-    maptables::Vector{Array{BitArray{1}, D}}
+    maptables::Vector{Array{Vector{UInt8}}}
     """
     The special map tables where a set of valid destination addresses for a node
     class are pre-computed and a valid destination address is chosen for move
@@ -82,43 +102,64 @@ end
 
 # TODO: Think about how this has to get dispatched depending on taskgraphs AND
 # architectures.
-"""
-Fields required by specialized SANode types:
-* address::Address{D} where D is the dimension of the architecture.
-* component_index <: Integer
-* out_links::Vector{Int64}
-* in_links::Vector{Int64}
-"""
-abstract type AbstractSANode end
 mutable struct BasicSANode{D} <: AbstractSANode
     address         ::Address{D}
     component_index ::Int64
-    out_links       ::Vector{Int64}
-    in_links        ::Vector{Int64}
+    out_edges       ::Vector{Int64}
+    in_edges        ::Vector{Int64}
 end
-SANodeType(::AbstractArchitecture) = BasicSANode
+# Fallback constructor for task nodes.
+function build_sa_node(::AbstractArchitecture, n::TaskgraphNode, D)
+    return BasicSANode(Address(D), 0, Int64[], Int64[])
+end
 
-"""
-Fields required by specialized SANode types:
-* sources::Vector{Int64}
-* sinks::Vector{Int64}
-* cost::Float64
-"""
-abstract type AbstractSALink end
-mutable struct BasicSALink <: AbstractSALink
+struct BasicSAEdge <: AbstractSAEdge
     sources::Vector{Int64}
     sinks  ::Vector{Int64}
-    cost   ::Float
 end
-SALinkType(::AbstractArchitecture) = BasicSALink
+
+function build_sa_edge(::AbstractArchitecture, edge::TaskgraphEdge, node_dict)
+    # Build up adjacency lists.
+    # Sources in the task-graphs are strings so we can just use the
+    # node-dictionary to convert them into integers.
+    sources = [node_dict[s] for s in edge.sources]
+    sinks   = [node_dict[s] for s in edge.sinks]
+    return BasicSAEdge(sources, sinks)
+end
+
+
+################################################################################
+# Constructor for the SA Structure
+################################################################################
 
 function SAStruct(m::Map{A,D}) where {A,D}
     architecture = m.architecture
     taskgraph    = m.taskgraph
     # First step - create the component_table.
     component_table = build_component_table(architecture)
-    # Next step - build two representative lists. One for normal tasks,
-    # one for special tasks.
+
+    # Next step, build the SA Taskgraph
+    sa_nodes = [build_sa_node(A(), n, D) for n in nodes(taskgraph)]
+    # Build dictionary to map node names to indices
+    node_dict = Dict(n.name => i for (i,n) in enumerate(nodes(taskgraph)))
+    # Build the basic links
+    sa_edges = [build_sa_edge(A(), n, node_dict) for n in edges(taskgraph)]
+    # Reverse populate the the nodes so they track their edges.
+    record_edges!(sa_nodes, sa_edges)
+
+    #=
+    Need to do the following:
+
+    1. Get node equivalence classes
+    2. Get get component equivalence classes
+    3. Profit
+    =#
+    normal_node_classes, special_node_classes = get_node_equivalence_classes(
+            A(),
+            taskgraph
+        )
+    
+    return sa_nodes, sa_edges
 end
 
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
@@ -147,3 +188,17 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
     end
     return component_table
 end
+
+function record_edges!(nodes, edges)
+    # Reverse populate the the nodes so they track their edges.
+    for (i,edge) in enumerate(edges)
+        for j in edge.sources
+            push!(nodes[j].out_edges, i)
+        end
+        for j in edge.sinks
+            push!(nodes[j].in_edges, i)
+        end
+    end
+    return nothing
+end
+
