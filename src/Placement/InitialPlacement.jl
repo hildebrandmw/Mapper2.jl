@@ -19,7 +19,7 @@ end
 
 function build_graph(sa::SAStruct)
     #=
-    Build translation tables. 
+    Build translation tables.
     - Tasks will be mapped to verticies with an index number 2 higher than their
     index in the SAstruct. (Verticies 1 and 2 are reserved for source and sink)
     - Will need to build a dictionary mapping tuples (Address, component_id) to
@@ -51,7 +51,7 @@ function build_graph(sa::SAStruct)
             # Increment vertex cound
             vertex_number += 1
             # Create a key entry.
-            key = (address, i) 
+            key = (address, i)
             component_dict[key] = vertex_number
         end
     end
@@ -125,8 +125,8 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
         end
         for neighbor in in_neighbors(graph, i)
             neighbor == 1 && continue
-            b = neighbor 
-            # Get the address and component number from the reversed 
+            b = neighbor
+            # Get the address and component number from the reversed
             # component dictionary.
             (address, component) = component_dict_rev[b]
             node = node_dict_rev[i]
@@ -208,7 +208,10 @@ function bipartite_match!(g::AbstractGraph)
                                 !has_edge(g,2=>neighbor) &&
                                 has_edge(g,neighbor=>2)) && !exit)
 
+                        neighbor_count = 0
+                        length_neighbors = length(out_neighbors(g,neighbor))
                         for new_neighbor in out_neighbors(g,neighbor)
+                            neighbor_count += 1
                             # prevents the path from going backwards or going
                             # to source or to sink with a used edge
                             if (new_neighbor == 1 ||
@@ -218,26 +221,39 @@ function bipartite_match!(g::AbstractGraph)
                             end
                             # if the current vertex is on the "a" side, trying
                             # to go to "b" next
-                            if (has_edge(g,1=>neighbor) &&
-                                    has_edge(g,neighbor=>new_neighbor) &&
+                            if has_edge(g,1=>neighbor)
+                                if (has_edge(g,neighbor=>new_neighbor) &&
                                     !has_edge(g,new_neighbor=>neighbor))
-
-                                add_edge!(g,new_neighbor=>neighbor)
-                                previous_neighbor = neighbor
-                                neighbor = new_neighbor
+                                    add_edge!(g,new_neighbor=>neighbor)
+                                    previous_neighbor = neighbor
+                                    neighbor = new_neighbor
+                                else
+                                    if neighbor_count < length_neighbors
+                                        # find a usable edge
+                                        continue
+                                    elseif neighbor_count == length_neigbors
+                                        # if no more usable edges left, then exit loop
+                                        exit = true
+                                    end
+                                end
                             # if the current vertex is on the "b" side, trying
                             # to go to "a" next
-                            elseif (has_edge(g,neighbor=>2) &&
-                                    has_edge(g,neighbor=>new_neighbor) &&
+                            elseif has_edge(g,neighbor=>2)
+                                if (has_edge(g,neighbor=>new_neighbor) &&
                                     has_edge(g,new_neighbor=>neighbor))
-
-                                rem_edge!(g,neighbor,new_neighbor)
-                                previous_neighbor = neighbor
-                                neighbor = new_neighbor
-                            else
-                                # if no more usable edges left, then exit loop
-                                exit = true
-                            end#ifstatement
+                                    rem_edge!(g,neighbor,new_neighbor)
+                                    previous_neighbor = neighbor
+                                    neighbor = new_neighbor
+                                else
+                                    if neighbor_count < length_neighbors
+                                        # find a usuable edge
+                                        continue
+                                    elseif neighbor_count == length_neighbors
+                                        # if no more usable edges left, then exit loop
+                                        exit = true
+                                    end
+                                end
+                            end
                         end#forloop
                     end#while
                     add_edge!(g,2=>neighbor)
@@ -245,6 +261,9 @@ function bipartite_match!(g::AbstractGraph)
             end #if
         end #secondfor
     end #firstfor
+    if length(in_neighbors(g,1)) != length(out_neighbors(g,2))
+        Error("Bipartite Match Error")
+    end
     return g
 end
 
@@ -370,4 +389,3 @@ function translate(g::AbstractGraph, task_int2string::Dict{Int64,String}, addr_i
     end
     return placement_dict
 end
-
