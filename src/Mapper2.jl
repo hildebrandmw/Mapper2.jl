@@ -9,7 +9,7 @@ using LightGraphs
 export Address, Port, Component, benchmark
 
 # Flag for debug mode
-const DEBUG = true
+const DEBUG = false
 # Common types and operations
 include("Common/Address.jl")
 include("Common/Helper.jl")
@@ -24,6 +24,7 @@ include("Map/Map.jl")
 # Placement
 include("Placement/SAStruct.jl")
 include("Placement/SAStructMethods.jl")
+include("Placement/SA.jl")
 include("Placement/InitialPlacement.jl")
 
 ################################################################################

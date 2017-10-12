@@ -32,13 +32,13 @@ Paramters:
                     with type parameters)
 * `D1` - `D + 1`.
 * `N` - Task node type.
-* `L` - Link node type.
+* `L` - Edge node type.
 """
 mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     "Specialized node type."
     nodes::Vector{N}
     "Specialized link type."
-    links::Vector{L}
+    edges::Vector{L}
     #= Look up tables for doing placement.  =#
     #=
     TODO: Think if making a special "maptables" class makes sense. Might be
