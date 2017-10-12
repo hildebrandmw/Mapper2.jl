@@ -14,3 +14,5 @@ function push_to_dict(dict, k, v)
     haskey(dict, k) ? push!(dict[k], v) : dict[k] = [v]
     return nothing
 end
+
+rev_dict(d) = Dict(v => k for (k,v) in d)

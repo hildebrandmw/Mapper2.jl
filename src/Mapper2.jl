@@ -4,6 +4,7 @@ using IterTools
 using JSON
 using DataStructures
 using ProgressMeter
+using LightGraphs
 
 export Address, Port, Component, benchmark
 
@@ -22,6 +23,8 @@ include("Map/Map.jl")
 
 # Placement
 include("Placement/SAStruct.jl")
+include("Placement/SAStructMethods.jl")
+include("Placement/InitialPlacement.jl")
 
 ################################################################################
 # Frameworks

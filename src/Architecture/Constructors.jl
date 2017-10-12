@@ -193,10 +193,6 @@ struct OffsetRule
     end
 end
 
-
-
-
-
 struct PortRule
     key::String
     val::Any
@@ -276,6 +272,8 @@ function connection_rule(tl::TopLevel,
             end
         end
     end
-    #print_with_color(:green, "Made ", count, " connections.\n")
+    if DEBUG
+        print_with_color(:green, "Made ", count, " connections.\n")
+    end
     return nothing
 end

@@ -15,6 +15,8 @@ struct Address{N} <: AbstractAddress
     end
 end
 
+dimension(::Address{D}) where {D} = D
+
 """
 Empty Constructors. Returns an address with each entry zero.
 """
@@ -45,7 +47,7 @@ Base.isless(a::Address{N}, b::Address{N}) where {N} = a.addr < b.addr
 
 # Hash functions
 Base.hash(a::Address) = hash(a.addr)
-Base.hash(a::Address, h) = hash(a.addr, h)
+Base.hash(a::Address, h::UInt64) = hash(a.addr, h)
 Base.maximum(a::Address) = maximum(a.addr)
 
 # Simple Iterator Interface.
@@ -90,4 +92,12 @@ end
 function Base.getindex(A::AbstractArray{T,K}, a::Address{N}, b::Address{N}) where {T,K,N}
     @assert K == 2N "Accessing array must be twice as large as the addresses"
     return A[a.addr..., b.addr...]
+end
+
+function Base.setindex!(A::AbstractArray{T,K}, v::T, i::Integer, a::Address{N}) where {T,K,N}
+    A[i, a.addr...] = v
+end
+
+function Base.getindex(A::AbstractArray{T,K}, i::Integer, a::Address{N}) where {T,K,N}
+    return A[i, a.addr...]
 end

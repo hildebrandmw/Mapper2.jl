@@ -123,6 +123,7 @@ function t_unpack_attached_memories(tg::Taskgraph)
         # Check if this has the Get_Type_String() == memory property. If so,
         # we need to add an output link to its host processor.
         if get(node.metadata, "Get_Type_String()", "") == "memory"
+            haskey(node.metadata, "output_buffers") || continue
             # Get all the input buffers, filter out all entries of "nothing"
             for output_buffer in filter(x -> x != nothing, node.metadata["output_buffers"])
                 # Create a link from the writer core to the current core

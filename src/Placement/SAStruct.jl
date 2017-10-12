@@ -7,18 +7,18 @@ Will take a Map structure and spawn off its own specialized structure.
 =#
 """
 Fields required by specialized SANode types:
-* address::Address{D} where D is the dimension of the architecture.
+* address   ::Address{D} where D is the dimension of the architecture.
 * component_index <: Integer
-* out_links::Vector{Int64}
-* in_links::Vector{Int64}
+* out_links ::Vector{Int64}
+* in_links  ::Vector{Int64}
 """
 abstract type AbstractSANode end
 
 """
 Fields required by specialized SANode types:
-* sources::Vector{Int64}
-* sinks::Vector{Int64}
-* cost::Float64
+* sources   ::Vector{Int64}
+* sinks     ::Vector{Int64}
+* cost      ::Float64
 """
 abstract type AbstractSAEdge end
 
@@ -27,12 +27,14 @@ Paramters:
 
 * `A` - The Architecture Type
 * `U` - Element type for the distance calculation LUT.
+* `D` - The dimension of the underlying architecture.
 * `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
                     with type parameters)
+* `D1` - `D + 1`.
 * `N` - Task node type.
 * `L` - Link node type.
 """
-mutable struct SAStruct{A,U,D,D2,N <: AbstractSANode,L <: AbstractSAEdge}
+mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     "Specialized node type."
     nodes::Vector{N}
     "Specialized link type."
@@ -80,12 +82,27 @@ mutable struct SAStruct{A,U,D,D2,N <: AbstractSANode,L <: AbstractSAEdge}
     destination address.
     """
     distance::Array{U,D2}
+    """
+    Lookup table to take a component index and address and get the node index
+    mapped to that location.
+
+    Access this as grid[component_index, address]. Component index comes first
+    because Julia column major.
+    """
+    grid::Array{Int64, D1}
     #=
     Component tables for tracking local component references to the global
     reference in the Map data type
     =#
     component_table::Array{Vector{String}, D}
 end
+
+# Convenience decoding methods - this is kinda gross.
+dimension(::SAStruct{A,U,D,D2,D1,N,L})      where {A,U,D,D2,D1,N,L} = D
+architecture(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = A
+nodetype(::SAStruct{A,U,D,D2,D1,N,L})       where {A,U,D,D2,D1,N,L} = N
+edgetype(::SAStruct{A,U,D,D2,D1,N,L})       where {A,U,D,D2,D1,N,L} = L
+distancetype(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = U
 
 ################################################################################
 # Templates for the basic task and link types
@@ -95,7 +112,7 @@ end
 # architectures.
 mutable struct BasicSANode{D} <: AbstractSANode
     address         ::Address{D}
-    component_index ::Int64
+    component       ::Int64
     out_edges       ::Vector{Int64}
     in_edges        ::Vector{Int64}
 end
@@ -164,7 +181,11 @@ function SAStruct(m::Map{A,D}) where {A,D}
 
     arraysize = size(component_table)
     distance = build_distance_table(architecture)
-    return SAStruct{A,eltype(distance),D,2*D,eltype(sa_nodes), eltype(sa_edges)}(
+    # Find the maximum number of components in any address.
+    max_num_components = maximum(map(x -> length(x), component_table))
+    grid = zeros(Int64, max_num_components, size(component_table)...)
+
+    placement_struct = SAStruct{A,eltype(distance),D,2*D,D+1,eltype(sa_nodes), eltype(sa_edges)}(
         sa_nodes,
         sa_edges,
         nodeclass,
@@ -172,32 +193,45 @@ function SAStruct(m::Map{A,D}) where {A,D}
         special_maptables,
         special_addresstables,
         distance,
+        grid,
         component_table,
-   )
+    )
+    DEBUG && print_with_color(:cyan, "Finished Building Placement Structure\n")
+    initial_placement!(placement_struct)
+
+    return placement_struct
 end
+
+################################################################################
+# Construction routines.
+################################################################################
 
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
     table_dims = address_extrema(addresses(tl)).addr
-    component_table = Array{Vector{String}}(table_dims...)
-    # Initialize every entry to an empty vector of strings.
-    # Could do this using the "fill" function - but that makes every entry
-    # it's own unique array, which isn't exactly what we want.
-    for i in eachindex(component_table)
-        component_table[i] = String[]
-    end
+    component_table = fill(String[], table_dims...)
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
     # string vector at the current address.
+    seen_string_vectors = Vector{String}[]
     for (address, component) in tl.children
+        string_vector = String[]
         for (child, name) in walk_children(component)
             # If the component is considered mappable by the current architecture,
             # add the name of the component to the current list.
             if ismappable(A, child)
-                push!(component_table[address], name)
+                push!(string_vector, name)
             end
         end
+        # Do the trick where we try to make all the similar strings reference
+        # the same representative string.
+        index = findfirst(x -> x == string_vector, seen_string_vectors)
+        if index == 0
+            push!(seen_string_vectors, string_vector)
+            index = length(seen_string_vectors)
+        end
+        component_table[address] = seen_string_vectors[index]
     end
     return component_table
 end
@@ -272,7 +306,10 @@ function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: Abstrac
             nodeclasses[index] = i
         end
     end
+
+    ##################################################
     # Print out statistics if DEBUG mode is turned on.
+    ##################################################
     if DEBUG
         print_with_color(:cyan, "Finished Classifying Taskgraph Nodes\n")
         print_with_color(:green, "Number of Normal Representatives: ")
@@ -352,7 +389,9 @@ function build_addresstables(architecture::TopLevel{A,D},
     return addresstables
 end
 
-
+################################################################################
+# BFS Routines for building the distance look up table
+################################################################################
 function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # The data type for the LUT
     dtype = UInt8
@@ -373,7 +412,7 @@ end
 
 #=
 Simple data structure for keeping track of costs associated with addresses
-Gets put the the queue for the BFS. 
+Gets put the the queue for the BFS.
 =#
 struct CostAddress{U,D}
     cost::U
