@@ -204,12 +204,20 @@ function bipartite_match!(g::AbstractGraph)
                     previous_neighbor = a
                     # initial condition
                     exit = false
+                    two_found = true
                     while (!(2 in out_neighbors(g,neighbor) &&
                                 !has_edge(g,2=>neighbor) &&
                                 has_edge(g,neighbor=>2)) && !exit)
-
                         neighbor_count = 0
                         length_neighbors = length(out_neighbors(g,neighbor))
+                        # check if there is a valid place to move next
+                        if ((out_neighbors(g,neighbor)) == [1,previous_neighbor]
+                            || (out_neighbors(g,neighbor)) ==
+                            [2,previous_neighbor])
+                            two_found = false
+                            error("Error: Bipartite Matching Incomplete")
+                            break
+                        end
                         for new_neighbor in out_neighbors(g,neighbor)
                             neighbor_count += 1
                             # prevents the path from going backwards or going
@@ -256,14 +264,11 @@ function bipartite_match!(g::AbstractGraph)
                             end
                         end#forloop
                     end#while
-                    add_edge!(g,2=>neighbor)
+                    two_found && add_edge!(g,2=>neighbor)
                 end #ifandelseif
             end #if
         end #secondfor
     end #firstfor
-    if length(in_neighbors(g,1)) != length(out_neighbors(g,2))
-        Error("Bipartite Match Error")
-    end
     return g
 end
 
