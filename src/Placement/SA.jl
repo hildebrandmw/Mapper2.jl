@@ -15,14 +15,18 @@ mutable struct MoveCookie{T,D} <: AbstractCookie
    old_component           ::Int64
 end
 
-MoveCookie{T,D}() where {T,D} = MoveCookie(zero(T), 0, false, 0, Address(D), 0)
+MoveCookie{T,D}() where {T,D} = MoveCookie{T,D}(zero(T), 0, false, 0, Address{D}(), 0)
 
 function place(
-        sa::SAStruct;
-        move_attempts = 5,
-        desired_acceptance_ratio = 0.40,
-        initial_acceptance_ratio = 0.7
+        sa::SAStruct#;
+        #move_attempts = 5,
+        #desired_acceptance_ratio = 0.40,
+        #initial_acceptance_ratio = 0.7
        ) 
+
+    move_attempts = 5
+    desired_acceptance_ratio = 0.40
+    initial_acceptance_ratio = 0.7
 
     # Unpack SA
     A = architecture(sa)
@@ -34,7 +38,7 @@ function place(
     move_attempts = move_attempts * ceil(Int64, num_nodes^(4/3))
     
     # Get the largest address
-    max_addresses = ind2sub(sa.component_table, endof(sa.component_table))
+    max_addresses = Int16.(ind2sub(sa.component_table, endof(sa.component_table)))
 
     # Set up Simulated Annealing Parameters 
     largest_address = maximum(max_addresses)
@@ -81,7 +85,7 @@ function place(
             cost_of_move = undo_cookie.cost_of_move
 
             if cost_of_move < 0 || rand() < exp(-cost_of_move * one_over_T)
-                #performance_counter[:successful_moves] += 1
+               #performance_counter[:successful_moves] += 1
                accepted_moves += 1
                cost += cost_of_move
             else
@@ -104,13 +108,13 @@ function place(
         temporary = (1 - desired_acceptance_ratio + acceptance_ratio)
         distance_limit = clamp(distance_limit * temporary, 1, largest_address)
 
-        distance_limit_integer = max(round(Int, distance_limit), 1)
+        distance_limit_integer = max(round(Int16, distance_limit), 1)
 
         if DEBUG
             println()
             println("Temperature: ",T)
             println("Acceptance Ratio: ",acceptance_ratio)
-            display(performance_counter)
+            println("Total Moves: ", total_moves)
         end
         # Test to stable objectives
         for i = 1:length(cost_history)-1
@@ -132,6 +136,7 @@ function place(
         # break out of the loop.
         max_diff == 0.0 && (objective_is_stable = true)
     end
+    println("Total Moves: ", total_moves)
     return total_moves
 end
 
@@ -195,45 +200,44 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
     # Get the equivalent class of the node
     class = sa.nodeclass[node]
     # Get the address and component to move this node to
+    local address::Address{dimension(sa)}
     if class > 0
-        success, address, component = standard_move(
+        address = standard_move(
             A, sa, old_address, class, distance_limit_integer, max_addresses
          )
+        length(sa.maptables[class][address]) == 0 && return false
+        component = rand(sa.maptables[class][address])
     else
-        success = true
-        address, component = special_move(
+        address = special_move(
             A, sa, class
          )
+        component = rand(sa.special_maptables[-class][address])
     end
-    # If the move failed, return false
-    success || return false
     # Perform the move and record enough information to undo the move
     move_with_undo(sa::SAStruct, undo_cookie, node, address, component) 
 
     return true
 end
 
-function standard_move(::Type{A}, sa::SAStruct, address,
-           class, distance_limit_integer, max_addresses) where {A <: AbstractArchitecture}
+function standard_move(::Type{A}, 
+                       sa::SAStruct, 
+                       address,
+                       class, 
+                       distance_limit_integer, 
+                       max_addresses)::Address{dimension(sa)} where {A <: AbstractArchitecture}
     D = dimension(sa) 
-    # Get the map table for this class
-    maptable = sa.maptables[class]
     # Generate a new address based on the distance limit
-    move_ub = min.(address.addr .+ distance_limit_integer, max_addresses)
-    move_lb = max.(address.addr .- distance_limit_integer, 1)
-    new_address = Address(Tuple(rand(move_lb[i]:move_ub[i]) for i in 1:D))
-    # Check to see if there is a component that here that this task can be
-    # mapped to. If there's not, just return false
-    length(maptable[new_address]) == 0 && return false, new_address, 0
-    # Otherwise, pick a random component at this location
-    new_component = rand(maptable[new_address])
-    return true, new_address, new_component
+    move_ub = Int16.(min.(address.addr .+ distance_limit_integer, max_addresses))
+    move_lb = Int16.(max.(address.addr .- distance_limit_integer, 1))
+    new_address = Address{D}((rand(move_lb[i]:move_ub[i]) for i in 1:D)...)
+    return new_address
 end
 
-function special_move(::Type{A}, sa::SAStruct, class) where {A <: AbstractArchitecture}
+function special_move(::Type{A}, 
+                      sa::SAStruct, 
+                      class) where {A <: AbstractArchitecture}
     # Get the special address table for this class.
-    new_address = rand(sa.special_addresstables[-class])
-    new_component = rand(sa.special_maptables[-class][new_address])
-    return new_address, new_component
+    new_address = rand(sa.special_addresstables[-class])::Address{dimension(sa)}
+    return new_address
 end
 

@@ -8,11 +8,20 @@ const __ADDR_REP = Int16
 struct Address{N} <: AbstractAddress
     addr::NTuple{N, __ADDR_REP}
     # Inner Constructor
-    function Address(addr::NTuple{N, T}) where {N,T}
-        # Convert to the address representation if possible
-        x = convert.(__ADDR_REP, addr)
-        return new{N}(x)
-    end
+    #function Address(addr::NTuple{N, T}) where {N,T}
+    #    # Convert to the address representation if possible
+    #    x = convert.(__ADDR_REP, addr)
+    #    return new{N}(x)
+    #end
+end
+
+function Address(addr::NTuple{N,Int64}) where {N,Int64}
+    x = convert.(__ADDR_REP, addr)
+    return Address{N}(x)
+end
+
+function Address{N}(x::T...) where {N, T <: Integer}
+    return Address{N}(__ADDR_REP.(x))
 end
 
 dimension(::Address{D}) where {D} = D
@@ -20,7 +29,9 @@ dimension(::Address{D}) where {D} = D
 """
 Empty Constructors. Returns an address with each entry zero.
 """
-Address(N::Integer) = Address(Tuple(zero(__ADDR_REP) for ~ = 1:N))
+Address{N}() where {N} = Address(Tuple(zero(__ADDR_REP) for ~ = 1:N))
+
+
 
 """
     Address{2}(r,c)

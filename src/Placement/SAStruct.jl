@@ -118,7 +118,7 @@ mutable struct BasicSANode{D} <: AbstractSANode
 end
 # Fallback constructor for task nodes.
 function build_sa_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
-    return BasicSANode(Address(D), 0, Int64[], Int64[])
+    return BasicSANode(Address{D}(), 0, Int64[], Int64[])
 end
 
 struct BasicSAEdge <: AbstractSAEdge
