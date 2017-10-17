@@ -7,20 +7,29 @@ abstract type AbstractAddress end
 const __ADDR_REP = Int16
 struct Address{N} <: AbstractAddress
     addr::NTuple{N, __ADDR_REP}
-    # Inner Constructor
-    #function Address(addr::NTuple{N, T}) where {N,T}
-    #    # Convert to the address representation if possible
-    #    x = convert.(__ADDR_REP, addr)
-    #    return new{N}(x)
-    #end
 end
 
-function Address(addr::NTuple{N,Int64}) where {N,Int64}
+function Address(addr::NTuple{N,Int64}) where {N}
     x = convert.(__ADDR_REP, addr)
     return Address{N}(x)
 end
 
-function Address{N}(x::T...) where {N, T <: Integer}
+function rand_address_impl(a::Type{T}, b::Type{T}) where T <: NTuple{N,Any} where N
+    # Create the first entry
+    ex = :($__ADDR_REP(rand(a[1]:b[1])))
+    for i = 2:N
+        ex = :($ex,$__ADDR_REP(rand(a[$i]:b[$i])))
+    end
+    # Construct the address type
+    return :(Address{$N}($ex))
+end
+
+@generated function rand_address(a::NTuple{N}, b::NTuple{N}) where {N}
+    return rand_address_impl(a,b)
+end
+
+
+function Address{N}(x::T...) where {N, T<:Integer}
     return Address{N}(__ADDR_REP.(x))
 end
 
@@ -91,17 +100,17 @@ function Base.setindex!(A::AbstractArray{T,N}, v::T, a::Address{N}) where {T,N}
     A[a.addr...] = v
 end
 
-function Base.getindex(A::AbstractArray{T,N}, a::Address{N}) where {T,N}
-    return A[a.addr...]
+function Base.getindex(A::AbstractArray{T,N}, a::Address{N})::T where {T,N}
+    A[a.addr...]
 end
 
 function Base.setindex!(A::AbstractArray{T,K}, v::T, a::Address{N}, b::Address{N}) where {T,K,N}
-    @assert K == 2N "Accessing array must be twice as large as the addresses"
+#    @assert K == 2N "Accessing array must be twice as large as the addresses"
     A[a.addr..., b.addr...] = v
 end
 
 function Base.getindex(A::AbstractArray{T,K}, a::Address{N}, b::Address{N}) where {T,K,N}
-    @assert K == 2N "Accessing array must be twice as large as the addresses"
+#    @assert K == 2N "Accessing array must be twice as large as the addresses"
     return A[a.addr..., b.addr...]
 end
 

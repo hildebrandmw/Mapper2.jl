@@ -7,6 +7,7 @@ function benchmark()
     @time place(sa)
 
     # Run a second time, with profiling.
+    sa = SAStruct(testmap())
     println("\n\n======================= Second run:")
     srand(666)
     Profile.init(delay=0.01)

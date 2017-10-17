@@ -68,7 +68,7 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
         The order of components at an address will be determined at structure
         creation time.
     """
-    maptables::Vector{Array{Vector{UInt8}}}
+    maptables::Vector{Array{Vector{UInt8},D}}
     """
     The special map tables where a set of valid destination addresses for a node
     class are pre-computed and a valid destination address is chosen for move

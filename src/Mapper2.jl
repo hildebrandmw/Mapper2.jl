@@ -9,7 +9,7 @@ using LightGraphs
 export Address, Port, Component, benchmark
 
 # Flag for debug mode
-const DEBUG = false
+const DEBUG = true
 # Common types and operations
 include("Common/Address.jl")
 include("Common/Helper.jl")
