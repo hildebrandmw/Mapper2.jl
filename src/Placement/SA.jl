@@ -85,21 +85,73 @@ function update!(state::SAState)
     state.successful_moves  += state.recent_successful_moves
     state.accepted_moves    += state.recent_accepted_moves
     # Compute number of moves per second.
-    state.moves_per_second = state.successful_moves / (time() - state.start_time) 
+    state.moves_per_second = state.successful_moves / (time() - state.start_time)
     # Determine whether or not to print out results
-    if DEBUG 
+    if DEBUG
         current_time = time()
-        #println(state.dt)
-        #println(current_time - state.last_update_time)
-        #println()
         if current_time > state.last_update_time + state.dt
-            println(state)
+            show_stats(state)
             state.last_update_time = time()
         end
     end
     return nothing
 end
 
+
+
+"""
+    Base.display(state::SAState)
+
+Doisplay metrics about the SAState variable.
+"""
+function show_stats(state::SAState, first = false)
+     fields = (
+        :temperature,
+        :objective,
+        :total_moves,
+        :successful_moves,
+        :moves_per_second,
+    )
+
+    # Key-word arguments for the "format" function
+    kwargs = Dict(
+        :temperature        => Dict(:precision => 5),
+        :objective          => Dict(:precision => 2),
+        :total_moves        => Dict(),
+        :successful_moves   => Dict(),
+        :moves_per_second   => Dict(:precision => 3,
+                                   :autoscale => :metric),
+        :distance_limit     => Dict(),
+    )
+
+    if first
+        total_length = 0
+        for f in fields
+            string_f = replace(string(f), "_", " ")
+            padded_length = length(string_f) + 2
+            print(titlecase(lpad(string_f,padded_length)))
+            total_length += padded_length
+        end
+        println()
+        println("-" ^ total_length)
+        return nothing
+    end
+
+
+    for f in fields
+        # Get the length of the field - append one space to the front.
+        field_length = length(string(f)) + 2
+        # Get the dictionary, add a "width" field
+        kwarg = kwargs[f]
+        # Check if we have to shorten the length - adjust because the "width'
+        # parameter apparently doesn't take this into account
+        haskey(kwarg, :autoscale) && (field_length -= 1)
+        kwarg[:width] = field_length 
+        print(format(getfield(state,f);kwarg...))
+    end
+    println()
+    return nothing
+end
 
 ################################################################################
 # Placement Routine!
@@ -109,7 +161,7 @@ function place(
         sa::SAStruct#;
        )
 
-    move_attempts = 5000
+    move_attempts = 50000
     # Unpack SA
     A = architecture(sa)
     D = dimension(sa)
@@ -117,11 +169,11 @@ function place(
     # Do some initial unpacking.
     num_nodes = length(sa.nodes)
     num_edges = length(sa.edges)
-    
+
     # Get the largest address
     max_addresses = ind2sub(sa.component_table, endof(sa.component_table))
 
-    # Set up Simulated Annealing Parameters 
+    # Set up Simulated Annealing Parameters
     largest_address = maximum(max_addresses)
 
     # Initialize structure to help during placement.
@@ -134,6 +186,7 @@ function place(
     # Start timer here - useful for printing debug information.
     # Initialize tempearture and warming up boolean variable.
     state = SAState(1.0, Float64(largest_address), cost)
+    show_stats(state, true)
     while loop
         # Invert temperature to perform floating point multiplication rather
         # than division. Set local counters for this iteration.
@@ -141,7 +194,7 @@ function place(
         accepted_moves      = 0
         successful_moves    = 0
         objective           = state.objective
-        distance_limit      = max(round(state.distance_limit), 1)
+        distance_limit      = max(round(Int64, state.distance_limit), 1)
         # Inner Loop
         for i in 1:move_attempts
             # Try to generate a move. If it failed, try again.
@@ -163,7 +216,7 @@ function place(
         # Update cost for numerical stability reasons
         state.objective = map_cost(A, sa)
         #@assert objective == state.objective
-        # Update some statistice in the state variable 
+        # Update some statistice in the state variable
         state.recent_move_attempts      = move_attempts
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
@@ -181,13 +234,13 @@ function place(
                            state.recent_move_attempts
 
         temporary = (1 - desired_acceptance_ratio + acceptance_ratio)
-        state.distance_limit = clamp(state.distance_limit * temporary, 
-                                     1, 
+        state.distance_limit = clamp(state.distance_limit * temporary,
+                                     1,
                                      largest_address)
 
         # State updates
         update!(state)
-        state.total_moves == 10_000_000 && (loop = false)
+        state.total_moves == 100_000_000 && (loop = false)
     end
     return state
 end
@@ -209,7 +262,7 @@ end
     end
 end
 
-@inline cool(state::SAState) = (state.temperature *= 0.992)
+@inline cool(state::SAState) = (state.temperature *= 0.997)
 
 function update_limit(state::SAState)
     # Compute the new distance limit
@@ -229,7 +282,7 @@ end
 function move_with_undo(sa::SAStruct, undo_cookie, node::Int64, address, component)
     A = architecture(sa)
     # Store the old information
-    undo_cookie.index_of_moved_node = node 
+    undo_cookie.index_of_moved_node = node
     undo_cookie.old_address = sa.nodes[node].address
     undo_cookie.old_component = sa.nodes[node].component
     # Check to see if there is a node already mapped to this location
@@ -263,7 +316,7 @@ function undo_move(sa::SAStruct, undo_cookie)
     if undo_cookie.move_was_swap
         swap(sa, undo_cookie.index_of_moved_node, undo_cookie.index_of_other_node)
     else
-        move(sa, undo_cookie.index_of_moved_node, 
+        move(sa, undo_cookie.index_of_moved_node,
              undo_cookie.old_component,
              undo_cookie.old_address)
     end
@@ -278,7 +331,7 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
        distance_limit, max_addresses) where {A <: AbstractArchitecture}
 
     # Pick a random node
-    node = rand(1:length(sa.nodes)) 
+    node = rand(1:length(sa.nodes))
     old_address = sa.nodes[node].address
     # Give a "canmove" function to allow certain nodes to be fixed if so
     # desired.
@@ -301,16 +354,16 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
         component = rand(sa.special_maptables[-class][address])
     end
     # Perform the move and record enough information to undo the move
-    move_with_undo(sa::SAStruct, undo_cookie, node, address, component) 
+    move_with_undo(sa::SAStruct, undo_cookie, node, address, component)
 
     return true
 end
 
-function standard_move(::Type{A}, 
-                       sa::SAStruct, 
+function standard_move(::Type{A},
+                       sa::SAStruct,
                        address,
-                       class, 
-                       distance_limit_integer, 
+                       class,
+                       distance_limit_integer,
                        max_addresses)::Address{dimension(sa)} where {A <: AbstractArchitecture}
     # Generate a new address based on the distance limit
     move_ub = min.(address.addr .+ distance_limit_integer, max_addresses)
@@ -319,8 +372,8 @@ function standard_move(::Type{A},
     return new_address
 end
 
-function special_move(::Type{A}, 
-                      sa::SAStruct, 
+function special_move(::Type{A},
+                      sa::SAStruct,
                       class) where {A <: AbstractArchitecture}
     # Get the special address table for this class.
     new_address = rand(sa.special_addresstables[-class])::Address{dimension(sa)}

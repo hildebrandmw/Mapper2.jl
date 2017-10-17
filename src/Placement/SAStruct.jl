@@ -74,7 +74,7 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     class are pre-computed and a valid destination address is chosen for move
     generation.
     """
-    special_maptables::Vector{Array{Vector{UInt8}}}
+    special_maptables::Vector{Array{Vector{UInt8}, D}}
     special_addresstables::Vector{Vector{Address}}
     """
     Distance look-up table. This is twice the size of the the address dimension

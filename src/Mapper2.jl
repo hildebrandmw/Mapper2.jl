@@ -5,6 +5,7 @@ using JSON
 using DataStructures
 using ProgressMeter
 using LightGraphs
+using Formatting
 
 export Address, Port, Component, benchmark
 
