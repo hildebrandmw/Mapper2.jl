@@ -1,6 +1,6 @@
-function build_asap3()
+function build_asap3(;A = KCBasic)
   # Start with a new component - clarify that it is 2 dimensional
-  arch = TopLevel{KCArchitecture,2}("asap3")
+  arch = TopLevel{A,2}("asap3")
 
   ####################
   # Normal Processor #
@@ -9,10 +9,10 @@ function build_asap3()
   processor = build_processor_tile_kc1()
   # Instantiate it at the required addresses
   for r in 1:30, c in 2:33
-      add_child(arch, processor, Address(r,c))
+      add_child(arch, processor, Address{2}(r,c))
   end
   for r in 31:32, c in 14:21
-      add_child(arch, processor, Address(r,c))
+      add_child(arch, processor, Address{2}(r,c))
   end
 
 	####################
@@ -21,10 +21,10 @@ function build_asap3()
 	memory_processor = build_memory_processor_tile_kc1()
 	# Instantiate it at the required addresses
 	for r = 31, c = 2:13
-		add_child(arch, memory_processor, Address(r,c))
+        add_child(arch, memory_processor, Address{2}(r,c))
 	end
 	for r = 31, c = 22:33
-		add_child(arch, memory_processor, Address(r,c))
+        add_child(arch, memory_processor, Address{2}(r,c))
 	end
 
 	#################
@@ -32,23 +32,23 @@ function build_asap3()
 	#################
 	memory_2port = build_memory_2port()
 	for r = 32, c in (2:2:12)
-		 add_child(arch, memory_2port, Address(r,c))
+        add_child(arch, memory_2port, Address{2}(r,c))
 	end
 	for r = 32, c in (22:2:32)
-		 add_child(arch, memory_2port, Address(r,c))
+        add_child(arch, memory_2port, Address{2}(r,c))
 	end
 
 	#################
 	# Input Handler #
 	#################
 	input_handler = build_input_handler()
-	add_child(arch, input_handler, Address(1,1))
+    add_child(arch, input_handler, Address{2}(1,1))
 
 	##################
 	# Output Handler #
 	##################
 	output_handler = build_output_handler()
-	add_child(arch, output_handler, Address(1,34))
+    add_child(arch, output_handler, Address{2}(1,34))
 
 	connect_processors(arch)
 	connect_memories(arch)

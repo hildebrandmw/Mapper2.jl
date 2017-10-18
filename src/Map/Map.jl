@@ -43,21 +43,5 @@ mutable struct Map{A,D}
     =#
 end
 
-function testmap()
-    options = Dict{Symbol, Any}()
-    #arch = build_asap4()
-    arch = build_asap3()
-    sdc   = SimDumpConstructor("alexnet", "ldp560_coresc.json")
-    #sdc  = SimDumpConstructor("alexnet", "alexnet-5-multiport-finetuned.json")
-    tg   = apply_transforms(Taskgraph(sdc), sdc)
-    return Map(arch, tg, options)
-end
-
-
-
-
-
-
-
 
 # ph

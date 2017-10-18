@@ -1,6 +1,6 @@
-function build_asap4()
+function build_asap4(;A = KCBasic)
     # Start with a new component - clarify that it is 2 dimensional
-    arch = TopLevel{KCArchitecture,2}("asap4")
+    arch = TopLevel{A,2}("asap4")
 
     ####################
     # Normal Processor #
@@ -10,10 +10,10 @@ function build_asap4()
     processor = build_processor_tile()
     # Instantiate it at the required addresses
     for r in 1:24, c in 2:28
-        add_child(arch, processor, Address(r,c))
+        add_child(arch, processor, Address{2}(r,c))
     end
     for r in 1:20, c in 29
-        add_child(arch, processor, Address(r,c))
+        add_child(arch, processor, Address{2}(r,c))
     end
 
     ####################
@@ -21,38 +21,38 @@ function build_asap4()
     ####################
     memory_processor = build_memory_processor_tile()
     for r = 25, c = 2:28
-       add_child(arch, memory_processor, Address(r,c))
+        add_child(arch, memory_processor, Address{2}(r,c))
     end
     #################
     # 2 Port Memory #
     #################
     memory_2port = build_memory_2port()
     for r = 26, c in (2, 4, 6, 8, 11, 13, 15, 17, 20, 22, 24, 26)
-       add_child(arch, memory_2port, Address(r,c))
+        add_child(arch, memory_2port, Address{2}(r,c))
     end
     #################
     # 1 Port Memory #
     #################
     memory_1port = build_memory_1port()
     for r = 26, c in (10, 19)
-       add_child(arch, memory_1port, Address(r,c))
+        add_child(arch, memory_1port, Address{2}(r,c))
     end
     #################
     # Input Handler #
     #################
     input_handler = build_input_handler()
     for r ∈ (1, 13), c = 1
-       add_child(arch, input_handler, Address(r,c))
+        add_child(arch, input_handler, Address{2}(r,c))
     end
     for r ∈ (12, 18), c = 30
-       add_child(arch, input_handler, Address(r,c))
+        add_child(arch, input_handler, Address{2}(r,c))
     end
     ##################
     # Output Handler #
     ##################
     output_handler = build_output_handler()
     for (r,c) ∈ zip((12,18,1,14), (1, 1, 30, 30))
-       add_child(arch, output_handler, Address(r,c))
+        add_child(arch, output_handler, Address{2}(r,c))
     end
 
     #######################
@@ -74,7 +74,7 @@ function connect_processors(tl)
     dst_rule = src_rule
     # Create offset rules.
     # Offsets are just unit steps in four directions.
-    offsets = [Address(-1,0), Address(1,0), Address(0,1), Address(0,-1)]
+    offsets = [Address{2}(-1,0), Address{2}(1,0), Address{2}(0,1), Address{2}(0,-1)]
     #=
     Create two tuples for the source ports and destination ports. In general,
     if the source link is going out of the north port, the destionation will
@@ -103,7 +103,7 @@ function connect_processors(tl)
     src_dirs = ("east","west")
     dst_dirs = ("west","east")
     # Links can go both directions, so make the offsets an array
-    offsets = [Address(0,1), Address(0,-1)]
+    offsets = [Address{2}(0,1), Address{2}(0,-1)]
     for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
         src_ports = String[]
         dst_ports = String[]
@@ -156,13 +156,13 @@ function connect_memories(tl)
     mem_rule = PortRule(mem_key, mem_val, mem_fn)
     # Make connections from memory to memory-processors
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address(-1,0), "out[0]", "memory_in"))
-    push!(offset_rules, OffsetRule(Address(-1,1), "out[1]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{2}(-1,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{2}(-1,1), "out[1]", "memory_in"))
     connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
     # Make connections from memory-processors to memories.
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address(1,0), "memory_out", "in[0]"))
-    push!(offset_rules, OffsetRule(Address(1,-1), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(Address{2}(1,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{2}(1,-1), "memory_out", "in[1]"))
     connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
 
     ########################### 
@@ -173,11 +173,11 @@ function connect_memories(tl)
     mem_rule = PortRule(mem_key, mem_val, mem_fn)
     # Make connections from memory to memory-processors
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address(-1,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{2}(-1,0), "out[0]", "memory_in"))
     connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
     # Make connections from memory-processors to memories.
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address(1,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{2}(1,0), "memory_out", "in[0]"))
     connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
 
     return nothing

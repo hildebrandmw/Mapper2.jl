@@ -18,7 +18,6 @@ abstract type AbstractSANode end
 Fields required by specialized SANode types:
 * sources   ::Vector{Int64}
 * sinks     ::Vector{Int64}
-* cost      ::Float64
 """
 abstract type AbstractSAEdge end
 
@@ -75,7 +74,7 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     generation.
     """
     special_maptables::Vector{Array{Vector{UInt8}, D}}
-    special_addresstables::Vector{Vector{Address}}
+    special_addresstables::Vector{Vector{Address{D}}}
     """
     Distance look-up table. This is twice the size of the the address dimension
     to allow distances to be calculated from any source address to any

@@ -22,11 +22,21 @@ include("Taskgraph/Taskgraph.jl")
 # Top-level Map datatype
 include("Map/Map.jl")
 
-# Placement
+#############
+# Placement #
+#############
+# TODO: Modularize placement algorithms.
 include("Placement/SAStruct.jl")
 include("Placement/SAStructMethods.jl")
+include("Placement/SAState.jl")
 include("Placement/SA.jl")
+
 include("Placement/InitialPlacement.jl")
+
+###########
+# Routing #
+###########
+# TODO
 
 ################################################################################
 # Frameworks
@@ -40,21 +50,16 @@ include("Frameworks/Kilocore/Kilocore.jl")
 # Profile Routines
 include("benchmark.jl")
 
-
-#=
-Just storing this here for later.
-struct PackedFunctionCall
-    function_name   ::Function
-    args            ::Tuple
-    function PackedFunctionCall(function_name, args = ())
-        return new(function_name, args)
-    end
+function testmap()
+    options = Dict{Symbol, Any}()
+    #arch = build_asap4()
+    #arch = build_asap4(A = KCLink)
+    arch = build_asap3()
+    #arch = build_asap3(A = KCLink)
+    sdc   = SimDumpConstructor("alexnet", "sort.json")
+    #sdc  = SimDumpConstructor("alexnet", "alexnet-5-multiport-finetuned.json")
+    tg   = apply_transforms(Taskgraph(sdc), sdc)
+    return Map(arch, tg, options)
 end
 
-
-#=
-TODO: Error Checking.
-=#
-execute(pc::PackedFunctionCall, kwargs) = pc.function_name(pc.args..., kwargs...)
-=#
 end # module

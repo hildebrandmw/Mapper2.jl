@@ -18,139 +18,53 @@ end
 MoveCookie{T,D}() where {T,D} = MoveCookie{T,D}(zero(T), 0, false, 0, Address{D}(), 0)
 
 ################################################################################
-# Structure to keep track of performance information
+# Types that control various parameters of the placement.
 ################################################################################
-const SAStateUpdateInterval = 1
-mutable struct SAState
-    #= Information related to most recent move attempt =#
-    "Current Temperature of the system"
-    temperature         ::Float64
-    "Current objective value"
-    objective           ::Float64
-    "Current Distance Limit"
-    distance_limit      ::Float64
 
-    "Current number of move attempts"
-    recent_move_attempts    ::Int64
-    recent_successful_moves ::Int64
-    recent_accepted_moves   ::Int64
+# Warming schedules
+abstract type AbstractSAWarm end
+"""
+Default warming schedule. On each invocation, will increase the temperature of
+the anneal by `multiplier`. When the acceptance ratio rises above `ratio`, 
+warming routine will end.
 
-    "Current Warming State"
-    warming             ::Bool
-
-    #= Global state information =#
-    "Total number of move attempts made"
-    total_moves::Int64
-    "Number of successful move generations"
-    successful_moves::Int64
-    "Number of moves accepted"
-    accepted_moves::Int64
-    "Moves per second"
-    moves_per_second::Float64
-    "Creation time of the structure"
-    start_time::Float64
-    #= Methods for dealing with the updates =#
-    "Time of the last update"
-    last_update_time::Float64
-    "Update Interval"
-    dt::Float64
-    function SAState(temperature, distance_limit, objective)
-        return new(
-            # Most recent run
-            temperature,        # temperature
-            Float64(objective), # objective
-            distance_limit,     # distance_limit
-            0,                  # recent_move_attempts
-            0,                  # recent_successful_moves
-            0,                  # recent_accepted_moves
-            true,               # warming
-
-            # Global run
-            0,  # total_moves
-            0,  # suffessful_moves
-            0,  # accepted_moves
-            0.0,# moves_per_second
-            time(), # creation time
-
-            # Update parameters
-            time(),                     # Time of creation
-            SAStateUpdateInterval,      # Default update interval
-         )
-    end
+To prevent unbounded warming, the `ratio` field is multiplier by the `decay`
+field on each invocation.
+"""
+mutable struct DefaultSAWarm <: AbstractSAWarm
+    ratio       ::Float64
+    multiplier  ::Float64
+    decay       ::Float64
 end
 
-function update!(state::SAState)
-    # Update the global counters
-    state.total_moves       += state.recent_move_attempts
-    state.successful_moves  += state.recent_successful_moves
-    state.accepted_moves    += state.recent_accepted_moves
-    # Compute number of moves per second.
-    state.moves_per_second = state.successful_moves / (time() - state.start_time)
-    # Determine whether or not to print out results
-    if DEBUG
-        current_time = time()
-        if current_time > state.last_update_time + state.dt
-            show_stats(state)
-            state.last_update_time = time()
-        end
-    end
-    return nothing
+# Cooling Schedules
+abstract type AbstractSACool end
+"""
+Default cooling schedule. Each invocation, will multipkly the temperature
+of the anneal by the `alpha` paramter.
+"""
+struct DefaultSACool <: AbstractSACool
+    alpha::Float64
 end
 
-
-
+# Distance limit updates
+abstract type AbstractSALimit end
 """
-    Base.display(state::SAState)
-
-Doisplay metrics about the SAState variable.
+Default deistnace limit updater. Will adjust the distance limit so approximate
+`ratio` of moves are accepted. See VPR for algorithm.
 """
-function show_stats(state::SAState, first = false)
-     fields = (
-        :temperature,
-        :objective,
-        :total_moves,
-        :successful_moves,
-        :moves_per_second,
-    )
+struct DefaultSALimit <: AbstractSALimit
+    ratio       ::Float64
+end
 
-    # Key-word arguments for the "format" function
-    kwargs = Dict(
-        :temperature        => Dict(:precision => 5),
-        :objective          => Dict(:precision => 2),
-        :total_moves        => Dict(),
-        :successful_moves   => Dict(),
-        :moves_per_second   => Dict(:precision => 3,
-                                   :autoscale => :metric),
-        :distance_limit     => Dict(),
-    )
-
-    if first
-        total_length = 0
-        for f in fields
-            string_f = replace(string(f), "_", " ")
-            padded_length = length(string_f) + 2
-            print(titlecase(lpad(string_f,padded_length)))
-            total_length += padded_length
-        end
-        println()
-        println("-" ^ total_length)
-        return nothing
-    end
-
-
-    for f in fields
-        # Get the length of the field - append one space to the front.
-        field_length = length(string(f)) + 2
-        # Get the dictionary, add a "width" field
-        kwarg = kwargs[f]
-        # Check if we have to shorten the length - adjust because the "width'
-        # parameter apparently doesn't take this into account
-        haskey(kwarg, :autoscale) && (field_length -= 1)
-        kwarg[:width] = field_length 
-        print(format(getfield(state,f);kwarg...))
-    end
-    println()
-    return nothing
+# Finishing Schedules
+abstract type AbstractSADone end
+"""
+Default end detection. Will return `true` when objective deviation is
+less than `atol`.
+"""
+struct DefaultSADone <: AbstractSADone
+    atol::Float64
 end
 
 ################################################################################
@@ -158,22 +72,23 @@ end
 ################################################################################
 
 function place(
-        sa::SAStruct#;
+        sa::SAStruct;
+        move_attempts = 50_000,
+        # Parameters for high-level control
+        warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
+        cooler ::AbstractSACool  = DefaultSACool(0.997),
+        doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
+        limiter::AbstractSALimit = DefaultSALimit(0.44),
        )
 
-    move_attempts = 50000
     # Unpack SA
     A = architecture(sa)
     D = dimension(sa)
-
-    # Do some initial unpacking.
     num_nodes = length(sa.nodes)
     num_edges = length(sa.edges)
 
     # Get the largest address
     max_addresses = ind2sub(sa.component_table, endof(sa.component_table))
-
-    # Set up Simulated Annealing Parameters
     largest_address = maximum(max_addresses)
 
     # Initialize structure to help during placement.
@@ -195,6 +110,7 @@ function place(
         successful_moves    = 0
         objective           = state.objective
         distance_limit      = max(round(Int64, state.distance_limit), 1)
+        sum_cost_difference = zero(typeof(cost))
         # Inner Loop
         for i in 1:move_attempts
             # Try to generate a move. If it failed, try again.
@@ -202,8 +118,10 @@ function place(
             successful_moves += 1
             # Get the cost of the move
             cost_of_move = undo_cookie.cost_of_move
-            if cost_of_move < 0 || rand() < exp(-cost_of_move * one_over_T)
+            if cost_of_move <= zero(typeof(cost_of_move)) ||
+                    rand() < exp(-cost_of_move * one_over_T)
                accepted_moves += 1
+               sum_cost_difference += abs(cost_of_move)
                objective += cost_of_move
             else
                undo_move(sa, undo_cookie)
@@ -220,27 +138,16 @@ function place(
         state.recent_move_attempts      = move_attempts
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
+        state.recent_deviation          = sum_cost_difference / accepted_moves
 
         # Adjust temperature
-        state.warming ? warm(state) : cool(state)
-    #    update_limit(state)
-
-
-        # TODO: Clean this up
-        # Compute the new distance limit
-        desired_acceptance_ratio = 0.44
-        # Acceptance ratio
-        acceptance_ratio = state.recent_accepted_moves /
-                           state.recent_move_attempts
-
-        temporary = (1 - desired_acceptance_ratio + acceptance_ratio)
-        state.distance_limit = clamp(state.distance_limit * temporary,
-                                     1,
-                                     largest_address)
-
+        state.warming ? warm(warmer, state) : cool(cooler, state)
+        # Adjust distance limit
+        limit(limiter, state)
         # State updates
         update!(state)
-        state.total_moves == 100_000_000 && (loop = false)
+        # Exit Condition
+        loop = !done(doner, state)
     end
     return state
 end
@@ -248,31 +155,38 @@ end
 ################################################################################
 # Default state-changing functions
 ################################################################################
-@inline function warm(state::SAState)
-    # Acceptance ratio
+@inline function warm(w::DefaultSAWarm, state::SAState)
+    # Compute acceprance ratio from the state
     acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_move_attempts
+                       state.recent_successful_moves
 
-    state.temperature *= 2
-    # Check if we're at the desired acceptance ratio, if so, end the
-    # warming up procedure.
-    initial_acceptance_ratio = 0.7
-    if acceptance_ratio > initial_acceptance_ratio
+    # Update temperature
+    state.temperature *= w.multiplier
+    # Check if acceptance ratio has achieved the desired ratio
+    if acceptance_ratio > w.ratio
         state.warming = false
+    else
+        # Decay acceptance ratio
+        w.ratio *= w.decay
     end
+    return nothing
 end
 
-@inline cool(state::SAState) = (state.temperature *= 0.997)
+@inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
 
-function update_limit(state::SAState)
-    # Compute the new distance limit
-    desired_acceptance_ratio = 0.44
-    # Acceptance ratio
+@inline function done(d::DefaultSADone, state::SAState) 
+    return state.deviation < d.atol
+end
+
+function limit(l::DefaultSALimit, state::SAState)
+    # Compute acceptance ratio from state
     acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_move_attempts
-
-    temporary = (1 - desired_acceptance_ratio + acceptance_ratio)
-    state.distance_limit = round(Int64, clamp(state.distance_limit * temporary, 1, largest_address))
+                       state.recent_successful_moves
+    # Update distance limit
+    temporary = (1 - l.ratio + acceptance_ratio)
+    state.distance_limit = clamp(state.distance_limit * temporary, 1,
+                                state.max_distance_limit)
+    return nothing
 end
 
 ################################################################################
@@ -314,9 +228,12 @@ end
 
 function undo_move(sa::SAStruct, undo_cookie)
     if undo_cookie.move_was_swap
-        swap(sa, undo_cookie.index_of_moved_node, undo_cookie.index_of_other_node)
+        swap(sa, 
+             undo_cookie.index_of_moved_node, 
+             undo_cookie.index_of_other_node)
     else
-        move(sa, undo_cookie.index_of_moved_node,
+        move(sa, 
+             undo_cookie.index_of_moved_node,
              undo_cookie.old_component,
              undo_cookie.old_address)
     end
@@ -364,7 +281,7 @@ function standard_move(::Type{A},
                        address,
                        class,
                        distance_limit_integer,
-                       max_addresses)::Address{dimension(sa)} where {A <: AbstractArchitecture}
+                       max_addresses) where {A <: AbstractArchitecture}
     # Generate a new address based on the distance limit
     move_ub = min.(address.addr .+ distance_limit_integer, max_addresses)
     move_lb = max.(address.addr .- distance_limit_integer, 1)
@@ -376,7 +293,7 @@ function special_move(::Type{A},
                       sa::SAStruct,
                       class) where {A <: AbstractArchitecture}
     # Get the special address table for this class.
-    new_address = rand(sa.special_addresstables[-class])::Address{dimension(sa)}
+    new_address = rand(sa.special_addresstables[-class])
     return new_address
 end
 

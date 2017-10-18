@@ -35,7 +35,7 @@ end
 """
     swap(sa::SAStruct, node1, node2)
 
-Swap two nodes in the placement structure.   
+Swap two nodes in the placement structure.
 """
 function swap(sa::SAStruct, node1, node2)
     # Get references to these objects to make life easier.
@@ -64,23 +64,41 @@ function edge_cost(::Type{A}, sa::SAStruct, edge) where {A <: AbstractArchitectu
     return cost
 end
 
+#=
+NOTE: for the functions "map_cost" and "node_code", we do the funky schenanigans
+with the "first" bool to make sure that "cost" is the correct return type
+to make this code fast.
+
+TODO: Think of a better way to make this code generic.
+=#
+
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
-    cost = 0
-    for edge in eachindex(sa.edges)
-        cost += edge_cost(A, sa, edge)
-    end
+    cost = sum(edge_cost(A, sa, edge) for edge in eachindex(sa.edges))
     return cost
 end
 
 function node_cost(::Type{A}, sa::SAStruct, node) where {A <: AbstractArchitecture}
     # Get the node type from the SA Structure.
     n = sa.nodes[node]
-    cost = 0
+    local cost
+    first = true
     for edge in n.out_edges
-        cost += edge_cost(A, sa, edge)
+        if first
+            cost = edge_cost(A, sa, edge)
+            first = false
+        else
+            cost += edge_cost(A, sa, edge)
+        end
     end
     for edge in n.in_edges
-        cost += edge_cost(A, sa, edge)
+        if first
+            cost = edge_cost(A, sa, edge)
+            first = false
+        else
+            cost += edge_cost(A, sa, edge)
+        end
     end
+    # If cost is not initialized, throw an error
+    first && error()
     return cost
 end

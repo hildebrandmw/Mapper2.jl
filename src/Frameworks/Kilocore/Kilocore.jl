@@ -55,7 +55,11 @@ Principles of the type include:
 - attributes for components that determine mapping.
 =#
 abstract type AbstractKC <: AbstractArchitecture end
-struct KCArchitecture <: AbstractKC end
+"Basic architecture - no weights on links"
+struct KCBasic <: AbstractKC end
+"Basic architecture with link weights"
+struct KCLink  <: AbstractKC end
+
 include("asap4.jl")
 include("asap3.jl")
 
@@ -93,18 +97,43 @@ function canmap(::Type{T}, t::TaskgraphNode, c::Component) where {T <: AbstractK
 end
 
 ################################################################################
+# Methods for architectures with link weights
+################################################################################
+struct CostSAEdge <: AbstractSAEdge
+    sources ::Vector{Int64}
+    sinks   ::Vector{Int64}
+    cost    ::Float64
+end
+
+function build_sa_edge(::Type{KCLink}, edge::TaskgraphEdge, node_dict)
+    # Build up adjacency lists.
+    # Sources in the task-graphs are strings so we can just use the
+    # node-dictionary to convert them into integers.
+    sources = [node_dict[s] for s in edge.sources]
+    sinks   = [node_dict[s] for s in edge.sinks]
+    # Assign the cost of the link using the "weight" parameter added by
+    # one of the earlier transforms to the taskgraph
+    cost    = edge.metadata["weight"]
+    return CostSAEdge(sources, sinks, cost)
+end
+
+# Costed metric functions
+function edge_cost(::Type{KCLink}, sa::SAStruct, edge) 
+    cost = 0.0
+    for src in sa.edges[edge].sources, snk in sa.edges[edge].sinks
+        # Get the source and sink addresses
+        src_address = sa.nodes[src].address
+        snk_address = sa.nodes[snk].address
+        cost += sa.edges[edge].cost * sa.distance[src_address, snk_address]
+    end
+    return cost
+end
+
+################################################################################
 # Taskgraph Constructors used by this framework.
 ################################################################################
 struct SimDumpConstructor <: AbstractTaskgraphConstructor
     name::String
     file::String
 end
-
 include("taskgraph.jl")
-
-################################################################################
-# Special Types for Placement Algorithms
-################################################################################
-
-# Simulated Annealing Placement.
-# Special Tasks
