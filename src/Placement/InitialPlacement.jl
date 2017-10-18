@@ -29,15 +29,15 @@ function build_graph(sa::SAStruct)
     component_table = sa.component_table
 
     # Offset for the source and sink nodes.
-    _sourcesink_offset = 2
+    sourcesink_offset = 2
     # Create the node translation dictionary
-    node_dict = Dict(i => i + _sourcesink_offset for i in 1:length(sa.nodes))
+    node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
     # Start enumerating all the mapable components and building a translation
     # dictionary.
     keytype = Tuple{Address{dimension(sa)},Int64}
     component_dict = Dict{keytype, Int64}()
     # Variable for keeping track of the current vertex number.
-    vertex_number = _sourcesink_offset + length(node_dict)
+    vertex_number = sourcesink_offset + length(node_dict)
     for index in eachindex(component_table)
         # Check to see if the component list at this index is empty. If so,
         # move to the next index.
@@ -67,16 +67,24 @@ function build_graph(sa::SAStruct)
         maptable = class < 0 ? sa.special_maptables[-class] : sa.maptables[class]
         # Iterate through all addresses - add an edge as appropriate.
         for index in eachindex(maptable)
+            # Skip entries that have no component that this node class can
+            # be mapped to.
             length(maptable[index]) == 0 && continue
+            # Get the address
             address = Address(ind2sub(maptable, index))
+            # Iterate through all components this node class can be mapped
+            # to at this address
             for i in 1:length(maptable[index])
                 # Create a key to get the index of the component.
+                # Key is a tuple (address, component_index)
                 key = (address, Int64(maptable[index][i]))
+                # Look up the node number from the component dict
                 component_number = component_dict[key]
                 # Create an edge for all nodes in the class.
                 for node_index in node_indices
                     node_number = node_dict[node_index]
                     add_edge!(graph, node_number, component_number)
+                    # Record the total number of edges added
                     edges_added += 1
                 end
             end
@@ -113,8 +121,8 @@ end
 """
 function do_assignment(placement_struct, graph, node_dict, component_dict)
     # Reverse the node and component dictionaries.
-    node_dict_rev = rev_dict(node_dict)
-    component_dict_rev = rev_dict(component_dict)
+    node_dict_rev       = rev_dict(node_dict)
+    component_dict_rev  = rev_dict(component_dict)
     # Iterate through all the indices belonging to nodes.
     for i in keys(node_dict_rev)
         # Iterate through all the "in_neighbors" of this node.
@@ -272,125 +280,3 @@ function bipartite_match!(g::AbstractGraph)
     return g
 end
 
-"""
-initialplacement(app_name::String, pa::Dict{Address,Array{String,1}})
-
-Performs initial placement of tasks onto the architecture using bipartite matching
-"""
-function initialplacement(app_name::String, pa::Dict{Address,Array{String,1}})
-    filepath = joinpath(PKGDIR, "taskgraphs", app_name * ".json")
-    f = open(filepath,"r")
-    json = JSON.parse(f)
-    close(f)
-
-    # Addresses from the ProcArray and TaskNames are converted to Int64
-    # are referenced back using the Dicts below
-
-    # task names to Int64 storage Dict and vice-versa
-    task_string2int = Dict{String,Int64}()
-    task_int2string = Dict{Int64,String}()
-    # addr names to Int64 storage Dict and vice-versa
-    addr_addr2int = Dict{Address,Int64}()
-    addr_int2addr = Dict{Int64,Address}()
-    # converted Int64 IDs and their corresponding attributes
-    task_attributes = Dict{Int,Array{String,1}}()
-    addr_attributes = Dict{Int,Array{String,1}}()
-
-    # Taskname String to Int64 conversion
-    task_count = 0
-    for value in values(json["summary"])
-        for i = 1:length(value)
-            task_count += 1
-            task_string2int[value[i]] = task_count
-            task_int2string[task_count]= value[i]
-        end
-    end
-
-    # Address type to Int64 conversion
-    addr_count = 0
-    for key in keys(pa)
-        addr_count += 1
-        addr_addr2int[key] = addr_count
-        addr_int2addr[addr_count] = key
-    end
-
-    # This will allow attribute requirement look-up using Int64
-    for task in json["tasks"]
-        task_name = task["name"]
-        if !haskey(task,"metadata")
-            println(task_name)
-        end
-        metadata = task["metadata"]
-        attributes = metadata["attribute_requirements"]
-        task_attributes[task_string2int[task_name]] = attributes
-    end
-
-    # This will allow attribute look-up using Int64
-    for (key,value) in pa
-        addr_attributes[addr_addr2int[key]] = value
-    end
-
-    # graph is created for bipartite matching
-    g = graph(task_attributes, addr_attributes)
-    # graph is passed into the algorithm
-    bp_graph = bipartite_match(g)
-    # matched graph is translated back into type recognizable by other mapper modules
-    placement_dict = translate(bp_graph, task_int2string, addr_int2addr)
-
-    return placement_dict
-end
-"""
-graph(a_attributes::Dict{Int,Array{String,1}}, b_attributes::Dict{Int,Array{String,1}})
-
-Creates an AbstractGraph from two dictionaries (LHS and RHS) for maxiumum bipartite matching
-"""
-function graph(a_attributes::Dict{Int,Array{String,1}}, b_attributes::Dict{Int,Array{String,1}})
-
-    # + 2 comes from the source and sink vertices addition for bipartite matching
-    nv = length(a_attributes) + length(b_attributes) + 2
-    adj_matrix = zeros(nv,nv)
-    offset = length(a_attributes)
-
-    # form an edge going from a_attributes to b_attributes if there is a preference
-    # between a member of a_attributes and a member of b_attributes
-    # the edges and their directions are indicated in a form of adjacency matrix
-    for i = 1:length(a_attributes)
-        for j = 1:length(b_attributes)
-            if issubsetof(a_attributes[i],b_attributes[j])
-                adj_matrix[i+2,j+2+offset] = 1
-            end
-        end
-    end
-
-    # connect source (vertex 1) and vertices in a_attributes
-    adj_matrix[1,3:length(a_attributes)+2] = 1
-    # connect sink (vertex 2) and vertices in b_attributes
-    adj_matrix[offset+3:end,2] = 1
-
-    return DiGraph(adj_matrix) # returns a directed graph that will be used later for bipartite matching
-
-end
-
-"""
-translate(g::AbstractGraph, task_int2string::Dict{Int64,String}, addr_int2addr::Dict{Int64,Address})
-
-Translates the matched AbstractGraph back into the type recognizable by kc architectures
-"""
-function translate(g::AbstractGraph, task_int2string::Dict{Int64,String}, addr_int2addr::Dict{Int64,Address})
-    # numberofLHS : number of tasks
-    numberofLHS = length(out_neighbors(g,1))
-    # this dict will be used to store the data recognizable by kc archs
-    placement_dict = Dict{String,Address}()
-
-    # a starts at 3; 1 and 2 are used as source and sink respectively for bipartite matching
-    # using the reference dicts, the Int64 IDs are converted back into their actual names
-    for a = 3:numberofLHS+2
-        for neighbor in in_neighbors(g,a)
-            neighbor == 1 && continue # do not want vertex #1 (source) in the output
-            # after bipartite matching, the graph should be one-to-one function going from a to b
-            b = neighbor
-            placement_dict[task_int2string[a-2]] = addr_int2addr[b-numberofLHS-2]
-        end
-    end
-    return placement_dict
-end

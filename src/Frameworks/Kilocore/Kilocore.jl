@@ -135,5 +135,21 @@ end
 struct SimDumpConstructor <: AbstractTaskgraphConstructor
     name::String
     file::String
+    function SimDumpConstructor(appname)
+        # Just copy the app name for the "name" portion of the constructor
+        # Split it on any "." points and take the first argument.
+        name = split(appname, ".")[1]
+        # Check if appname ends in ".json.gz". If not, fix that
+        if !ismatch(r".gz$", appname)
+            if !ismatch(r".json", appname)
+                appname = appname * ".json.gz"
+            else
+                appname = appname * ".gz"
+            end
+        end
+        # Append the sim dump file path to the beginning.
+        file = joinpath(PKGDIR, "sim-dumps", appname)
+        return new(name, file)
+    end
 end
 include("taskgraph.jl")

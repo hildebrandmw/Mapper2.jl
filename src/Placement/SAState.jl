@@ -140,7 +140,8 @@ function show_stats(state::SAState, first = false)
         :accepted_moves     => Dict(),
         :moves_per_second   => Dict(:precision => 3,
                                     :autoscale => :metric),
-        :distance_limit     => Dict(),
+        :deviation          => Dict(:precision => 3,
+                                    :autoscale => :metric),
     )
 
     #=

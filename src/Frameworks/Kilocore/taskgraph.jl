@@ -1,3 +1,8 @@
+# Use JSON to parse the simulation dumps
+using JSON
+# Use GZip to allow the JSON files to be compressed. Saves quit a bit of
+# space.
+using GZip
 #=
 Taskgraph constructors will go here. If the number of constructors gets very
 large - may want to think about moving the collection of constructors to a subdirectory in the Taskgraphs folder.
@@ -32,7 +37,7 @@ Question - how to handle loading of j
 =#
 function Taskgraph(c::SimDumpConstructor)
     # Get the file from the sim-dump constructor and JSON parse the file.
-    f = open(c.file, "r")
+    f = GZip.open(c.file, "r")
     jsn = JSON.parse(f)::Dict{String,Any}
     close(f)
     # Pre-allocate array to hold the taskgraph nodes.

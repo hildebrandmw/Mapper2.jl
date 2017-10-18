@@ -1,13 +1,16 @@
 module Mapper2
 
 using IterTools
-using JSON
 using DataStructures
-using ProgressMeter
 using LightGraphs
+using ProgressMeter
 using Formatting
 
 export Address, Port, Component, benchmark
+
+# Set up directory paths
+const SRCDIR = dirname(@__FILE__())
+const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG = true
@@ -53,11 +56,11 @@ include("benchmark.jl")
 function testmap()
     options = Dict{Symbol, Any}()
     #arch = build_asap4()
-    #arch = build_asap4(A = KCLink)
-    arch = build_asap3()
+    arch = build_asap4(A = KCLink)
+    #arch = build_asap3()
     #arch = build_asap3(A = KCLink)
-    sdc   = SimDumpConstructor("alexnet", "sort.json")
-    #sdc  = SimDumpConstructor("alexnet", "alexnet-5-multiport-finetuned.json")
+    #sdc   = SimDumpConstructor("sort.json")
+    sdc  = SimDumpConstructor("alexnet-5-multiport-finetuned.json")
     tg   = apply_transforms(Taskgraph(sdc), sdc)
     return Map(arch, tg, options)
 end
