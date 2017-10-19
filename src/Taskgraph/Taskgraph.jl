@@ -132,18 +132,18 @@ mutable struct TaskgraphEdge <: AbstractTaskgraphType
     """
     function TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
         sources = typeof(source)   <: Vector ? source : [source]
-        sinks = typeof(sink)       <: Vector ? sink   : [sink]
+        sinks   = typeof(sink)     <: Vector ? sink   : [sink]
         return new(sources, sinks, metadata)
     end
 end
 
-
 mutable struct Taskgraph <: AbstractTaskgraphType
-    name::String
-    nodes::Dict{String, TaskgraphNode}
-    edges::Vector{TaskgraphEdge}
-    adjacency_out::Dict{String, Vector{TaskgraphEdge}}
-    adjacency_in ::Dict{String, Vector{TaskgraphEdge}}
+    name            ::String
+    nodes           ::Dict{String, TaskgraphNode}
+    edges           ::Vector{TaskgraphEdge}
+    adjacency_out   ::Dict{String, Vector{TaskgraphEdge}}
+    adjacency_in    ::Dict{String, Vector{TaskgraphEdge}}
+
     function Taskgraph(name, node_container, edge_container)
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.

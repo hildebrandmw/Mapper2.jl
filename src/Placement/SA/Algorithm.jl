@@ -73,6 +73,7 @@ end
 
 function place(
         sa::SAStruct;
+        # Number of moves before doing a parameter update.
         move_attempts = 50_000,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
@@ -98,11 +99,17 @@ function place(
     # Main Simulated Annealing Loop
     loop = true
 
-    # Start timer here - useful for printing debug information.
-    # Initialize tempearture and warming up boolean variable.
+    # Initialize the main state variable. State variable's timer begins when
+    # the structure is created.
     state = SAState(1.0, Float64(largest_address), cost)
+    # Print out the header for the statistic columns.
     show_stats(state, true)
+    first_display = true
     while loop
+        ################## 
+        # Pre-loop setup #
+        ################## 
+
         # Invert temperature to perform floating point multiplication rather
         # than division. Set local counters for this iteration.
         one_over_T = 1 / state.temperature
@@ -111,7 +118,10 @@ function place(
         objective           = state.objective
         distance_limit      = max(round(Int64, state.distance_limit), 1)
         sum_cost_difference = zero(typeof(cost))
-        # Inner Loop
+
+        ############## 
+        # Inner Loop #
+        ############## 
         for i in 1:move_attempts
             # Try to generate a move. If it failed, try again.
             generate_move(A, sa, undo_cookie, distance_limit, max_addresses) || continue
@@ -145,7 +155,10 @@ function place(
         # Adjust distance limit
         limit(limiter, state)
         # State updates
-        update!(state)
+        if update!(state)
+            plot(sa)
+            gui()
+        end
         # Exit Condition
         loop = !done(doner, state)
     end
@@ -192,13 +205,23 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
+function isvalid(sa::SAStruct, node::Int64, address, component)
+    # Get the class associated with this node.
+    class = sa.nodeclass[node]
+    # Get the map tables for the node. Check if the component is in the 
+    # maptable.
+    maptable = class > 0 ? sa.maptables[class] : sa.special_maptables[-class]
+    return component in maptable[address]
+end
 
 function move_with_undo(sa::SAStruct, undo_cookie, node::Int64, address, component)
     A = architecture(sa)
     # Store the old information
+    old_address     = sa.nodes[node].address
+    old_component   = sa.nodes[node].component
     undo_cookie.index_of_moved_node = node
-    undo_cookie.old_address = sa.nodes[node].address
-    undo_cookie.old_component = sa.nodes[node].component
+    undo_cookie.old_address     = old_address
+    undo_cookie.old_component   = old_component
     # Check to see if there is a node already mapped to this location
     occupying_node = sa.grid[component, address]
     if occupying_node == 0
@@ -211,6 +234,8 @@ function move_with_undo(sa::SAStruct, undo_cookie, node::Int64, address, compone
         moved_cost = node_cost(A, sa, node)
         undo_cookie.cost_of_move = moved_cost - base_cost
     else
+        # If we can't move the node back, abort this move
+        isvalid(sa, occupying_node, old_address, old_component) || return false
         # Indicate this move was a swap
         undo_cookie.move_was_swap = true
         # Save the index of the occupying node
@@ -223,14 +248,21 @@ function move_with_undo(sa::SAStruct, undo_cookie, node::Int64, address, compone
         moved_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
         undo_cookie.cost_of_move = moved_cost - base_cost
     end
-    return nothing
+    return true
 end
 
+"""
+    undo_move(sa::SAStruct, undo_cookie)
+
+Undo the last move made to the `sa` with the help of the `undo_cookie`.
+"""
 function undo_move(sa::SAStruct, undo_cookie)
+    # If the last move was a swap, need a swap in order to undo it.
     if undo_cookie.move_was_swap
         swap(sa, 
              undo_cookie.index_of_moved_node, 
              undo_cookie.index_of_other_node)
+    # Otherwise, a simple move is just fine.
     else
         move(sa, 
              undo_cookie.index_of_moved_node,
@@ -270,30 +302,98 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
          )
         component = rand(sa.special_maptables[-class][address])
     end
-    # Perform the move and record enough information to undo the move
-    move_with_undo(sa::SAStruct, undo_cookie, node, address, component)
-
-    return true
+    # Perform the move and record enough information to undo the move. The
+    # function "move_with_undo" will return false if the move is a swap and
+    # the moved node cannot be placed.
+    return move_with_undo(sa::SAStruct, undo_cookie, node, address, component)
 end
 
-function standard_move(::Type{A},
-                       sa::SAStruct,
-                       address,
-                       class,
-                       distance_limit_integer,
-                       max_addresses) where {A <: AbstractArchitecture}
+function standard_move(::Type{A}, sa::SAStruct, address, class, limit, ub) where {
+                                                      A <: AbstractArchitecture}
     # Generate a new address based on the distance limit
-    move_ub = min.(address.addr .+ distance_limit_integer, max_addresses)
-    move_lb = max.(address.addr .- distance_limit_integer, 1)
+    move_ub = min.(address.addr .+ limit, ub)
+    move_lb = max.(address.addr .- limit, 1)
     new_address = rand_address(move_lb, move_ub)
     return new_address
 end
 
-function special_move(::Type{A},
-                      sa::SAStruct,
-                      class) where {A <: AbstractArchitecture}
+function special_move(::Type{A}, sa::SAStruct, class) where {A <: AbstractArchitecture}
     # Get the special address table for this class.
     new_address = rand(sa.special_addresstables[-class])
     return new_address
 end
 
+################################################################################
+# OH-NO PLOTTING
+################################################################################
+using Plots
+Plots.gr()
+function plot(sa::SAStruct)
+   #pa = tg.architecture
+
+   #addr_length = length(addresses(pa))
+   num_nodes = length(sa.nodes)
+
+   x1 = Int64[] 
+   y1 = Int64[] 
+
+   max_row      = 0
+   max_column   = 0
+
+   for index in eachindex(sa.component_table)
+       if length(sa.component_table[index]) > 0
+           # Convert to coordinates
+           (x,y) = ind2sub(sa.component_table, index)
+           push!(x1, x)
+           push!(y1, y)
+       end
+   end
+
+   max_row      = size(sa.component_table,1)
+   max_column   = size(sa.component_table,2)
+
+   num_links  = length(sa.edges)
+
+   x = zeros(Float64, 2, num_links)
+   y = zeros(Float64, 2, num_links)
+
+   for (index, link) in enumerate(sa.edges)
+       src = sa.nodes[link.sources[1]].address
+       snk = sa.nodes[link.sinks[1]].address
+       y[:,index] = [src.addr[2], snk.addr[2]]
+       x[:,index] = [src.addr[1], snk.addr[1]]
+   end
+
+   distance = zeros(Float64, 1, num_links)
+   lc_symbol = Array{Symbol}(1, num_links)
+
+   ##  sort the link distances according to color ##
+
+   for i = 1:num_links
+      distance[i] = sqrt((x[1,i]-x[2,i])^2+(y[1,i]-y[2,i])^2)
+
+      if distance[i] > 10
+          lc_symbol[i] = :red
+      elseif distance[i] > 1
+          lc_symbol[i] = :blue
+      else
+          lc_symbol[i] = :black
+      end
+
+   end
+   ## title and legend ##
+
+   #title = join(("Mapping for: ", sa.application_name, " on ", pa.name))
+   p = Plots.plot(legend = :none, size = (700,700))
+   ## plot the architecture tiles ##
+   Plots.plot!(x1, y1, shape = :rect, linewidth = 2,color = :white, markerstrokewidth = 1)
+   ## plot task links ##
+   Plots.plot!(x, y, line = :arrow, 
+               linewidth = 2.0, 
+               linecolor = lc_symbol, 
+               xlims = (0,max_row+1), 
+               ylims = (0,max_column+1),)
+   ## export as png ##
+   #savefig("plot.png")
+   return p
+end

@@ -27,8 +27,8 @@ function get_transforms(sdc::SimDumpConstructor)
     transform_tuple = (
         t_unpack_attached_memories,
         t_unpack_type_strings,
-        t_assign_link_weights,
         t_confirm_and_sort_attributes,
+        t_assign_link_weights,
     )
     return transform_tuple
 end
@@ -252,7 +252,16 @@ function t_assign_link_weights(tg::Taskgraph)
         else
             edge.metadata["weight"] = default_weight
         end
+        # Check if any of the sources or sinks of this edge is an input.
+        # if so - assign a small weight to that link
+        for nodename in chain(edge.sources, edge.sinks)
+            if oneofin(tg.nodes[nodename].metadata["required_attributes"], 
+                       ("input_handler", "output_handler"))
+                edge.metadata["weight"] = 1/8
+            end
+        end
     end
+
     return tg
 end
 
@@ -265,6 +274,10 @@ field. Sort that field for consistency.
 function t_confirm_and_sort_attributes(tg::Taskgraph)
     badnodes = TaskgraphNode[]
     for node in nodes(tg)
+        #=
+        Ensure that each node has a "required_attributes" field. If not, add
+        it to a list to help with debugging.
+        =#
         if haskey(node.metadata, "required_attributes")
             sort!(node.metadata["required_attributes"])
         else

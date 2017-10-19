@@ -84,9 +84,10 @@ function update!(state::SAState)
         if current_time > state.last_update_time + state.dt
             show_stats(state)
             state.last_update_time = time()
+            return true
         end
     end
-    return nothing
+    return false
 end
 
 #=

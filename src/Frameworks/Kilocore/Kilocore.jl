@@ -87,11 +87,22 @@ function isspecial(::Type{T}, t::TaskgraphNode) where {T <: AbstractKC}
     return oneofin(t.metadata["required_attributes"], _special_attributes)
 end
 
+"""
+    isequivalent(::Type{T}, a::TaskgraphNode, b::TaskgraphNode) where {T <: AbstractKC}
+
+Return `true` if taskgraph nodes `a` and `b` are considered "equivalent" when
+it comes to placement.
+"""
 function isequivalent(::Type{T}, a::TaskgraphNode, b::TaskgraphNode) where {T <: AbstractKC}
     # Return true if the "required_attributes" are equal
     return a.metadata["required_attributes"] == b.metadata["required_attributes"]
 end
 
+"""
+    canmap(::Type{T}, t::TaskgraphNode, c::Component) where {T <: AbstractKC}
+
+Return `true` if taskgraph node `t` and be mapped to component `c`.
+"""
 function canmap(::Type{T}, t::TaskgraphNode, c::Component) where {T <: AbstractKC}
     return issubset(t.metadata["required_attributes"], c.metadata["attributes"])
 end
@@ -152,4 +163,5 @@ struct SimDumpConstructor <: AbstractTaskgraphConstructor
         return new(name, file)
     end
 end
+
 include("taskgraph.jl")

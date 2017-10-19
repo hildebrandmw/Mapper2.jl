@@ -213,7 +213,6 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
     # string vector at the current address.
-    seen_string_vectors = Vector{String}[]
     for (address, component) in tl.children
         string_vector = String[]
         for (child, name) in walk_children(component)
@@ -223,15 +222,10 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
                 push!(string_vector, name)
             end
         end
-        # Do the trick where we try to make all the similar strings reference
-        # the same representative string.
-        index = findfirst(x -> x == string_vector, seen_string_vectors)
-        if index == 0
-            push!(seen_string_vectors, string_vector)
-            index = length(seen_string_vectors)
-        end
-        component_table[address] = seen_string_vectors[index]
+        component_table[address] = string_vector
     end
+    # Condense the component table to reduce its memory footprint
+    condense(component_table)
     return component_table
 end
 
@@ -331,12 +325,6 @@ function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) wh
     # Preallocate map table
     maptable = Vector{Array{Vector{maptype},D}}(length(nodes))
 
-    # Do the same trick of using equivalence classes to make the vectors
-    # that actually contain the mapping data small. Everything in the
-    # array is just a reference to the same small set of vectors which will
-    # make things more cache friendly.
-    classes = Vector{maptype}[]
-
     for (index,node) in enumerate(nodes)
         # Pre-allocate the map table with empty arrays.
         this_table = fill(UInt8[], size(component_table))
@@ -350,20 +338,12 @@ function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) wh
                 c = get_component(component, name)
                 canmap(A, node, c) && push!(component_list, i)
             end
-            # Check to see if this component list has already been found. If
-            # so, reference the existing vector. Otherwise create a new entry
-            # in the classes table.
-            j = findfirst(x -> x == component_list, classes)
-            if j == 0
-                push!(classes, component_list)
-                j = length(classes)
-            end
-            # Set the reference for the map table
-            this_table[address] = classes[j]
+            this_table[address] = component_list
          end
          # Add the map table to the vector of tables.
          maptable[index] = this_table
     end
+    condense(maptable)
     return maptable
 end
 
@@ -453,4 +433,24 @@ function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
                                                        class = "output")
     end
     return neighbor_table
+end
+################################################################################
+# Verification routine for SA Placement
+################################################################################
+function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
+    # Assert that the SAStruct belongs to the same architecture
+    @assert A == architecture(sa)
+    # Iterate through each node in the SA
+    for (sa_node, m_node) in zip(sa.nodes, nodes(m.taskgraph))
+        # Get the mapping for the node
+        address = sa_node.address
+        component_index = sa_node.component
+        # Get the component name in the original architecture
+        component_name = sa.component_table[address][component_index]
+        # Get the component from the architecture
+        component = get_component(m.architecture.children[address], component_name)
+        if !canmap(A, m_node, component)
+            print_with_color(:red, sa_node, ", ", m_node.name, "\n")
+        end
+    end
 end

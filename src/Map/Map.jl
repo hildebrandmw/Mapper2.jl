@@ -16,7 +16,7 @@ When lower level routines such as the simulated annealing placer are launched,
 these types can be unpacked to dispatch to the correct functions.
 
 Use of the function-wrapper technique should probably be used to ensure that
-when the kernel functions are called - everything is type stable.
+when the kernel functions are called, everything is type stable.
 =#
 
 """
@@ -37,7 +37,7 @@ mutable struct Map{A,D}
     """
     Options for dispatching and parameterizing placement and routing functions.
     """
-    options::Dict{Symbol, Any}
+    options     ::Dict{Symbol, Any}
     #=
     mapping
     =#
