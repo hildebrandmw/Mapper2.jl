@@ -1,7 +1,6 @@
 ################################################################################
 # Structure to keep track of performance information
 ################################################################################
-const SAStateUpdateInterval = 1
 mutable struct SAState
     #= Information related to most recent move attempt =#
     "Current Temperature of the system"
@@ -34,12 +33,15 @@ mutable struct SAState
     deviation::Float64
     "Creation time of the structure"
     start_time::Float64
+    "Running Time - only an approximate measure"
+    run_time::Float64
     #= Methods for dealing with the updates =#
     "Time of the last update"
     last_update_time::Float64
     "Update Interval"
     dt::Float64
     function SAState(temperature, distance_limit, objective)
+        SAStateUpdateInterval = 10
         return new(
             # Most recent run
             temperature,        # temperature
@@ -59,6 +61,7 @@ mutable struct SAState
             0.0,    # moves_per_second
             0.0,    # deviation
             time(), # creation time
+            time(), # runtime
 
             # Update parameters
             time(),                     # Time of creation
@@ -81,6 +84,7 @@ function update!(state::SAState)
     # Determine whether or not to print out results
     if DEBUG
         current_time = time()
+        state.run_time = current_time - state.start_time
         if current_time > state.last_update_time + state.dt
             show_stats(state)
             state.last_update_time = time()
@@ -122,6 +126,7 @@ function show_stats(state::SAState, first = false)
         :accepted_moves,
         :moves_per_second,
         :deviation,
+        :run_time,
 #        :distance_limit,
     )
 
@@ -136,13 +141,11 @@ function show_stats(state::SAState, first = false)
     kwargs = Dict(
         :temperature        => Dict(:precision => 5),
         :objective          => Dict(:precision => 2),
-        :total_moves        => Dict(),
-        :successful_moves   => Dict(),
-        :accepted_moves     => Dict(),
         :moves_per_second   => Dict(:precision => 3,
                                     :autoscale => :metric),
         :deviation          => Dict(:precision => 3,
                                     :autoscale => :metric),
+        :run_time           => Dict(:precision => 2)
     )
 
     #=

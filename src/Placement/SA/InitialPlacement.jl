@@ -139,6 +139,7 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
             (address, component) = component_dict_rev[b]
             node = node_dict_rev[i]
             assign(placement_struct, node, component, address)
+
         end
     end
     return nothing
@@ -181,21 +182,23 @@ function bipartite_match!(g::AbstractGraph)
     end
 
     # loop through all the tasks (LHS of graph)
-    for a in out_neighbors(g,1)
+    source = 1
+    sink   = 2
+    for a in out_neighbors(g,source)
         # mark as being used
         add_edge!(g,a=>1)
         b_count = 1
         for b in out_neighbors(g,a)
             # the path goes from a to b (therefore, ignore the source)
-            b == 1 && continue
+            b == source && continue
             b_count += 1
             # check if the b -> 2 edge is still available for usage
-            if !has_edge(g,2=>b)
+            if !has_edge(g,sink=>b)
                 # mark as being used
                 add_edge!(g,b=>a)
                 # if the flow to the sink (vertex #2) is available,
                 # mark as being used and break
-                add_edge!(g,2=>b)
+                add_edge!(g,sink=>b)
                 break
             else
                 # try again with another b (that is out neighbor of a)
@@ -213,15 +216,15 @@ function bipartite_match!(g::AbstractGraph)
                     # initial condition
                     exit = false
                     two_found = true
-                    while (!(2 in out_neighbors(g,neighbor) &&
+                    while (!(sink in out_neighbors(g,neighbor) &&
                                 !has_edge(g,2=>neighbor) &&
-                                has_edge(g,neighbor=>2)) && !exit)
+                                has_edge(g,neighbor=>sink)) && !exit)
                         neighbor_count = 0
                         length_neighbors = length(out_neighbors(g,neighbor))
                         # check if there is a valid place to move next
-                        if ((out_neighbors(g,neighbor)) == [1,previous_neighbor]
+                        if ((out_neighbors(g,neighbor)) == [source,previous_neighbor]
                             || (out_neighbors(g,neighbor)) ==
-                            [2,previous_neighbor])
+                            [sink,previous_neighbor])
                             two_found = false
                             error("Error: Bipartite Matching Incomplete")
                             break
@@ -230,14 +233,14 @@ function bipartite_match!(g::AbstractGraph)
                             neighbor_count += 1
                             # prevents the path from going backwards or going
                             # to source or to sink with a used edge
-                            if (new_neighbor == 1 ||
-                                new_neighbor == 2 ||
+                            if (new_neighbor == source  ||
+                                new_neighbor == sink    ||
                                 new_neighbor == previous_neighbor)
                                 continue
                             end
                             # if the current vertex is on the "a" side, trying
                             # to go to "b" next
-                            if has_edge(g,1=>neighbor)
+                            if has_edge(g,source=>neighbor)
                                 if (has_edge(g,neighbor=>new_neighbor) &&
                                     !has_edge(g,new_neighbor=>neighbor))
                                     add_edge!(g,new_neighbor=>neighbor)
@@ -254,7 +257,7 @@ function bipartite_match!(g::AbstractGraph)
                                 end
                             # if the current vertex is on the "b" side, trying
                             # to go to "a" next
-                            elseif has_edge(g,neighbor=>2)
+                            elseif has_edge(g,neighbor=>sink)
                                 if (has_edge(g,neighbor=>new_neighbor) &&
                                     has_edge(g,new_neighbor=>neighbor))
                                     rem_edge!(g,neighbor,new_neighbor)
@@ -272,7 +275,7 @@ function bipartite_match!(g::AbstractGraph)
                             end
                         end#forloop
                     end#while
-                    two_found && add_edge!(g,2=>neighbor)
+                    two_found && add_edge!(g,sink=>neighbor)
                 end #ifandelseif
             end #if
         end #secondfor

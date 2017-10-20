@@ -139,6 +139,12 @@ end
 # Constructor for the SA Structure
 ################################################################################
 
+"""
+    SAStruct(m::Map{A,D})
+
+Create a SAStruct from the provided map `m`. Returned structure does not
+have any kind of initial placement.
+"""
 function SAStruct(m::Map{A,D}) where {A,D}
     architecture = m.architecture
     taskgraph    = m.taskgraph
@@ -166,15 +172,12 @@ function SAStruct(m::Map{A,D}) where {A,D}
             taskgraph
         )
     # Build the map table based on the normal node equivalence classes.
-    maptables = build_maptables(architecture,
-                                normal_node_reps,
-                                component_table)
+    # Behold the beautiful diagonal structure
+    maptables = build_maptables(architecture, normal_node_reps, component_table)
 
-    special_maptables = build_maptables(architecture,
-                                        special_node_reps,
-                                        component_table)
+    s_maptables = build_maptables(architecture, special_node_reps, component_table)
 
-    special_addresstables = build_addresstables(architecture,
+    s_addresstables = build_addresstables(architecture,
                                                 special_node_reps,
                                                 component_table)
 
@@ -184,21 +187,78 @@ function SAStruct(m::Map{A,D}) where {A,D}
     max_num_components = maximum(map(x -> length(x), component_table))
     grid = zeros(Int64, max_num_components, size(component_table)...)
 
-    placement_struct = SAStruct{A,eltype(distance),D,2*D,D+1,eltype(sa_nodes), eltype(sa_edges)}(
+    sa = SAStruct{A,eltype(distance),D,2*D,D+1,eltype(sa_nodes), eltype(sa_edges)}(
         sa_nodes,
         sa_edges,
         nodeclass,
         maptables,
-        special_maptables,
-        special_addresstables,
+        s_maptables,
+        s_addresstables,
         distance,
         grid,
         component_table,
     )
     DEBUG && print_with_color(:cyan, "Finished Building Placement Structure\n")
-    initial_placement!(placement_struct)
+    # Run initial placement to return a valid structure.
+    initial_placement!(sa)
+    # Verify that everything worked correctly.
+    verify_placement(m, sa)
 
-    return placement_struct
+    return sa
+end
+
+"""
+    cleargrid(sa::SAStruct)
+
+Set all entries in `sa.grid` to 0.
+"""
+cleargrid(sa::SAStruct) = sa.grid .= 0
+
+"""
+    preplace(m::Map, sa::SAStruct)
+
+Take the placement information 
+"""
+function preplace(m::Map, sa::SAStruct)
+    cleargrid(sa)
+    for (index, nodemap) in enumerate(values(m.mapping.nodes))
+        # Get the address for the node
+        address = nodemap.address
+        # Get the index of the component from the component table
+        component = findfirst(x -> x == nodemap.component, sa.component_table[address])
+        # Assign the nodes
+        assign(sa, index, component, address)
+    end
+    return nothing
+end
+
+################################################################################
+# Write back method
+################################################################################
+"""
+    record(m::Map{A,D}, sa::SAStruct)
+
+Record the mapping from `sa` into the `mapping` field of `m`. Also confims the
+legality of the placement.
+"""
+function record(m::Map{A,D}, sa::SAStruct) where {A,D}
+    verify_placement(m, sa)
+    # Iterate through both the SA Nodes and taskgraph nodes. This is how
+    # we can be sure the order of the iteration is consistent because this
+    # is how the SA nodes were created in the first place.
+    mapping = m.mapping
+    for (sa_node, m_node) in zip(sa.nodes, nodes(m.taskgraph))
+        # Get the mapping for the node
+        address = sa_node.address
+        component_index = sa_node.component
+        # Get the component name in the original architecture
+        component_name = sa.component_table[address][component_index]
+        # Create an entry in the "Mapping" data structure
+        nodemap = mapping.nodes[m_node.name]
+        nodemap.address     = address
+        nodemap.component   = component_name
+    end
+    return nothing
 end
 
 ################################################################################
@@ -440,8 +500,95 @@ end
 function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
     # Assert that the SAStruct belongs to the same architecture
     @assert A == architecture(sa)
+    DEBUG && print_with_color(:cyan, "Verifying Placement\n")
+
+    bad_nodes = check_grid_population(sa)
+    append!(bad_nodes, check_consistency(sa))
+    append!(bad_nodes, check_mapability(m, sa))
+    # Gather all the unique bad nodes and sort the final list.
+    bad_nodes = sort(unique(bad_nodes))
+    # Routine passes check if length of bad_nodes is 0
+    passed = length(bad_nodes) == 0
+    if DEBUG
+        if passed
+            print_with_color(:green, "Placement verified :)\n")
+        else
+            print_with_color(:red, "Placement failed :(\n", bold = true)
+            print_with_color(:red, "\nOffending Node Names:\n")
+            #=
+            Convert the bad indices to the names of the offending nodes
+            by iterating through the names in the taskgraph nodes. If there's
+            a match with one of the offending indices, print both the index
+            and the node name to the console.
+            =#
+            bad_dict = Dict{Int64, String}()
+            for (i, name) in enumerate(keys(m.taskgraph.nodes))
+                if i in bad_nodes
+                    bad_dict[i] = name
+                end
+            end
+            display(bad_dict)
+        end
+    end
+    return passed
+end
+
+function check_grid_population(sa::SAStruct)
+    # Iterate through all entries in the grid. Record the indices encountered
+    # along the way. When an index is discovered, mark it as discovered. 
+    # 
+    # If an index is found twice - this is a problem. Print an error and mark
+    # the test as failed.
+    #
+    # After this routine - make sure that all nodes are accounted for.
+
+    # Use this to return the indices of tasks that are troublesome.
+    bad_nodes = Int64[]
+    found = fill(false, length(sa.nodes))
+    for g in sa.grid
+        g == 0 && continue
+        if found[g]
+            print_with_color(:red, "Found node ", g, " more than once\n")
+            push!(bad_indices, g)
+        else
+            found[g] = true
+        end
+    end
+    # Make sure all nodes have been found
+    for i in 1:length(found)
+        if found[i] == false
+            print_with_color(:red, "Node ", i, " not placed.\n")
+            push!(bad_nodes, i)
+        end
+    end
+    return bad_nodes
+end
+
+function check_consistency(sa::SAStruct)
+    bad_nodes = Int64[]
+    # Verify that addresses for the nodes match the grid
+    for (index,node) in enumerate(sa.nodes)
+        node_assigned = sa.grid[node.component, node.address]
+        if index != node_assigned
+            push!(bad_nodes, index)
+            push!(bad_nodes, node_assigned)
+            passed = false
+            print_with_color(:red, "Data structure inconsistency for node ", 
+                             index, ". Nodes assigned location: ", node.address,
+                             ", ", node.component, ". Node assigned in the grid",
+                             " at this location: ", node_assigned, ".\n")
+
+        end
+    end
+    return bad_nodes
+end
+
+function check_mapability(m::Map, sa::SAStruct)
+    bad_nodes = Int64[]
+    A = architecture(m)
     # Iterate through each node in the SA
-    for (sa_node, m_node) in zip(sa.nodes, nodes(m.taskgraph))
+    for (index, (m_node_name, m_node)) in zip(1:length(sa.nodes), m.taskgraph.nodes)
+        sa_node = sa.nodes[index]
         # Get the mapping for the node
         address = sa_node.address
         component_index = sa_node.component
@@ -450,7 +597,11 @@ function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
         # Get the component from the architecture
         component = get_component(m.architecture.children[address], component_name)
         if !canmap(A, m_node, component)
-            print_with_color(:red, sa_node, ", ", m_node.name, "\n")
+            push!(bad_nodes, index)
+            print_with_color(:red, "Node index ", index, 
+                             " incorrectly assigned to architecture node ",
+                             m_node_name, ".\n")
         end
     end
+    return bad_nodes
 end

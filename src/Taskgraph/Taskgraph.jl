@@ -191,6 +191,7 @@ end
 # METHODS FOR THE TASKGRAPH
 ################################################################################
 getnode(tg::Taskgraph, node::String) = tg.nodes[node]
+nodenames(tg::Taskgraph) = keys(tg.nodes)
 
 """
     add_node(tg::Taskgraph, task::TaskgraphNode)

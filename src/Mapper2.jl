@@ -9,13 +9,16 @@ using Formatting
 export Address, Port, Component, benchmark
 
 # Set up directory paths
-const SRCDIR = dirname(@__FILE__())
+const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG = true
 
-# Common types and operations
+###############################
+# Common types and operations #
+###############################
+
 include("Common/Address.jl")
 include("Common/Helper.jl")
 # Architecture modeling related files.
@@ -25,6 +28,7 @@ include("Architecture/Constructors.jl")
 include("Taskgraph/Taskgraph.jl")
 # Top-level Map datatype
 include("Map/Map.jl")
+include("Map/Save.jl")
 
 #############
 # Placement #
@@ -54,10 +58,10 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    arch = build_asap3(A = KCLink)
-    sdc   = SimDumpConstructor("sort")
-    tg   = apply_transforms(Taskgraph(sdc), sdc)
-    return Map(arch, tg, options)
+    arch  = build_asap3(A = KCLink)
+    sdc   = SimDumpConstructor("553_cores_sum_cache")
+    tg    = apply_transforms(Taskgraph(sdc), sdc)
+    return NewMap(arch, tg)
 end
 
 end #module Mapper2

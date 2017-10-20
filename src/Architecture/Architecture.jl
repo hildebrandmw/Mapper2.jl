@@ -312,6 +312,9 @@ mutable struct TopLevel{T <: AbstractArchitecture,N} <: AbstractComponent
         )
     end
 end
+
+architecture(::TopLevel{T,N}) where {T,N} = T
+dimension(::TopLevel{T,N}) where {T,N} = N
 ################################################################################
 # Convenience methods.
 ################################################################################

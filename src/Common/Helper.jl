@@ -47,3 +47,4 @@ function condense(x)
     end
     return nothing
 end
+
