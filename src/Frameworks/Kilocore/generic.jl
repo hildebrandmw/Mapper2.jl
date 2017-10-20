@@ -1,9 +1,14 @@
-function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{Symbol,Any} ;A = KCBasic)
+function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any}
+                        ;A = KCBasic)
 
     # check for memory_dict key in the bigger dictionary
-    if haskey(dict,:memory_dict)
-        mem_dict = :memory_dict
+    if haskey(dict, "memory_dict")
+        mem_dict = dict["memory_dict"]
+    else
+        # if dict does not contain memory_dict, initialize an empty array
+        mem_dict = Dict{Mapper2.Address{3},Vector{Mapper2.Address{3}}}()
     end
+
     # Check the dimension
     if lev == 1
         dim = 2
@@ -36,10 +41,10 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{Symbol,Any
     # Normal Processor #
     ####################
     # Get a processor tile to instantiate
-	processor = build_processor_tile(dim,directions)
+	processor = build_processor_tile_generic(dim,directions)
     # Instantiate it at the required addresses
-  	for r in 1:row, c in 2:column+1, l in 1:level
-        if Address(r,c,l) in mem_proc_array || Address(r,c,l) in mem_arry
+  	for r in 1:row, c in 2:col+1, l in 1:lev
+        if Address(r,c,l) in mem_proc_array || Address(r,c,l) in mem_array
             continue # avoid the addresses in mem_dict
         end
 		add_child(arch, processor, Address(r,c,l))
@@ -71,12 +76,12 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{Symbol,Any
     # Output Handler #
     ##################
     output_handler = build_output_handler()
-    add_child(arch, output_handler, Address(1,column+2,1))
+    add_child(arch, output_handler, Address(1,col+2,1))
 
     #######################
     # Global Interconnect #
     #######################
-    connect_processors_generic(arch)
+    connect_processors_generic(arch,dim)
     connect_memories_generic(arch)
     return arch
 
@@ -90,17 +95,19 @@ end
 
 Build a simple processor.
 """
-function build_processor_generic(dimension::Int64, directions::Tuple{NTuple{4,String},NTuple{6,String}})
+function build_processor_generic(dimension::Int64,
+directions::Tuple{NTuple{4,String},NTuple{6,String}})
 
     # Build the metadata dictionary for the processor component
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["processor"]
-    component = Component("standard_processor", primitive = "", metadata = metadata)
+    component = Component(  "standard_processor",
+                            primitive = "", metadata = metadata)
     # Add the input fifos
     add_port(component, "fifo", "input", 2)
     # Add the output ports
     for dir in directions[dimension-1]
-        add_port(component, str, "output", 2)
+        add_port(component, dir, "output", 2)
     end
     # Add the dynamic circuit switched network
     add_port(component, "dynamic", "output", 1)
@@ -115,7 +122,8 @@ end
 ##################
 # COMPLEX BLOCKS #
 ##################
-function build_processor_tile_generic(dimension::Int64, directions::Tuple{NTuple{4,String},NTuple{6,String}})
+function build_processor_tile_generic(dimension::Int64,
+directions::Tuple{NTuple{4,String},NTuple{6,String}})
     # Working towards parameterizing this. For now, just leave this at two
     # because the "processor" components aren't parameterized for the number
     # of ports. This should be easy to fix though.
@@ -145,7 +153,8 @@ function build_processor_tile_generic(dimension::Int64, directions::Tuple{NTuple
         add_child(comp, routing_mux, name, num_links)
     end
     # Instantiate the muxes routing data to the fifos
-    add_child(comp, build_mux(length(directions[dimension-1])+1,1), "fifo_mux", 2)
+    add_child(comp, build_mux(  (length(directions[dimension-1])*2)+1,1),
+                                "fifo_mux", 2)
 
     # Interconnect - Don't attach metadata and let the routing routine fill in
     # defaults to intra-tile routing.
@@ -171,14 +180,9 @@ function build_processor_tile_generic(dimension::Int64, directions::Tuple{NTuple
     # Connect input ports to inputs of muxes
     dir_count = 0
     fifo_count = 0
-    dir_tracker = Dict( "north" => 0,
-                        "east" => 0,
-                        "south" => 0,
-                        "west" => 0,
-                        "top" => 0,
-                        "bottom" => 0)
+    dir_tracker = Dict(d => 0 for d in directions[dimension-1])
     for dir in directions[dimension-1]
-        count += 1
+        dir_count += 1
         for i = 0:num_links-1
             fifo_count += 1
             tile_port = join((dir, "_in[",string(i),"]"))
@@ -188,7 +192,8 @@ function build_processor_tile_generic(dimension::Int64, directions::Tuple{NTuple
                     dir_tracker[d] = 1
                     continue
                 end
-                mux_port = join((d, "_mux[",string(i),"].in[",string(dir_count-dir_tracker[d]),"]"))
+                mux_port = join((d, "_mux[",string(i),"].in[",
+                                string(dir_count-dir_tracker[d]),"]"))
                 push!(sink_ports,mux_port)
             end
             push!(sink_ports,join(("fifo_mux[0].in[",string(fifo_count-1),"]")))
@@ -200,7 +205,7 @@ function build_processor_tile_generic(dimension::Int64, directions::Tuple{NTuple
 
 end
 
-function connect_processors_generic(tl)
+function connect_processors_generic(tl,dimension)
     # General rule - we're looking for the attribute "processor" to be somewhere
     # in the component stack. If so, we'll try to connect all of the circuit
     # switched ports.
@@ -211,8 +216,10 @@ function connect_processors_generic(tl)
     dst_rule = src_rule
     # Create offset rules.
     # Offsets are just unit steps in four directions.
-    offsets2d = [Address{3}(-1,0,0), Address{3}(1,0,0), Address{3}(0,1,0), Address{3}(0,-1,0)]
-    offsets3d = [Address{3}(-1,0,0), Address{3}(1,0,0), Address{3}(0,1,0), Address{3}(0,-1,0), Address{3}(0,0,1), Address(0,0,-1)]
+    offsets2d = [Address{3}(-1,0,0), Address{3}(1,0,0), Address{3}(0,1,0),
+                Address{3}(0,-1,0)]
+    offsets3d = [Address{3}(-1,0,0), Address{3}(1,0,0), Address{3}(0,1,0),
+                Address{3}(0,-1,0), Address{3}(0,0,1), Address(0,0,-1)]
     offsets = (offsets2d,offsets3d)
     #=
     Create two tuples for the source ports and destination ports. In general,
@@ -227,7 +234,8 @@ function connect_processors_generic(tl)
     dst_dirs = (dst_dirs2d,dst_dirs3d)
 
     offset_rules = OffsetRule[]
-    for (offset, src, dst) in zip(offsets[dimension-1], src_dirs[dimension-1], dst_dirs[dimension-1])
+    for (offset, src, dst) in zip(offsets[dimension-1], src_dirs[dimension-1],
+    dst_dirs[dimension-1])
         src_ports = String[]
         dst_ports = String[]
         # Iterate through the number of source and destination ports.
