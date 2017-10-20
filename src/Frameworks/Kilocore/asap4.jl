@@ -211,7 +211,7 @@ function build_processor_tile()
     # Instantiate the processor primitive
     add_child(comp, build_processor(), "processor")
     # Instantiate the directional routing muxes
-    routing_mux = build_mux(5,1)
+    routing_mux = build_mux(4,1)
     for dir in directions
         name = join((dir, "_mux"))
         add_child(comp, routing_mux, name, num_links)
