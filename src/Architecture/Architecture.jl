@@ -334,6 +334,12 @@ function get_component(c::Component, path::String)
     return c
 end
 
+"""
+    walk_children(c::Component)
+
+Return all decendents of the current component. Each decendent is in the form
+`(component, name)` where `name` is the full instance name of the sub-component.
+"""
 function walk_children(c::Component)
     # Create the components array using the parent. Entries will be tuples:
     # (component, full-path-name
@@ -376,7 +382,14 @@ function connected_components(tl::TopLevel, address::Address; class = "")
     # Delete the current address if it is present.
     delete!(addresses, string(address))
     # Return everything as addresses
-    return eval.(parse.(collect(addresses)))
+    y = eval.(parse.(collect(addresses)))
+    if length(y) == 0
+        returnval = typeof(address)[]
+    else
+        returnval = y
+    end
+
+    return returnval
 end
 
 ################################################################################
