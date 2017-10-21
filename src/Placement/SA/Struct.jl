@@ -285,7 +285,7 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
         component_table[address] = string_vector
     end
     # Condense the component table to reduce its memory footprint
-    condense(component_table)
+    intern(component_table)
     return component_table
 end
 
@@ -403,7 +403,7 @@ function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) wh
          # Add the map table to the vector of tables.
          maptable[index] = this_table
     end
-    condense(maptable)
+    intern(maptable)
     return maptable
 end
 
@@ -488,9 +488,8 @@ function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
     # Create a big list of lists
     neighbor_table = Array{Vector{Address{D}}}(dims)
     for address in addresses(architecture)
-        neighbor_table[address] = connected_components(architecture,
-                                                       address,
-                                                       class = "output")
+        a = connected_components(architecture, address, class = "output")
+        neighbor_table[address] = a
     end
     return neighbor_table
 end

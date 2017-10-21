@@ -24,11 +24,26 @@ Function to efficientrly generate a random address given a tuple of lower bounds
 and a tuple of upper bounds.
 =#
 function rand_address_impl(lb::Type{T}, ub::Type{T}) where T <: NTuple{N,Any} where N
+    #=
+    Push to the .args field - this will actually create a tuple.
+    Originally - I was tryint to iteratively build an expression using the
+    technique of:
+
+    ex = :($ex, ...)
+
+    But - this just ended up with this gnarly nested tuple thing like
+
+    ((((...) ...) ...) ...)
+
+    which is definitely not what I wanted. This way does what I want.
+    =#
+    
     # Create the first entry
-    ex = :($__ADDR_REP(rand(lb[1]:ub[1])))
+    ex = :((rand(lb[1]:ub[1]),))
     for i = 2:N
-        ex = :($ex,$__ADDR_REP(rand(lb[$i]:ub[$i])))
+        push!(ex.args, :(rand(lb[$i]:ub[$i])))
     end
+
     # Construct the address type
     return :(Address{$N}($ex))
 end
@@ -56,8 +71,6 @@ Base.isequal(a::Address{N}, b::Address{N}) where {N} = a.addr == b.addr
 Base.isless(a::Address{N}, b::Address{N}) where {N} = a.addr < b.addr
 
 # Hash functions - removed because not needed.
-#Base.hash(a::Address) = hash(a.addr)
-#Base.hash(a::Address, h::UInt64) = hash(a.addr, h)
 Base.maximum(a::Address) = maximum(a.addr)
 
 # Simple Iterator Interface.

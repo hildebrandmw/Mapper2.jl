@@ -13,7 +13,8 @@ const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
-const DEBUG = true
+const DEBUG     = true
+const USEPLOTS  = true
 
 ###############################
 # Common types and operations #
@@ -39,7 +40,14 @@ include("Placement/SA/SA.jl")
 # Routing #
 ###########
 # TODO
-
+############
+# Plotting #
+############
+# Optionally include plotting. Mapper will start up faster if plotting is turned
+# off because Plots takes a while to load.
+if USEPLOTS
+    include("Plots/Plots.jl")
+end
 ################################################################################
 # Frameworks
 ################################################################################
@@ -55,12 +63,12 @@ include("benchmark.jl")
 function testmap()
     options = Dict{Symbol, Any}()
     #arch = build_asap4()
-    #arch = build_asap4(A = KCLink)
+    arch = build_asap4(A = KCLink)
     #arch = build_asap3()
     #arch  = build_asap3(A = KCLink)
     dict = initialize_mem_dict()
-    arch = build_generic(33,33,2,dict)
-    sdc   = SimDumpConstructor("553_cores_sum_cache")
+    #arch = build_generic(33,33,2,dict, A = KCLink)
+    sdc   = SimDumpConstructor("alexnet")
     tg    = apply_transforms(Taskgraph(sdc), sdc)
     return NewMap(arch, tg)
 end

@@ -30,13 +30,13 @@ are equivalent is not defined.
 rev_dict(d) = Dict(v => k for (k,v) in d)
 
 """
-    condense(x)
+    intern(x)
 
 Given a mutible collection `x`, make all equivalent values in `x` point to a
 single instance in memory. If `x` is made up of many of the same arrays, this
 can greatly decrease the amount of memory required to store `x`.
 """
-function condense(x)
+function intern(x)
     d = Dict{eltype(x), eltype(x)}()
     for i in eachindex(x)
         if haskey(d, x[i])
