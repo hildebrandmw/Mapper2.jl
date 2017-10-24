@@ -322,16 +322,67 @@ dimension(::TopLevel{T,N}) where {T,N} = N
 addresses(t::TopLevel) = keys(t.children)
 ports(c::Component) = values(c.ports)
 
-function get_component(c::Component, path::String)
-    # Check if the path is empty, if so - just return the component.
-    isempty(path) && return c
-    # Split up the path and crawl down the hierarchy.
-    split_path = split(path, ".")
-    for name in split_path
+
+#-------------------------------------------------------------------------------
+# Various overloadings of the method "get_component"
+#-------------------------------------------------------------------------------
+function get_component(c::Component, paths::Array{T}) where T <: AbstractString
+    # If the length of the paths array is zero - simply return the present
+    # component.
+    length(paths) == 0 && return c
+    length(paths) == 1 && isempty(paths[1]) && return c
+    # Otherwise - iteratively walk through each child until the final one
+    # is reached.
+    for name in paths
         c = c.children[name]
     end
-    # Return the final result.
     return c
+end
+
+"""
+    get_component(c::Component, path::String)
+
+Return the descendent of component `c` specified by the string `path`. Multiple
+generations are identified by separating names using a `.`.
+
+If the empty string is given, returns `c`.
+"""
+get_component(c::Component, path::AbstractString) = get_component(c, split(path, "."))
+
+function get_component(tl::TopLevel, 
+                       address::Address, 
+                       paths::Array{T}) where T <: AbstractString
+    c = tl.children[address]
+    return get_component(c, paths)
+end
+
+get_component(tl::TopLevel, 
+              address::Address, 
+              path::AbstractString) = get_component(to, address, split(path, "."))
+
+get_component(tl::TopLevel, 
+              path::AbstractString) = get_component(tl, split_address(path)...)
+
+#-------------------------------------------------------------------------------
+# Various overloadings of the method "get_port"
+#-------------------------------------------------------------------------------
+
+"""
+    split_address(str::AbstractString)
+
+Split a string representing a component path for a `TopLevel` architecture
+data structure. Will parse out the address field and return a tuple of the
+type:
+
+(Address, array of string paths)
+"""
+function split_address(str::AbstractString)
+    split_string = split(str, ".")
+    # Parse the first entry as an address 
+    address = eval(parse(split_string[1]))
+    # Remaining path is the rest of the items.
+    path = split_string[2:end]
+    return address, path
 end
 
 """

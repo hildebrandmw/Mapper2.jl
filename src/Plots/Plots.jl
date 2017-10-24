@@ -81,5 +81,5 @@ function plot(sa::SAStruct)
    ## export as png ##
    gui()
    #savefig("plot.png")
-   return p
+   return nothing 
 end

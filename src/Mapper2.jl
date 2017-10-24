@@ -14,7 +14,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = true
+const USEPLOTS  = false
 
 ###############################
 # Common types and operations #

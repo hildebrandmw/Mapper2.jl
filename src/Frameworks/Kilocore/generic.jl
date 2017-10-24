@@ -256,7 +256,7 @@ function connect_processors_generic(tl,dimension)
     dst_dirs = ("west","east")
     # Links can go both directions, so make the offsets an array
     offsets = [Address{3}(0,1,0), Address{3}(0,-1,0)]
-    for (offset, src, dst) in zip(offsets[dimension-1], src_dirs, dst_dirs)
+    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
         src_ports = String[]
         dst_ports = String[]
         for i in 0:1
