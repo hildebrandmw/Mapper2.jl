@@ -485,11 +485,12 @@ end
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
     dims = Int64.(address_extrema(addresses(architecture)).addr)
     DEBUG && print_with_color(:cyan, "Building Neighbor Table\n")
+    # Get the connected component dictionary
+    cc = connected_components(architecture)
     # Create a big list of lists
     neighbor_table = Array{Vector{Address{D}}}(dims)
-    @showprogress 1 for address in addresses(architecture)
-        a = connected_components(architecture, address, class = "output")
-        neighbor_table[address] = a
+    for (address, set) in cc
+        neighbor_table[address] = collect(set)
     end
     return neighbor_table
 end

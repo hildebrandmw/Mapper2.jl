@@ -9,14 +9,11 @@ of the given object type. Furthermore, a dictionary should be supplied to
 mapping ports names to vertices in the LightGraph to inform the graph creator
 how to interface to the returned graph.
 =#
-# Alias Simple DiGraph to avoid having a bunch of parameters
-const SDG = typeof(DiGraph(1))
-
 struct RoutingGraph{P <: AbstractComponentPath, T <: Integer}
-    graph   ::SDG
+    graph   ::LightGraphs.SimpleGraphs.SimpleDiGraph{T}
     portmap ::Dict{PortPath{P}, T}
-    linkmap ::Dict{LinkPath{P}, Int64}
-    function RoutingGraph(graph, 
+    linkmap ::Dict{LinkPath{P}, T}
+    function RoutingGraph(graph,
                           portmap::Dict{PortPath{P}, T},
                           linkmap::Dict{LinkPath{P}, T}) where P where T
         #= Make sure that all of the values in the port map are valid.  =#
@@ -45,7 +42,7 @@ function build_routing_mux(c::Component)
     g = DiGraph(1)
     # Connect all input and outputs to the one node.
     portmap = Dict(PortPath(p) => 1 for p in keys(c.ports))
-    linkmap = Dict{LinkPath{ComponentPath},Int64}()
+    linkmap = Dict{LinkPath{ComponentPath},eltype(g)}()
     return RoutingGraph(g, portmap, linkmap)
 end
 
@@ -63,7 +60,7 @@ function build_routing_blackbox(c::Component)
     g = DiGraph(length(ports))
     # Sequentially assign port mappings.
     portmap = Dict(PortPath(p) => i for (i,p) in enumerate(ports))
-    linkmap = Dict{LinkPath{ComponentPath},Int64}()
+    linkmap = Dict{LinkPath{ComponentPath},eltype(g)}()
     return RoutingGraph(g, portmap, linkmap)
 end
 
@@ -79,10 +76,11 @@ function routing_skeleton(c::Component)
 end
 
 function routing_skeleton(tl::TopLevel)
+    path_type = AddressPath{dimension(tl)}
     # Return an empty graph
     graph = DiGraph(0)
-    portmap = Dict{PortPath{AddressPath{dimension(tl)}},Int64}()
-    linkmap = Dict{LinkPath{AddressPath{dimension(tl)}},Int64}()
+    portmap = Dict{PortPath{path_type},eltype(graph)}()
+    linkmap = Dict{LinkPath{path_type},eltype(graph)}()
     return RoutingGraph(graph, portmap, linkmap)
 end
 

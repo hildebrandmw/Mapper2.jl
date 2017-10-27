@@ -124,6 +124,7 @@ function connect_ports!(c   ::AbstractComponent,
     connect_ports!(c, PortPath(src), [PortPath(dest)], metadata)
 end
 
+# TODO - clean up this function --- make it more compact.
 function connect_ports!(c   ::AbstractComponent,
                         src ::PortPath{P},
                         dest::Array{PortPath{P},1},
@@ -131,10 +132,33 @@ function connect_ports!(c   ::AbstractComponent,
                         linkname = "") where P
     
     # Make sure no ports at this level of hierarchy are used.
-    port_iter = chain((src,), dest)
-    for port in port_iter
-        if istop(port) && !isfree(c, port)
-            error("Port ", c[port].name, " already has a connection.")
+    # Check the direction of the source
+    # TODO: Hoist these into functions.
+    if istop(src)
+        if !in(c[src].class,PORT_SOURCES)
+            error(src, " is not a valid source.")
+        end
+    else
+        if !in(c[src].class,PORT_SINKS)
+            error(src, " is not a valid source.")
+        end
+    end
+    for port_path in dest
+        if istop(port_path)
+            if !in(c[port_path].class,PORT_SINKS)
+                error(port_path, " is not a valid sink.")
+            end
+        else
+            if !in(c[port_path].class,PORT_SOURCES)
+                error(port_path, " is not a valid sink.")
+            end
+        end
+    end
+
+    port_iterator = chain((src,), dest)
+    for port_path in port_iterator
+        if !isfree(c, port_path)
+            error(port_path, " already has a connection.")
         end
     end
 
@@ -156,10 +180,12 @@ function connect_ports!(c   ::AbstractComponent,
     linkpath = LinkPath(linkname)
     
     # Assign the link to all top level ports.
-    for port in port_iter
+    for port in port_iterator
         if istop(port) 
             c[port].link = linkpath
         end
+        # Register the link in the port_link dictionary
+        c.port_link[port] = linkname
     end
     return nothing
 end
@@ -278,10 +304,11 @@ function connection_rule(tl::TopLevel,
                     # free - connect them.
                     src_port_path = PortPath(src_port, src_address)
                     dst_port_path = PortPath(dst_port, dst_address)
-                    # Check if this these addresses exist yet in the top
-                    # level ports container. If not, initialize them.
-                    connect_ports!(tl, src_port_path, [dst_port_path])
-                    count += 1
+                    if isfree(tl, src_port_path) && isfree(tl, dst_port_path)
+                        # level ports container. If not, initialize them.
+                        connect_ports!(tl, src_port_path, [dst_port_path])
+                        count += 1
+                    end
                 end
             end
         end

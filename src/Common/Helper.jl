@@ -17,7 +17,7 @@ Push value `v` to the vector found in dictionary `d` at `d[k]`. If `d[k]`
 does not exist, create a new vector by `d[k] = [v]`.
 """
 function push_to_dict(d, k, v)
-    haskey(d, k) ? push!(d[k], v) : d[k] = [v]
+    haskey(d, k) ? push!(d[k], v) : d[k] = valtype(d)([v])
     return nothing
 end
 

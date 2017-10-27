@@ -183,18 +183,12 @@ function bipartite_match!(g::AbstractGraph)
     sort_dict = SortedDict{Int64,Array{Int64,1}}()
     for a in out_neighbors(g,source)
         count = length(out_neighbors(g,a))
-        if haskey(sort_dict,count)
-            push!(sort_dict[count],a)
-        elseif !haskey(sort_dict,count)
-            sort_dict[count] = [a]
-        end
+        push_to_dict(sort_dict, count, a)
     end
     # unwrap vertex value array for each key in sort_dict
     a_set = Int64[] # all vertices are stored in a_set
-    for key in keys(sort_dict)
-        for i in sort_dict[key]
-            push!(a_set,i)
-        end
+    for v in values(sort_dict)
+        append!(a_set, v)
     end
     # source -> a -> b -> sink links are made
     # if link requires a backward trace, it's skipped for now (taken care of later)
@@ -279,5 +273,134 @@ function bipartite_match!(g::AbstractGraph)
         end # end of 2nd for loop
     end # end of 1st for loop
     return g
+end
 
+function old_bipartite_match!(g::AbstractGraph)
+
+    ####################
+    # Graph Definition #
+    ####################
+    # the graph g contains LHS vertices (referred to as "a"),
+    #   RHS vertices (referred to as "b"), source vertex, and sink vertex
+    # vertex #1 (source) is connected to all members of a (source -> v ∈ a)
+    # vertex #2 (sink) is connected to all members of b (v ∈ b -> sink)
+
+    ###################
+    # Algorithm rules #
+    ###################
+    # the algorithm can go from left vertex to right vertex if they are
+    #   connected only with "->" edge
+    # once that path is being used, another edge "<-" is added
+    # the algorithm can go from right vertex to left vertex if they are
+    #   connected with both "->" and "<-" edges
+    # once that path is being used, the edge "<-" is removed
+    # the algorithm ends after exhausting all the "a" vertices
+    # "a" set and "b" set will have a one-to-one relation when matching is complete
+    # the matched pair will be connected with both "->" and "<-" edges
+
+    numberofLHS = length(out_neighbors(g,1))
+    numberofRHS = length(in_neighbors(g,2))
+    if numberofLHS > numberofRHS
+        error("The number of vertices on LHS is greater",
+              " than the number of vertices on RHS.")
+    end
+
+    # loop through all the tasks (LHS of graph)
+    for a in out_neighbors(g,1)
+        # mark as being used
+        add_edge!(g,a=>1)
+        b_count = 1
+        for b in out_neighbors(g,a)
+            # the path goes from a to b (therefore, ignore the source)
+            b == 1 && continue
+            b_count += 1
+            # check if the b -> 2 edge is still available for usage
+            if !has_edge(g,2=>b)
+                # mark as being used
+                add_edge!(g,b=>a)
+                # if the flow to the sink (vertex #2) is available,
+                # mark as being used and break
+                add_edge!(g,2=>b)
+                break
+            else
+                # try again with another b (that is out neighbor of a)
+                if b_count < length(out_neighbors(g,a))
+                    continue
+                # if vertex is the last neighbor of a, the algorithm rules
+                # (mentioned above) need to be applied here to complete the
+                # algorithm
+                elseif b_count == length(out_neighbors(g,a))
+                    # mark as being used
+                    add_edge!(g,b=>a)
+                    # set initial conditions for while loop
+                    neighbor = b
+                    previous_neighbor = a
+                    # initial condition
+                    exit = false
+                    two_found = true
+                    while (!(2 in out_neighbors(g,neighbor) &&
+                                !has_edge(g,2=>neighbor) &&
+                                has_edge(g,neighbor=>2)) && !exit)
+                        neighbor_count = 0
+                        length_neighbors = length(out_neighbors(g,neighbor))
+                        # check if there is a valid place to move next
+                        if ((out_neighbors(g,neighbor)) == [1,previous_neighbor]
+                            || (out_neighbors(g,neighbor)) ==
+                            [2,previous_neighbor])
+                            two_found = false
+                            error("Error: Bipartite Matching Incomplete")
+                            break
+                        end
+                        for new_neighbor in out_neighbors(g,neighbor)
+                            neighbor_count += 1
+                            # prevents the path from going backwards or going
+                            # to source or to sink with a used edge
+                            if (new_neighbor == 1 ||
+                                new_neighbor == 2 ||
+                                new_neighbor == previous_neighbor)
+                                continue
+                            end
+                            # if the current vertex is on the "a" side, trying
+                            # to go to "b" next
+                            if has_edge(g,1=>neighbor)
+                                if (has_edge(g,neighbor=>new_neighbor) &&
+                                    !has_edge(g,new_neighbor=>neighbor))
+                                    add_edge!(g,new_neighbor=>neighbor)
+                                    previous_neighbor = neighbor
+                                    neighbor = new_neighbor
+                                else
+                                    if neighbor_count < length_neighbors
+                                        # find a usable edge
+                                        continue
+                                    elseif neighbor_count == length_neigbors
+                                        # if no more usable edges left, then exit loop
+                                        exit = true
+                                    end
+                                end
+                            # if the current vertex is on the "b" side, trying
+                            # to go to "a" next
+                            elseif has_edge(g,neighbor=>2)
+                                if (has_edge(g,neighbor=>new_neighbor) &&
+                                    has_edge(g,new_neighbor=>neighbor))
+                                    rem_edge!(g,neighbor,new_neighbor)
+                                    previous_neighbor = neighbor
+                                    neighbor = new_neighbor
+                                else
+                                    if neighbor_count < length_neighbors
+                                        # find a usuable edge
+                                        continue
+                                    elseif neighbor_count == length_neighbors
+                                        # if no more usable edges left, then exit loop
+                                        exit = true
+                                    end
+                                end
+                            end
+                        end#forloop
+                    end#while
+                    two_found && add_edge!(g,2=>neighbor)
+                end #ifandelseif
+            end #if
+        end #secondfor
+    end #firstfor
+    return g
 end

@@ -105,7 +105,6 @@ struct PortPath{P <: AbstractComponentPath} <: AbstractPath
     name    ::String
     path    ::P
 end
-
 #-- Constructors
 function PortPath(port::AbstractString)
     # Split the path into components based on the "." notation.
@@ -132,6 +131,12 @@ LinkPath(link::String) = LinkPath(link, ComponentPath())
 LinkPath(link::String, address) = LinkPath(link, AddressPath(address, ComponentPath()))
 
 #-------------------------------------------------------------------------------
+# ALIASES
+#-------------------------------------------------------------------------------
+const PPC = PortPath{ComponentPath}
+const LPC = LinkPath{ComponentPath}
+
+#-------------------------------------------------------------------------------
 # PATH METHODS
 #-------------------------------------------------------------------------------
 """
@@ -140,13 +145,14 @@ LinkPath(link::String, address) = LinkPath(link, AddressPath(address, ComponentP
 Return `false` if the given port path belongs to a subcomponent of a certain
 component.
 """
-istop(p::PortPath) = length(p.path) == 0
+istop(p::PPC) = length(p.path) == 0
+istop(p::PortPath{AddressPath{D}}) where D = false
 
 ##########
 # LENGTH #
 ##########
 Base.length(c::ComponentPath) = length(c.path)
-Base.length(ap::AddressPath)  = length(ap.path)
+Base.length(ap::AddressPath)  = 1 + length(ap.path)
 
 ############
 # EQUALITY #
@@ -222,6 +228,18 @@ function Base.hash(c::AbstractPath, u::UInt64)
     return hash(c.path, u)
 end
 
+########
+# SHOW #
+########
+Base.string(c::ComponentPath) = join(c.path, ".")
+Base.string(a::AddressPath)   = join((a.address, string(a.path)), ".")
+Base.string(p::AbstractPath)  = join((string(p.path), p.name), ".")
+typestring(p::AbstractComponentPath)    = "Component"
+typestring(p::PortPath)                 = "Port"
+typestring(p::LinkPath)                 = "Link"
+
+Base.show(io::IO, p::AbstractPath)  = print(io, join((typestring(p),string(p)), " "))
+
 
 ################################################################################
 #                                  PORT TYPES                                  #
@@ -242,7 +260,7 @@ mutable struct Port
     """
     Link connected to the port in the component in which it is declared.
     """
-    link        ::LinkPath{ComponentPath}
+    link        ::LPC
     """
     Metadata list - associated with characteristics of the link. Can include
     attributes like "capacity", "network" etc.
@@ -348,7 +366,9 @@ struct Component <: AbstractComponent
     children::Dict{String, Component}
     ports   ::Dict{String, Port}
     links   ::Dict{String, Link{ComponentPath}}
-    metadata::Dict{String, Any}
+    "Mapping between ports at this level and links."
+    port_link   ::Dict{PPC,String}
+    metadata    ::Dict{String, Any}
 
     #-- Constructor
     """
@@ -363,9 +383,10 @@ struct Component <: AbstractComponent
             metadata = Dict{String, Any}(),
         )
         # Add all component level ports to the ports of this component.
-        ports = Dict{String, Port}()
-        links = Dict{String, Link}()
-        children = Dict{String, Component}()
+        ports       = Dict{String, Port}()
+        links       = Dict{String, Link{ComponentPath}}()
+        port_link   = Dict{PPC, String}()
+        children    = Dict{String, Component}()
         # Return the newly constructed type.
         return new(
             name,
@@ -373,6 +394,7 @@ struct Component <: AbstractComponent
             children,
             ports,
             links,
+            port_link,
             metadata,
         )
     end
@@ -411,6 +433,7 @@ mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
     Links defined at the top level.
     """
     links   ::Dict{String, Link{AddressPath{D}}}
+    port_link::Dict{PortPath{AddressPath{D}}, String}
     metadata::Dict{String, Any}
 
     # Constructor
@@ -423,6 +446,7 @@ mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
         # Add all component level ports to the ports of this component.
         primitive   = "toplevel"
         links       = Dict{String, Link}()
+        port_link   = Dict{PortPath{AddressPath{D}}, String}()
         children    = Dict{Address{D}, Component}()
         # Return the newly constructed type.
         return new{T,D}(
@@ -430,6 +454,7 @@ mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
             primitive,
             children,
             links,
+            port_link,
             metadata,
         )
     end
@@ -445,6 +470,9 @@ dimension(::TopLevel{T,D}) where {T,D}    = D
 ################################################################################
 "Return an iterator of addresses for the top-level architecture."
 addresses(t::TopLevel) = keys(t.children)
+
+pathtype(::Component) = ComponentPath
+pathtype(t::TopLevel{A,D}) where {A,D} = AddressPath{D}
 
 
 #-------------------------------------------------------------------------------
@@ -525,27 +553,25 @@ end
 #=
 TODO: Make this faster.
 =#
-function connected_components(tl::TopLevel, address::Address; class = "")
-    connecting_links = Link[]
-    # Get all links that have this address.
+function connected_components(tl::TopLevel{A,D}) where A where D
+    # Construct the associative for the connected components.
+    cc = Dict{Address{D}, Set{Address{D}}}()
+    # Iterate through all links - record adjacency information
     for link in links(tl)
-        # Go through the source and destinations
-        for path in chain(link.sources, link.sinks)
-            if path.path.address == address
-                push!(connecting_links, link)
-                break
-            end
+        for source_port_path in link.sources, sink_port_path in link.sinks
+            # Extract the address from the source port path.
+            src_address = source_port_path.path.address
+            snk_address = sink_port_path.path.address
+            push_to_dict(cc, src_address, snk_address)
         end
     end
-    # Collect all addresses seen in the collection of links
-    addresses = Set{typeof(address)}()
-    for link in connecting_links
-        for path in chain(link.sources, link.sinks)
-            push!(addresses, path.path.address)
+    # Clean up any unseen addresses
+    for address in addresses(tl)
+        if !haskey(cc, address)
+            cc[address] = Set{Address{D}}()
         end
     end
-    delete!(addresses, address)
-    return collect(addresses)
+    return cc
 end
 
 ################################################################################
@@ -607,11 +633,24 @@ end
 
 Return `true` if port `p` has no neighbors assigned to it yet.
 """
-isfree(c::Component, p::PortPath) = isempty(c[p].link.name)
+function isfree(c::AbstractComponent, p::PortPath) 
+    # If this is a top level port - just check the link assigned to the port.
+    # If the link name is empty - the port is not yet assigned.
+    if istop(p)
+        return isempty(c[p].link.name)
+    #=
+    Otherwise - check the port_link dictionary for the component and see if
+    anything is assigned to this link yet.
+    =#
+    else
+        return !haskey(c.port_link, p)
+    end
+end
+
 #=
 Not the best for now. Main idea is that ports at the top level are always
 going to be free. Because the top level cannot declare any new top ports.
 
 TODO: Build a checker for multiple links being assigned to a port.
 =#
-isfree(c::TopLevel,  p::PortPath) = true
+#isfree(c::TopLevel,  p::PortPath) = true
