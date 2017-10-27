@@ -128,9 +128,6 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
         # Iterate through all the "in_neighbors" of this node.
         # Looking for an incoming edge that is not from the source.
         # This edge leads to the component this task will be mapped to.
-        if length(in_neighbors(graph, i)) != 2
-            error()
-        end
         for neighbor in in_neighbors(graph, i)
             neighbor == 1 && continue
             b = neighbor
@@ -158,7 +155,6 @@ bipartite_match!(g::AbstractGraph)
 Implementation of Ford-Fulkerson algorithm for maximum bipartite matching
 """
 function bipartite_match!(g::AbstractGraph)
-
     ####################
     # Graph Definition #
     ####################
@@ -180,117 +176,108 @@ function bipartite_match!(g::AbstractGraph)
     # "a" set and "b" set will have a one-to-one relation when matching is complete
     # the matched pair will be connected with both "->" and "<-" edges
 
-    numberofLHS = length(out_neighbors(g,1))
-    numberofRHS = length(in_neighbors(g,2))
-    if numberofLHS > numberofRHS
-        error("The number of vertices on LHS is greater",
-              " than the number of vertices on RHS.")
-    end
-
-    # loop through all the tasks (LHS of graph)
+    # source and sink are defined as 1 and 2 respectively in LightGraph g
     source = 1
-    sink   = 2
+    sink = 2
+    # group the vertices according to their number of preferences
+    sort_dict = SortedDict{Int64,Array{Int64,1}}()
     for a in out_neighbors(g,source)
-        # mark as being used
-        add_edge!(g,a=>1)
-        b_count = 1
+        count = length(out_neighbors(g,a))
+        if haskey(sort_dict,count)
+            push!(sort_dict[count],a)
+        elseif !haskey(sort_dict,count)
+            sort_dict[count] = [a]
+        end
+    end
+    # unwrap vertex value array for each key in sort_dict
+    a_set = Int64[] # all vertices are stored in a_set
+    for key in keys(sort_dict)
+        for i in sort_dict[key]
+            push!(a_set,i)
+        end
+    end
+    # source -> a -> b -> sink links are made
+    # if link requires a backward trace, it's skipped for now (taken care of later)
+    for a in a_set
         for b in out_neighbors(g,a)
-            # the path goes from a to b (therefore, ignore the source)
-            b == source && continue
-            b_count += 1
-            # check if the b -> 2 edge is still available for usage
-            if !has_edge(g,sink=>b)
-                # mark as being used
+            if has_edge(g,b=>sink) && !has_edge(g,sink=>b)
+                add_edge!(g,a=>source)
                 add_edge!(g,b=>a)
-                # if the flow to the sink (vertex #2) is available,
-                # mark as being used and break
                 add_edge!(g,sink=>b)
                 break
-            else
-                # try again with another b (that is out neighbor of a)
-                if b_count < length(out_neighbors(g,a))
-                    continue
-                # if vertex is the last neighbor of a, the algorithm rules
-                # (mentioned above) need to be applied here to complete the
-                # algorithm
-                elseif b_count == length(out_neighbors(g,a))
-                    # mark as being used
-                    add_edge!(g,b=>a)
-                    # set initial conditions for while loop
-                    neighbor = b
-                    previous_neighbor = a
-                    # initial condition
-                    exit = false
-                    two_found = true
-                    while (!(sink in out_neighbors(g,neighbor) &&
-                                !has_edge(g,2=>neighbor) &&
-                                has_edge(g,neighbor=>sink)) && !exit)
-                        neighbor_count = 0
-                        length_neighbors = length(out_neighbors(g,neighbor))
-                        # check if there is a valid place to move next
-                        if ((out_neighbors(g,neighbor)) == [source,previous_neighbor]
-                            || (out_neighbors(g,neighbor)) ==
-                            [sink,previous_neighbor])
-                            two_found = false
-                            error("Error: Bipartite Matching Incomplete")
-                            break
-                        end
-                        for new_neighbor in out_neighbors(g,neighbor)
-                            neighbor_count += 1
-                            # prevents the path from going backwards or going
-                            # to source or to sink with a used edge
-                            if (new_neighbor == source  ||
-                                new_neighbor == sink    ||
-                                new_neighbor == previous_neighbor)
-                                continue
-                            end
-                            # if the current vertex is on the "a" side, trying
-                            # to go to "b" next
-                            if has_edge(g,source=>neighbor)
-                                if (has_edge(g,neighbor=>new_neighbor) &&
-                                    !has_edge(g,new_neighbor=>neighbor))
-                                    add_edge!(g,new_neighbor=>neighbor)
-                                    previous_neighbor = neighbor
-                                    neighbor = new_neighbor
-                                else
-                                    if neighbor_count < length_neighbors
-                                        # find a usable edge
-                                        continue
-                                    elseif neighbor_count == length_neigbors
-                                        # if no more usable edges left, then exit loop
-                                        exit = true
-                                    end
-                                end
-                            # if the current vertex is on the "b" side, trying
-                            # to go to "a" next
-                            elseif has_edge(g,neighbor=>sink)
-                                if (has_edge(g,neighbor=>new_neighbor) &&
-                                    has_edge(g,new_neighbor=>neighbor))
-                                    rem_edge!(g,neighbor,new_neighbor)
-                                    previous_neighbor = neighbor
-                                    neighbor = new_neighbor
-                                else
-                                    if neighbor_count < length_neighbors
-                                        # find a usuable edge
-                                        continue
-                                    elseif neighbor_count == length_neighbors
-                                        # if no more usable edges left, then exit loop
-                                        exit = true
-                                    end
-                                end
-                            end
-                        end#forloop
-                    end#while
-                    two_found && add_edge!(g,sink=>neighbor)
-                end #ifandelseif
-            end #if
-        end #secondfor
-    end #firstfor
-    #= Debug for FFT not placing correctly
-    println("in neighbors of 22: ",in_neighbors(g, 22))
-    println("in neighbors of 838: ",in_neighbors(g, 838))
-    println("out neighbors of 1028: ", out_neighbors(g, 1028))
-    =#
+            elseif has_edge(g,b=>sink) && has_edge(g,sink=>b)
+                continue
+            end
+        end
+    end
+    # links that require backward tracing are created below
+    for a in out_neighbors(g,source)
+        has_edge(g,a=>source) && continue
+        two_found = false # initialize
+        for b in out_neighbors(g,a)
+            two_found && break
+            predecessor = Int64[] # create an array to keep track the path
+            neighbor = b
+            previous_neighbor = a
+            exit = false # initialize
+            while !two_found && !exit
+                for new_neighbor in out_neighbors(g,neighbor)
+                    # check if neighbor can be connected to sink
+                    if (new_neighbor == sink && !has_edge(g,sink=>neighbor))
+                        two_found = true
+                        push!(predecessor,previous_neighbor)
+                        push!(predecessor,neighbor)
+                        push!(predecessor,new_neighbor)
+                        break
+                    end
+                    # check if the vertex has no remaining moves
+                    if ((out_neighbors(g,neighbor)) == [source,previous_neighbor]
+                        ||(in_neighbors(g,neighbor)) == [sink,previous_neighbor])
+                        exit = true
+                        break
+                    end
+                    # source, sink, and previous_neighbor are not valid vertices
+                    # to move to
+                    if (new_neighbor == source  ||
+                        new_neighbor == sink    ||
+                        new_neighbor == previous_neighbor)
+                        continue
+                    end
+                    if (has_edge(g,neighbor=>sink) &&
+                        has_edge(g,neighbor=>new_neighbor) &&
+                        has_edge(g,new_neighbor=>neighbor))
+                        push!(predecessor,previous_neighbor)
+                        previous_neighbor = neighbor
+                        neighbor = new_neighbor
+                    elseif (has_edge(g,source=>neighbor) &&
+                            has_edge(g,neighbor=>new_neighbor) &&
+                            !has_edge(g,new_neighbor=>neighbor))
+                        push!(predecessor,previous_neighbor)
+                        previous_neighbor = neighbor
+                        neighbor = new_neighbor
+                    else
+                        exit = true
+                        break
+                    end # end of if statement
+                end # end of 3rd for loop
+            end # end of while loop
+            # if sink is found, trace back the predecessors and create appropriate
+            # edges as mentioned in the "Algorithm Rules" above
+            if two_found
+                add_edge!(g,predecessor[1]=>source)
+                add_edge!(g,predecessor[2]=>predecessor[1])
+                add_edge!(g,sink=>predecessor[end])
+                for i = 2:length(predecessor)-1
+                    if i in out_neighbors(g,source)
+                        add_edge!(g,predecessor[i]=>predecessor[i+1])
+                    elseif i in in_neighbors(g,sink)
+                        rem_edge!(g,predecessor[i]=>predecessor[i+1])
+                    end # end if
+                end # end for loop
+                break
+            end # if two_found
+        end # end of 2nd for loop
+    end # end of 1st for loop
     return g
-end
 
+end
