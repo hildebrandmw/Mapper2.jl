@@ -1,15 +1,15 @@
 function benchmark()
     # Any setup code goes here.
-    sa = SAStruct(testmap())
+    m = build_asap4()
     # Run once, to force compilation.
     print_with_color(:light_red,
                      "\n======================= First run:\n",
                      bold = true)
     srand(666)
-    @time place(sa, move_attempts = 10000)
+    @time routing_graph(m)
 
     # Run a second time, with profiling.
-    sa = SAStruct(testmap())
+    #sa = SAStruct(testmap())
     print_with_color(:light_red,
                      "\n\n======================= Second run:\n",
                      bold = true)
@@ -17,7 +17,7 @@ function benchmark()
     Profile.init(delay=0.01)
     Profile.clear()
     Profile.clear_malloc_data()
-    @profile @time place(sa, move_attempts = 10000)
+    @profile @time routing_graph(m)
 
     # Write profile results to profile.bin.
     r = Profile.retrieve()

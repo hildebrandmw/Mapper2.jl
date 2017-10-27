@@ -6,6 +6,8 @@ using LightGraphs
 using ProgressMeter
 using Formatting
 
+
+import Base.==
 export Address, Port, Component, benchmark
 
 # Set up directory paths
@@ -39,7 +41,9 @@ include("Placement/SA/SA.jl")
 ###########
 # Routing #
 ###########
-# TODO
+include("Routing/Primitives.jl")
+include("Routing/BaseGraph.jl")
+
 ############
 # Plotting #
 ############
@@ -63,11 +67,11 @@ include("benchmark.jl")
 function testmap()
     options = Dict{Symbol, Any}()
     #arch = build_asap4()
-    arch = build_asap4(A = KCLink)
+    #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
     #arch  = build_asap3(A = KCLink)
     dict = initialize_mem_dict()
-    #arch = build_generic(33,33,2,dict, A = KCLink)
+    arch = build_generic(33,33,2,dict, A = KCLink)
     sdc   = SimDumpConstructor("alexnet")
     tg    = apply_transforms(Taskgraph(sdc), sdc)
     return NewMap(arch, tg)
@@ -92,6 +96,21 @@ function initialize_mem_dict()
     # move to a bigger dict
     dict["memory_dict"] = mem_dict
     return dict
+end
+
+function slow_run()
+    # Build a test map
+    m = testmap()
+    # build the sa structure
+    sa = SAStruct(m)
+    # Run placement
+    place(sa,
+          move_attempts = 500000,
+          warmer = DefaultSAWarm(0.95, 1.1, 0.99),
+          cooler = DefaultSACool(0.9995),
+         )
+    record(m, sa)
+    save(m, "test")
 end
 
 end #module Mapper2

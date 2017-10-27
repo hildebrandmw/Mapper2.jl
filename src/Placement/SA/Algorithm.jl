@@ -165,7 +165,7 @@ function place(
         limit(limiter, state)
         # State updates
         #update!(state)
-        if update!(state)
+        if update!(state) && USEPLOTS
             if isready(plot_channel)
                 take!(plot_channel)
                 @async put!(plot_channel, remotecall_fetch(plot, 

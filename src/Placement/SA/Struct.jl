@@ -93,7 +93,7 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     Component tables for tracking local component references to the global
     reference in the Map data type
     =#
-    component_table::Array{Vector{String}, D}
+    component_table::Array{Vector{ComponentPath}, D}
 end
 
 # Convenience decoding methods - this is kinda gross.
@@ -269,20 +269,20 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
     table_dims = address_extrema(addresses(tl)).addr
-    component_table = fill(String[], table_dims...)
+    component_table = fill(ComponentPath[], table_dims...)
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
     # string vector at the current address.
     for (address, component) in tl.children
-        string_vector = String[]
-        for (child, name) in walk_children(component)
+        paths = ComponentPath[]
+        for path in walk_children(component)
             # If the component is considered mappable by the current architecture,
             # add the name of the component to the current list.
-            if ismappable(A, child)
-                push!(string_vector, name)
+            if ismappable(A, component[path])
+                push!(paths, path)
             end
         end
-        component_table[address] = string_vector
+        component_table[address] = paths
     end
     # Condense the component table to reduce its memory footprint
     intern(component_table)
@@ -393,9 +393,9 @@ function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) wh
             # Get the mappable component from the "component_table"
             mappables = component_table[address]
             component_list = maptype[]
-            for (i,name) in enumerate(mappables)
+            for (i,path) in enumerate(mappables)
                 # Get the mappable component.
-                c = get_component(component, name)
+                c = component[path]
                 canmap(A, node, c) && push!(component_list, i)
             end
             this_table[address] = component_list
@@ -418,8 +418,8 @@ function build_addresstables(architecture::TopLevel{A,D},
         this_table = Address{D}[]
         for (address, component) in architecture.children
             mappables = component_table[address]
-            for (i,name) in enumerate(mappables)
-                c = get_component(component, name)
+            for (i,path) in enumerate(mappables)
+                c = component[path]
                 canmap(A, node, c) && push!(this_table, address)
             end
         end
@@ -487,12 +487,13 @@ function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
     DEBUG && print_with_color(:cyan, "Building Neighbor Table\n")
     # Create a big list of lists
     neighbor_table = Array{Vector{Address{D}}}(dims)
-    for address in addresses(architecture)
+    @showprogress 1 for address in addresses(architecture)
         a = connected_components(architecture, address, class = "output")
         neighbor_table[address] = a
     end
     return neighbor_table
 end
+
 ################################################################################
 # Verification routine for SA Placement
 ################################################################################
@@ -572,11 +573,11 @@ function check_consistency(sa::SAStruct)
             push!(bad_nodes, index)
             push!(bad_nodes, node_assigned)
             passed = false
-            print_with_color(:red, "Data structure inconsistency for node ", 
-                             index, ". Nodes assigned location: ", node.address,
-                             ", ", node.component, ". Node assigned in the grid",
-                             " at this location: ", node_assigned, ".\n")
-
+            print_with_color(:red, 
+                 "Data structure inconsistency for node ", 
+                 index, ". Nodes assigned location: ", node.address,
+                 ", ", node.component, ". Node assigned in the grid",
+                 " at this location: ", node_assigned, ".\n")
         end
     end
     return bad_nodes
@@ -592,9 +593,10 @@ function check_mapability(m::Map, sa::SAStruct)
         address = sa_node.address
         component_index = sa_node.component
         # Get the component name in the original architecture
-        component_name = sa.component_table[address][component_index]
+        component_path = sa.component_table[address][component_index]
         # Get the component from the architecture
-        component = get_component(m.architecture.children[address], component_name)
+        path = AddressPath(address, component_path)
+        component = m.architecture[path]
         if !canmap(A, m_node, component)
             push!(bad_nodes, index)
             print_with_color(:red, "Node index ", index, 

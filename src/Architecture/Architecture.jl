@@ -62,15 +62,165 @@ TOPLEVEL
 The top level will be an TopLevel component, which will still behave
 like a normal component, but also have the ability to assign addresses
 to sub components and will be used as the top level architecture
-
---------------------------------------------------------------------------------
-NOTATION
---------------------------------------------------------------------------------
-Some accessor functions will have two versions, one that is called only on the
-present Component, and one that will be recursively called on the component
-and each sub-component. In these cases, the function that works recusrively
-will end in an exclamation point "!".
 =#
+
+################################################################################
+#                                  PATH TYPES                                  #
+################################################################################
+#=
+These path types will be used to easily access ports, links,  and sub-components
+in a given hierarchy.
+=#
+abstract type AbstractPath end
+abstract type AbstractComponentPath <: AbstractPath end
+
+#-------------------------------------------------------------------------------
+# Component Path
+#-------------------------------------------------------------------------------
+"Path to access sub components of a given component"
+struct ComponentPath <: AbstractComponentPath
+    path::Vector{String}
+    ComponentPath(str::Vector{T}) where T <: AbstractString = new(String.(str))
+end
+
+#-- Constructors
+# Return an empty path. When called on a component, should return the component.
+ComponentPath() = ComponentPath(String[])
+ComponentPath(str::String) = ComponenPath(split(str, "."))
+
+#-------------------------------------------------------------------------------
+# AddressPath
+#-------------------------------------------------------------------------------
+"Path to access sub components of a TopLevel"
+struct AddressPath{D} <: AbstractComponentPath
+    address ::Address{D}
+    path    ::ComponentPath
+end
+
+#-------------------------------------------------------------------------------
+# PortPath
+#-------------------------------------------------------------------------------
+"Path to access Ports in a component"
+struct PortPath{P <: AbstractComponentPath} <: AbstractPath
+    name    ::String
+    path    ::P
+end
+
+#-- Constructors
+function PortPath(port::AbstractString)
+    # Split the path into components based on the "." notation.
+    parts = split(port, ".")
+    return PortPath(String(parts[end]), ComponentPath(parts[1:end-1]))
+end
+function PortPath(port::AbstractString, address::Address) 
+    return PortPath(port, AddressPath(address, ComponentPath()))
+end
+
+#-------------------------------------------------------------------------------
+# LinkPath
+#-------------------------------------------------------------------------------
+"Path to access Links in a component"
+struct LinkPath{P <: AbstractComponentPath} <: AbstractPath
+    name    ::String
+    path    ::P
+end
+
+#-- Constructors
+# Empty Link Path
+LinkPath() = LinkPath("", ComponentPath())
+LinkPath(link::String) = LinkPath(link, ComponentPath())
+LinkPath(link::String, address) = LinkPath(link, AddressPath(address, ComponentPath()))
+
+#-------------------------------------------------------------------------------
+# PATH METHODS
+#-------------------------------------------------------------------------------
+"""
+    istop(p::PortPath)
+
+Return `false` if the given port path belongs to a subcomponent of a certain
+component.
+"""
+istop(p::PortPath) = length(p.path) == 0
+
+##########
+# LENGTH #
+##########
+Base.length(c::ComponentPath) = length(c.path)
+Base.length(ap::AddressPath)  = length(ap.path)
+
+############
+# EQUALITY #
+############
+# TODO - unifying this might be nice.
+==(a::ComponentPath, b::ComponentPath) = a.path == b.path
+==(a::AddressPath,   b::AddressPath)   = (a.address == b.address) && (a.path == b.path)
+==(a::T, b::T) where T <: AbstractPath = (a.name == b.name) && (a.path == b.path)
+
+##################
+# PUSH operators #
+##################
+#=
+NOTE: The "push" and "unshift" operators do not mutate their arguments. Thus,
+    the "!" is left off of the function name.
+=#
+"""
+    push(c::ComponentPath, val::String)
+
+Increase the depth of the ComponentPath downwards by appending the string `val`
+to the end of the path. Does not modify `c`.
+"""
+push(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
+
+#####################
+# UNSHIFT operators #
+#####################
+"""
+    unshift(c::ComponentPath, val::String)
+
+Increase the depth of the ComponentPath updwards by appending the string `val`
+to the beginning of the path. Does not modify `c`.
+"""
+unshift(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(val, c.path))
+
+#=
+Here, there is an implicit promotion from a component path to an address
+path. This makes sense because adding an address to a component path SHOULD
+return an address path.
+=#
+"""
+    unshift(c::ComponentPath, val::Address)
+
+Append an address to the "front" of component path `c`. Returns an AddressPath
+with the same dimension as `val`.
+"""
+unshift(c::ComponentPath, val::Address) = AddressPath(val, c)
+
+unshift(p::PortPath, val)   = PortPath(p.name, unshift(p.path, val))
+unshift(l::LinkPath, val)   = LinkPath(l.name, unshift(l.path, val))
+
+########
+# HASH #
+########
+#=
+NOTE: The default hash for these path type variables seems to be bound to
+the address of the type and is thus not stable from run to run.
+
+I've implemented custom hashes here. I used to have a single function that
+called "fieldnames" on the type, but that ended up being 50% slower than
+writing these custom ones
+=#
+Base.hash(c::ComponentPath, u::UInt64) = hash(c.path, u)
+
+function Base.hash(c::AddressPath, u::UInt64)
+    u = hash(c.address, u)
+    return hash(c.path, u)
+end
+
+# Fallback for the Port and Link paths.
+function Base.hash(c::AbstractPath, u::UInt64)
+    u = hash(c.name, u)
+    return hash(c.path, u)
+end
 
 
 ################################################################################
@@ -90,9 +240,9 @@ mutable struct Port
     """
     class       ::String
     """
-    Neighbor List.
+    Link connected to the port in the component in which it is declared.
     """
-    neighbors   ::Array{String,1}
+    link        ::LinkPath{ComponentPath}
     """
     Metadata list - associated with characteristics of the link. Can include
     attributes like "capacity", "network" etc.
@@ -100,24 +250,28 @@ mutable struct Port
     metadata    ::Dict{String,Any}
 end
 
+#-- Constructor
 """
     Port(name::String)
 
 Create a new port with the given `name`.
 """
-function Port(name::String, class::String)
+function Port(name::String, class::String, metadata = Dict{String,Any}())
     # Make sure this is a valid port class.
-    @assert class in PORT_CLASSES
-    # Create a port without any notion of connection.
-    neighbors = String[]
-    metadata  = Dict{String,Any}() 
+    if !in(class, PORT_CLASSES)
+        error("Port Class \'", class, "\' is not recognized.")
+    end
+    # Create an empty link assignment.
+    link = LinkPath()
+    # Default
     return Port(
         name,
         class,
-        neighbors,
+        LinkPath(),
         metadata,
 )
 end
+
 #=
 Collect all valid port class strings here.
 =#
@@ -139,60 +293,50 @@ const PORT_SINKS = Set([
     "bidir",
  ])
 
-# Various convenience methods for ports.
 
-# We simply need to look for a "." in the name. If it exists, then the port
-# belongs to a child. Otherwise, it is a toplevel component.
-"""
-    is_top_port(p::Port)
-
-Return `true` if port `p` is the top level port of a component and does not
-belong to a child of that component.
-"""
-is_top_port(p::Port) = !contains(p.name, ".")
-
-"""
-    isfree(p::Port)
-
-Return `true` if port `p` has no neighbors assigned to it yet.
-"""
-isfree(p::Port) = length(p.neighbors) == 0
-
-const _class_dict = Dict(
-        "bidir" => "bidir",
-        "input" => "output",
-        "output" => "input",
-     )
-"""
-    flipdir(p::Port)
-
-Flip the direction of a port. Useful for converting a port from a component level
-port to a child level port. In these instances, the directionality of a port
-will filp.
-"""
-function flipdir(p::Port)
-    class = p.class
-    # If the class of the port is input or output, return the opposite of that.
-    # If the port if bidirectional, nothing needs to be done.
-    if !haskey(_class_dict, class)
-        error("Port class: ", class, " not defined.")
-    end
-    return _class_dict[class]
+################################################################################
+#                                  LINK TYPE                                   #
+################################################################################
+struct Link{P <: AbstractComponentPath}
+    "Name of the link. Will be autogenerated if not provided."
+    name    ::String
+    "Boolean if link is directed."
+    directed::Bool
+    sources  ::Vector{PortPath{P}}
+    sinks    ::Vector{PortPath{P}}
+    "Metadata for the link."
+    metadata::Dict{String,Any}
 end
+
 ################################################################################
 #                               COMPONENT TYPES                                #
 ################################################################################
 
 # Master abstract type from which all component types will subtype
+"""
+Super type for all components.
+All types subtyping from AbstractComponent must have the following fields:
+
+- `children`: Some kind of associative with a keys and values.
+"""
 abstract type AbstractComponent end
 
+#-------------------------------------------------------------------------------
+# Methods for abstract components.
+#-------------------------------------------------------------------------------
+"Return an iterator for the children within a component."
+children(c::AbstractComponent) = values(c.children)
+"Return an iterator for links within the component."
+links(c::AbstractComponent) = values(c.links)
+
+#-------------------------------------------------------------------------------
+# Component
+#-------------------------------------------------------------------------------
 #=
-When creating components from the ground up, we might not know the type of
-the parent immediately. An OrphanComponent will be used to build up a component
-until the type of its parent is known. Then, a component can be created
-from the orphan component and the parent.
+Note - Components are purposely not parameterized because of nesting. 
+Parameterizing on child type would result in much confusion.
 =#
-mutable struct Component <: AbstractComponent
+struct Component <: AbstractComponent
     """The declared name of this component"""
     name    ::String
     """Reference to primitive for special operations. Default is \"\"."""
@@ -203,9 +347,10 @@ mutable struct Component <: AbstractComponent
     """
     children::Dict{String, Component}
     ports   ::Dict{String, Port}
+    links   ::Dict{String, Link{ComponentPath}}
     metadata::Dict{String, Any}
 
-    # Constructor
+    #-- Constructor
     """
         Component(name, children = Dict{String, Component}(), metadata = Dict{String, Any}())
 
@@ -219,6 +364,7 @@ mutable struct Component <: AbstractComponent
         )
         # Add all component level ports to the ports of this component.
         ports = Dict{String, Port}()
+        links = Dict{String, Link}()
         children = Dict{String, Component}()
         # Return the newly constructed type.
         return new(
@@ -226,51 +372,24 @@ mutable struct Component <: AbstractComponent
             primitive,
             children,
             ports,
+            links,
             metadata,
         )
     end
 end
-
+# METHODS
 """
-    extract_ports(c::Component, error_if_conflict::Bool=false)
+    ports(c::Component)
 
-Extract ports from children component of component `c`. Grabs top level children
-ports and makes a new port entity in the current component.
-
-Automatically flips the direction of the port to maintain consistency.
-
-If error_if_conflict = true, thrown an error if redundant port names are discovered.
-Otherwise, take no effect if a port already exists.
+Return a iterator for all the ports in the given component. Ports of children
+are not given.
 """
-function extract_ports!(c::AbstractComponent, children = c.children; error_if_conflict::Bool=false)
-    # Iterate through the key-value pairs of the component children dictionary.
-    for (name, child) in children, port in values(child.ports)
-        # Check if port is a top level port of the current child. 
-        is_top_port(port) || continue
-        # Make a new port name by appending the child instantiation name to
-        # the port name with a '.' in between
-        port_name = join([name, port.name], ".")
-        #=
-        Check if the port already exists in the component. If it does, check
-        the error status to decide whether to throw an option or abort the
-        port creation operation.
-        =#
-        if haskey(c.ports, port_name)
-            if error_if_conflict
-                error("Port ", port_name, " already exists in component ", c.name)
-            else
-                continue
-            end
-        end
+ports(c::Component) = values(c.ports)
 
-        # Flip the direction of the port
-        class_name = flipdir(port)
-        # Create a new port and add it to the component
-        new_port = Port(port_name, class_name)
-        c.ports[port_name] = new_port
-    end
-    return nothing
-end
+
+#-------------------------------------------------------------------------------
+# TopLevel
+#-------------------------------------------------------------------------------
 
 #=
 The only difference with the top level is that children are accessed via
@@ -278,7 +397,7 @@ addresses instead of names. Since it subtypes from AbstractComponent, it can
 share many of the methods defined for normal components.
 =#
 abstract type AbstractArchitecture end
-mutable struct TopLevel{T <: AbstractArchitecture,N} <: AbstractComponent
+mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
     """The declared name of this component"""
     name    ::String
     """Reference to primitive for special operations. Default is \"\"."""
@@ -287,8 +406,11 @@ mutable struct TopLevel{T <: AbstractArchitecture,N} <: AbstractComponent
     Dictionary of all children of this component. String keys will be the
     instance names of the component.
     """
-    children::Dict{Address{N}, Component}
-    ports   ::Dict{String, Port}
+    children::Dict{Address{D}, Component}
+    """
+    Links defined at the top level.
+    """
+    links   ::Dict{String, Link{AddressPath{D}}}
     metadata::Dict{String, Any}
 
     # Constructor
@@ -297,92 +419,82 @@ mutable struct TopLevel{T <: AbstractArchitecture,N} <: AbstractComponent
 
     Create a top level component with the given name and number of dimensions.
     """
-    function TopLevel{T,N}(name, metadata = Dict{String,Any}()) where {T,N}
+    function TopLevel{T,D}(name, metadata = Dict{String,Any}()) where {T,D}
         # Add all component level ports to the ports of this component.
         primitive   = "toplevel"
-        ports       = Dict{String, Port}()
-        children    = Dict{Address{N}, Component}()
+        links       = Dict{String, Link}()
+        children    = Dict{Address{D}, Component}()
         # Return the newly constructed type.
-        return new{T,N}(
+        return new{T,D}(
             name,
             primitive,
             children,
-            ports,
+            links,
             metadata,
         )
     end
 end
 
-architecture(::TopLevel{T,N}) where {T,N} = T
-dimension(::TopLevel{T,N}) where {T,N} = N
+# Accessor Methods for easily getting parameters
+architecture(::TopLevel{T,D}) where {T,D} = T
+dimension(::TopLevel{T,D}) where {T,D}    = D
+
+
 ################################################################################
 # Convenience methods.
 ################################################################################
 "Return an iterator of addresses for the top-level architecture."
 addresses(t::TopLevel) = keys(t.children)
-ports(c::Component) = values(c.ports)
 
 
 #-------------------------------------------------------------------------------
-# Various overloadings of the method "get_component"
+# Various overloadings of the method "getindex"
 #-------------------------------------------------------------------------------
-function get_component(c::Component, paths::Array{T}) where T <: AbstractString
-    # If the length of the paths array is zero - simply return the present
-    # component.
-    length(paths) == 0 && return c
-    length(paths) == 1 && isempty(paths[1]) && return c
-    # Otherwise - iteratively walk through each child until the final one
-    # is reached.
-    for name in paths
-        c = c.children[name]
+
+"""
+    Base.getindex(c::Component, p::ComponentPath)
+
+Return decendent component of `c` pointed to by path `p`.
+"""
+function Base.getindex(c::Component, p::ComponentPath)
+    for n in p.path
+        c = c.children[n]
     end
     return c
 end
 
 """
-    get_component(c::Component, path::String)
+    Base.getindex(c::Component, p::PortPath)
 
-Return the descendent of component `c` specified by the string `path`. Multiple
-generations are identified by separating names using a `.`.
-
-If the empty string is given, returns `c`.
+Return port of component `c` pointed to by path `p`.
 """
-get_component(c::Component, path::AbstractString) = get_component(c, split(path, "."))
-
-function get_component(tl::TopLevel, 
-                       address::Address, 
-                       paths::Array{T}) where T <: AbstractString
-    c = tl.children[address]
-    return get_component(c, paths)
+function Base.getindex(c::Component, p::PortPath)
+    # Get the component part
+    c = c[p.path]
+    # Return the port
+    return c.ports[p.name]
 end
 
-get_component(tl::TopLevel, 
-              address::Address, 
-              path::AbstractString) = get_component(to, address, split(path, "."))
+"""
+    Base.getindex(tl::TopLevel, p::AddressPath)
 
-get_component(tl::TopLevel, 
-              path::AbstractString) = get_component(tl, split_address(path)...)
-
-#-------------------------------------------------------------------------------
-# Various overloadings of the method "get_port"
-#-------------------------------------------------------------------------------
+Return decendent of the top level pointed by path `p`.
+"""
+function Base.getindex(tl::TopLevel, p::AddressPath)
+    # Get the component at the address
+    c = tl.children[p.address]
+    return c[p.path]
+end
 
 """
-    split_address(str::AbstractString)
+    Base.getindex(tl::TopLevel, p::PortPath{T})
 
-Split a string representing a component path for a `TopLevel` architecture
-data structure. Will parse out the address field and return a tuple of the
-type:
-
-(Address, array of string paths)
+Return port of the top level pointed to by path `p`.
 """
-function split_address(str::AbstractString)
-    split_string = split(str, ".")
-    # Parse the first entry as an address 
-    address = eval(parse(split_string[1]))
-    # Remaining path is the rest of the items.
-    path = split_string[2:end]
-    return address, path
+function Base.getindex(tl::TopLevel, p::PortPath{T}) where T <: AddressPath
+    # Get the component and then get the port.
+    c = tl[p.path]
+    return c.ports[p.name]
 end
 
 """
@@ -392,55 +504,48 @@ Return all decendents of the current component. Each decendent is in the form
 `(component, name)` where `name` is the full instance name of the sub-component.
 """
 function walk_children(c::Component)
-    # Create the components array using the parent. Entries will be tuples:
-    # (component, full-path-name
-    components = [(c, "")]
-    # Create a processing queue. Entries will be tuples:
-    # (component-to-process, name-of-parent)
-    queue = [(child, id) for (id,child) in c.children]
+    # Create an empty component path - which will return the component itself.
+    components = [ComponentPath()]
+    # Iterate through all children of the component, create a component path
+    # for each child.
+    queue = [ComponentPath([id]) for id in keys(c.children)]
+    # Perform a DFS
     while !isempty(queue)
-        # Shift component from the front of the queue
-        component, cid = shift!(queue)
-        # Add to the seen components list.
-        push!(components, (component, cid))
-        # Add all fhildren to the queue
-        push!(queue, ((child, join((cid,id),".")) for (id,child) in component.children)...)
+        # Pull a path off of the queue
+        path = shift!(queue)
+        # Add the path to the list of components.
+        push!(components, path)
+        # Walk through all children of the component pointed to by the current
+        # path - add all children to the queue
+        push!(queue, (push!(path, id) for id in values(c[path].children))...)
     end
     return components
 end
 
+#=
+TODO: Make this faster.
+=#
 function connected_components(tl::TopLevel, address::Address; class = "")
-    # Get the top level ports at the given address.
-    portlist = collect(Iterators.filter(is_top_port, ports(tl.children[address])))
-    # Is class is not-empty, further filter ports
-    if !isempty(class)
-        portlist = collect(Iterators.filter(x -> x.class == class, portlist))
+    connecting_links = Link[]
+    # Get all links that have this address.
+    for link in links(tl)
+        # Go through the source and destinations
+        for path in chain(link.sources, link.sinks)
+            if path.path.address == address
+                push!(connecting_links, link)
+                break
+            end
+        end
     end
-    # Now that we have the port names, generate the upper level port names.
-    tl_port_names = [join((string(address),p.name), ".") for p in portlist]
-    tl_ports = [tl.ports[n] for n in tl_port_names]
-
-    # Get the connecting ports for these ports - check if port list is empty.
-    if length(tl_ports) == 0
-        return eltype(keys(tl.children))[]
+    # Collect all addresses seen in the collection of links
+    addresses = Set{typeof(address)}()
+    for link in connecting_links
+        for path in chain(link.sources, link.sinks)
+            push!(addresses, path.path.address)
+        end
     end
-    connecting_ports = Iterators.flatten((p.neighbors for p in tl_ports))
-    # Get the address string from all of the connecting components.
-    addresses = Set{String}()
-    for port in connecting_ports
-        push!(addresses, split(port, ".")[1])
-    end
-    # Delete the current address if it is present.
-    delete!(addresses, string(address))
-    # Return everything as addresses
-    y = eval.(parse.(collect(addresses)))
-    if length(y) == 0
-        returnval = typeof(address)[]
-    else
-        returnval = y
-    end
-
-    return returnval
+    delete!(addresses, address)
+    return collect(addresses)
 end
 
 ################################################################################
@@ -455,9 +560,58 @@ end
 function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
     # If 'f' evaluates to true here, return true in general.
     search_metadata(c, key, value, f) && return true
-    # Otherwise, call recursively call search_metadata! on all subcomponents 
+    # Otherwise, call recursively call search_metadata! on all subcomponents
     for child in values(c.children)
         search_metadata!(child, key, value, f) && return true
     end
     return false
 end
+
+################################################################################
+# ASSERTION METHODS.
+################################################################################
+
+"""
+    assert_no_children(c::AbstractComponent)
+
+Throw error if component `c` has any children.
+"""
+function assert_no_children(c::AbstractComponent)
+    if length(c.children) != 0
+        display(c)
+        error("Component ", c.name, " is not expected to have any children.")
+    end
+    return nothing
+end
+
+"""
+    assert_no_intrarouting(c::AbstractComponent)
+
+Throw error if component `c` has any intra-component routing.
+"""
+function assert_no_intrarouting(c::AbstractComponent)
+    # Iterate through all ports. Ensure that the neighbor lists for each
+    # port is empty.
+    for port in values(c.ports)
+        if port.link.name != ""
+            error("Component ", c.name, " is not expected to have any intra-",
+                  "component routing.")
+        end
+    end
+    return nothing
+end
+
+# Various convenience methods for ports.
+"""
+    isfree(p::Port)
+
+Return `true` if port `p` has no neighbors assigned to it yet.
+"""
+isfree(c::Component, p::PortPath) = isempty(c[p].link.name)
+#=
+Not the best for now. Main idea is that ports at the top level are always
+going to be free. Because the top level cannot declare any new top ports.
+
+TODO: Build a checker for multiple links being assigned to a port.
+=#
+isfree(c::TopLevel,  p::PortPath) = true

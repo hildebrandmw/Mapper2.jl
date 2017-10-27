@@ -186,7 +186,7 @@ end
 ##################
 # COMPLEX BLOCKS #
 ##################
-function build_processor_tile()
+function build_processor_tile(name = "processor_tile", include_memory = false)
     # Working towards parameterizing this. For now, just leave this at two
     # because the "processor" components aren't parameterized for the number
     # of ports. This should be easy to fix though.
@@ -194,7 +194,7 @@ function build_processor_tile()
     # Create a new component for the processor tile
     # No need to set the primtiive class or metadata because we won't
     # be needing it.
-    comp = Component("processor_tile")
+    comp = Component(name)
     # Add the circuit switched ports
     directions = ("east", "north", "south", "west")
     for dir in directions
@@ -203,13 +203,8 @@ function build_processor_tile()
             add_port(comp, port_name, class, num_links)
         end
     end
-    # Add memory ports - only memory processor tiles will have the necessary
-    # "memory_processor" attribute in the core to allow memory applicationa
-    # to be mapped to them.
-    add_port(comp, "memory_in", "input")
-    add_port(comp, "memory_out", "output")
     # Instantiate the processor primitive
-    add_child(comp, build_processor(), "processor")
+    add_child(comp, build_processor(include_memory), "processor")
     # Instantiate the directional routing muxes
     routing_mux = build_mux(4,1)
     for dir in directions
@@ -218,11 +213,18 @@ function build_processor_tile()
     end
     # Instantiate the muxes routing data to the fifos
     add_child(comp, build_mux(9,1), "fifo_mux", 2)
+    # Add memory ports - only memory processor tiles will have the necessary
+    # "memory_processor" attribute in the core to allow memory application
+    # to be mapped to them.
+    if include_memory
+        add_port(comp, "memory_in", "input")
+        add_port(comp, "memory_out", "output")
+        connect_ports!(comp, "processor.memory_out", "memory_out")
+        connect_ports!(comp, "memory_in", "processor.memory_in")
+    end
 
     # Interconnect - Don't attach metadata and let the routing routine fill in
     # defaults to intra-tile routing.
-    connect_ports!(comp, "processor.memory_out", "memory_out")
-    connect_ports!(comp, "memory_in", "processor.memory_in")
 
     # Connect outputs of muxes to the tile outputs
     for dir in directions, i = 0:num_links-1
@@ -295,8 +297,8 @@ end
 
 function build_memory_processor_tile()
     # Get a normal processor and add the memory ports to it.
-    tile = build_processor_tile()
-    # Need to add the memory processor attribute the the processor.
+    tile = build_processor_tile("memory_processor", true)
+    # Need to add the memory processor attribute the processor.
     push!(tile.children["processor"].metadata["attributes"], "memory_processor")
     return tile
 end
@@ -311,7 +313,8 @@ end
 Build a mux with the specified number of inputs and outputs.
 """
 function build_mux(inputs, outputs)
-    component = Component("mux", primitive = "mux")
+    name = "mux_" * string(inputs) * "_" * string(outputs)
+    component = Component(name, primitive = "mux")
     add_port(component, "in", "input", inputs)
     add_port(component, "out", "output", outputs)
     return component
@@ -324,11 +327,16 @@ end
 
 Build a simple processor.
 """
-function build_processor()
+function build_processor(include_memory = false)
     # Build the metadata dictionary for the processor component
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["processor"]
-    component = Component("standard_processor", primitive = "", metadata = metadata)
+    if include_memory
+        name = "memory_processor"
+    else
+        name = "standard_processor"
+    end
+    component = Component(name, primitive = "", metadata = metadata)
     # Add the input fifos
     add_port(component, "fifo", "input", 2)
     # Add the output ports
@@ -338,8 +346,10 @@ function build_processor()
     # Add the dynamic circuit switched network
     add_port(component, "dynamic", "output", 1)
     # Add memory ports. Will only be connected in the memory processor tile.
-    add_port(component, "memory_in", "input")
-    add_port(component, "memory_out", "output")
+    if include_memory
+        add_port(component, "memory_in", "input")
+        add_port(component, "memory_out", "output")
+    end
     # Return the created type
     return component
 end
@@ -353,8 +363,8 @@ function build_memory_1port()
     metadata["attributes"] = ["memory_1port"]
     component = Component("memory_1port", primitive = "", metadata = metadata)
     # Add the input and output ports
-    add_port(component, "in", "input", 2)
-    add_port(component, "out", "output", 2)
+    add_port(component, "in[0]", "input", 1)
+    add_port(component, "out[0]", "output", 1)
     # Return the created type
     return component
 end
@@ -363,9 +373,14 @@ end
 #      2 PORT MEMORY         #
 ##############################
 function build_memory_2port()
-    # Build a normal memory component and add the memory_2port attribute.
-    component = build_memory_1port()
-    push!(component.metadata["attributes"], "memory_2port")
+    # Build the metadata dictionary for the processor component
+    metadata = Dict{String,Any}()
+    metadata["attributes"] = ["memory_1port", "memory_2port"]
+    component = Component("memory_2port", primitive = "", metadata = metadata)
+    # Add the input and output ports
+    add_port(component, "in", "input", 2)
+    add_port(component, "out", "output", 2)
+    # Return the created type
     return component
 end
 

@@ -138,6 +138,12 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
             # component dictionary.
             (address, component) = component_dict_rev[b]
             node = node_dict_rev[i]
+            #= DEBUG for FFT not placing correctly
+            if node == 836 || node == 20
+                println(node, ", ", i)
+                println(address, ", ", component)
+            end
+            =#
             assign(placement_struct, node, component, address)
 
         end
@@ -280,6 +286,11 @@ function bipartite_match!(g::AbstractGraph)
             end #if
         end #secondfor
     end #firstfor
+    #= Debug for FFT not placing correctly
+    println("in neighbors of 22: ",in_neighbors(g, 22))
+    println("in neighbors of 838: ",in_neighbors(g, 838))
+    println("out neighbors of 1028: ", out_neighbors(g, 1028))
+    =#
     return g
 end
 
