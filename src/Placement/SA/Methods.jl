@@ -72,6 +72,7 @@ to make this code fast.
 TODO: Think of a better way to make this code generic.
 =#
 
+map_cost(sa::SAStruct) = map_cost(architecture(sa), sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
     cost = sum(edge_cost(A, sa, edge) for edge in eachindex(sa.edges))
     return cost

@@ -78,7 +78,7 @@ function connect_processors(tl)
     #=
     Create two tuples for the source ports and destination ports. In general,
     if the source link is going out of the north port, the destionation will
-    be coming in the sourth port.
+    be coming in the south port.
     =#
     src_dirs = ("north", "south", "east", "west")
     dst_dirs = ("south", "north", "west", "east")
@@ -88,9 +88,9 @@ function connect_processors(tl)
         dst_ports = String[]
         # Iterate through the number of source and destination ports.
         for i in 0:1
-            src_port = src * "_out[" * string(i) * "]"
+            src_port = "$(src)_out[$(string(i))]"
             push!(src_ports, src_port)
-            dst_port = dst * "_in[" * string(i) * "]"
+            dst_port = "$(dst)_in[$(string(i))]"
             push!(dst_ports, dst_port)
         end
         # Create the offset rule and add it to the collection
@@ -109,13 +109,13 @@ function connect_processors(tl)
         dst_ports = String[]
         for i in 0:1
             # Input handler -> processor
-            src_port = "out[" * string(i) * "]"
-            dst_port = dst * "_in[" * string(i) * "]"
+            src_port = "out[$(string(i))]"
+            dst_port = "$(dst)_in[$(string(i))]"
             push!(src_ports, src_port)
             push!(dst_ports, dst_port)
             # processor -> output handler
-            src_port = src * "_out[" * string(i) * "]"
-            dst_port = "in[" * string(i) * "]"
+            src_port = "$(src)_out[$(string(i))]"
+            dst_port = "in[$(string(i))]"
             push!(src_ports, src_port)
             push!(dst_ports, dst_port)
         end

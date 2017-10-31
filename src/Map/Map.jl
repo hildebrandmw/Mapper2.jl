@@ -72,18 +72,24 @@ Decision: Go with option 2. Will allow much of the code to be cleaner while
     with the rest of the mapper.
 =#
 
+################################################################################
+# NodeMap data structure.
+################################################################################
+# Keeps track of where nodes in the taskgraph are mapped to the architecture
+# as well as any applicable metadata.
 mutable struct NodeMap{D}
-    address     ::Address{D}
-    component   ::String
+    path        ::AddressPath{D}
     metadata    ::Dict{String,Any}
 
-    function NodeMap(address::Address{D}, 
-                     component; 
+    function NodeMap(path::AddressPath{D}; 
                      metadata = Dict{String,Any}()) where D
-        return new{D}(address, component, metadata)
+        return new{D}(path, metadata)
     end
-    NodeMap{D}() where D = new{D}(Address{D}(), "", Dict{String,Any}())
+    NodeMap{D}() where D = new{D}(AddressPath{D}(), Dict{String,Any}())
 end
+
+#-- Methods
+getpath(nodemap::NodeMap) = nodemap.path
 
 
 """
@@ -94,6 +100,8 @@ mutable struct Mapping{D}
     nodes::Dict{String, NodeMap{D}}
     edges::Dict{Int64,  Dict{String,Any}}
 end
+
+getpath(m::Mapping, nodename::String) = getpath(m.nodes[nodename])
 
 
 """
@@ -140,3 +148,7 @@ function NewMap(architecture::TopLevel,
         mapping
       )
 end
+################################################################################
+# Methods for interacting with the Map.
+################################################################################
+getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)

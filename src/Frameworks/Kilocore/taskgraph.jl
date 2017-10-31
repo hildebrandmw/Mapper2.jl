@@ -18,23 +18,25 @@ generating for Mapper1. However, this is low priority and not very likely since
 working on the Taskgraph data structure directly is likely to be much more
 convenient and will yield cleaner code.
 =#
-"""
-    get_transforms(sdc::SimDumpConstructor)
 
-Return the list of transforms needed by the `SimDumpConstructor`.
-"""
-function get_transforms(sdc::SimDumpConstructor)
-    transform_tuple = (
-        t_unpack_attached_memories,
-        t_unpack_type_strings,
-        t_confirm_and_sort_attributes,
-        t_assign_link_weights,
-    )
-    return transform_tuple
+################################################################################
+# Taskgraph Constructors used by the Kilocore framework.
+################################################################################
+struct SimDumpConstructor <: AbstractTaskgraphConstructor
+    name::String
+    file::String
+    function SimDumpConstructor(appname)
+        # Just copy the app name for the "name" portion of the constructor
+        # Split it on any "." points and take the first argument.
+        name = split(appname, ".")[1]
+        # Check if appname ends in ".json.gz". If not, fix that
+        appname = split(appname, ".")[1] * ".json.gz"
+        # Append the sim dump file path to the beginning.
+        file = joinpath(PKGDIR, "sim-dumps", appname)
+        return new(name, file)
+    end
 end
-#=
-Question - how to handle loading of j
-=#
+
 function Taskgraph(c::SimDumpConstructor)
     # Get the file from the sim-dump constructor and JSON parse the file.
     f = GZip.open(c.file, "r")
@@ -63,6 +65,26 @@ function Taskgraph(c::SimDumpConstructor)
     # Create the taskgraph
     return Taskgraph(c.name, nodes, edges)
 end
+
+################################################################################
+# Custom Taskgraph Transforms.
+################################################################################
+
+"""
+    get_transforms(sdc::SimDumpConstructor)
+
+Return the list of transforms needed by the `SimDumpConstructor`.
+"""
+function get_transforms(sdc::SimDumpConstructor)
+    transform_tuple = (
+        t_unpack_attached_memories,
+        t_unpack_type_strings,
+        t_confirm_and_sort_attributes,
+        t_assign_link_weights,
+    )
+    return transform_tuple
+end
+
 
 #=
 Want to make a set of generalized transforms that can be run on the post

@@ -17,7 +17,7 @@ Push value `v` to the vector found in dictionary `d` at `d[k]`. If `d[k]`
 does not exist, create a new vector by `d[k] = [v]`.
 """
 function push_to_dict(d, k, v)
-    haskey(d, k) ? push!(d[k], v) : d[k] = valtype(d)([v])
+    haskey(d, k) ? push!(d[k], v) : d[k] = valtype(d)([v]) 
     return nothing
 end
 
@@ -28,6 +28,23 @@ Reverse the keys and values of dictionary `d`. Behavior if multiple values
 are equivalent is not defined.
 """
 rev_dict(d) = Dict(v => k for (k,v) in d)
+
+"""
+    rev_dict_safe(d::Dict{K,V}) where {K,V}
+
+Reverse the keys and values of dictionary `d`. Returns a dictionary of type
+`Dict{V, Vector{K}}` to handle the case where the same value in `d` points to
+multiple keys.
+"""
+function rev_dict_safe(d::Dict{K,V}) where {K,V}
+    # Reverse the keys and values. Wrap the values in a vector to handle the
+    # case where a single value will point to multiple keys.
+    r = Dict{V, Vector{K}}()
+    for (k,v) in d
+        push_to_dict(r, v, k)
+    end
+    return r
+end
 
 """
     intern(x)

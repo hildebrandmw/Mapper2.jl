@@ -94,6 +94,7 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     reference in the Map data type
     =#
     component_table::Array{Vector{ComponentPath}, D}
+    task_table::Dict{String,Int64}
 end
 
 # Convenience decoding methods - this is kinda gross.
@@ -152,7 +153,9 @@ function SAStruct(m::Map{A,D}) where {A,D}
     component_table = build_component_table(architecture)
 
     # Next step, build the SA Taskgraph
-    sa_nodes = [build_sa_node(A, n, D) for n in nodes(taskgraph)]
+    node_iterator = nodes(taskgraph)
+    sa_nodes    = [build_sa_node(A, n, D) for n in node_iterator]
+    task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
     # Build dictionary to map node names to indices
     node_dict = Dict(n.name => i for (i,n) in enumerate(nodes(taskgraph)))
     # Build the basic links
@@ -197,6 +200,7 @@ function SAStruct(m::Map{A,D}) where {A,D}
         distance,
         grid,
         component_table,
+        task_table,
     )
     DEBUG && print_with_color(:cyan, "Finished Building Placement Structure\n")
     # Run initial placement to return a valid structure.
@@ -221,11 +225,14 @@ Take the placement information
 """
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
-    for (index, nodemap) in enumerate(values(m.mapping.nodes))
+    for (task_name, nodemap) in m.mapping.nodes
         # Get the address for the node
-        address = nodemap.address
+        address         = nodemap.path.address
+        component_path  = nodemap.path.path
         # Get the index of the component from the component table
-        component = findfirst(x -> x == nodemap.component, sa.component_table[address])
+        component = findfirst(x -> x == component_path, sa.component_table[address])
+        # Get the index to assign
+        index = sa.task_table[task_name]
         # Assign the nodes
         assign(sa, index, component, address)
     end
@@ -247,16 +254,18 @@ function record(m::Map{A,D}, sa::SAStruct) where {A,D}
     # we can be sure the order of the iteration is consistent because this
     # is how the SA nodes were created in the first place.
     mapping = m.mapping
-    for (sa_node, m_node) in zip(sa.nodes, nodes(m.taskgraph))
+    # Reverse the task table to assign indices to tasks.
+    task_table_rev = rev_dict(sa.task_table)
+    for (index, sa_node) in enumerate(sa.nodes)
         # Get the mapping for the node
         address = sa_node.address
         component_index = sa_node.component
         # Get the component name in the original architecture
-        component_name = sa.component_table[address][component_index]
+        component_path = sa.component_table[address][component_index]
         # Create an entry in the "Mapping" data structure
-        nodemap = mapping.nodes[m_node.name]
-        nodemap.address     = address
-        nodemap.component   = component_name
+        task_node_name = task_table_rev[index]
+        nodemap = mapping.nodes[task_node_name]
+        nodemap.path = AddressPath(address, component_path)
     end
     return nothing
 end

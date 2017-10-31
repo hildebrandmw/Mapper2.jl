@@ -137,6 +137,9 @@ mutable struct TaskgraphEdge <: AbstractTaskgraphType
     end
 end
 
+getsources(t::TaskgraphEdge) = t.sources
+getsinks(t::TaskgraphEdge)   = t.sinks
+
 mutable struct Taskgraph <: AbstractTaskgraphType
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
@@ -190,8 +193,12 @@ end
 ################################################################################
 # METHODS FOR THE TASKGRAPH
 ################################################################################
+getnodes(tg::Taskgraph) = tg.nodes
+getedges(tg::Taskgraph) = tg.edges
 getnode(tg::Taskgraph, node::String) = tg.nodes[node]
 nodenames(tg::Taskgraph) = keys(tg.nodes)
+num_nodes(tg::Taskgraph) = length(getnodes(tg))
+num_edges(tg::Taskgraph) = length(getedges(tg))
 
 """
     add_node(tg::Taskgraph, task::TaskgraphNode)

@@ -86,7 +86,13 @@ end
 #-- Constructors
 # Return an empty path. When called on a component, should return the component.
 ComponentPath() = ComponentPath(String[])
-ComponentPath(str::String) = ComponenPath(split(str, "."))
+function ComponentPath(str::String)
+    if isempty(str)
+        return ComponentPath()
+    else
+        return ComponentPath(split(str, "."))
+    end
+end
 
 #-------------------------------------------------------------------------------
 # AddressPath
@@ -96,6 +102,8 @@ struct AddressPath{D} <: AbstractComponentPath
     address ::Address{D}
     path    ::ComponentPath
 end
+#-- Constructors
+AddressPath{D}() where D = AddressPath{D}(Address{D}(), ComponentPath())
 
 #-------------------------------------------------------------------------------
 # PortPath
@@ -111,7 +119,7 @@ function PortPath(port::AbstractString)
     parts = split(port, ".")
     return PortPath(String(parts[end]), ComponentPath(parts[1:end-1]))
 end
-function PortPath(port::AbstractString, address::Address) 
+function PortPath(port::AbstractString, address::Address)
     return PortPath(port, AddressPath(address, ComponentPath()))
 end
 
@@ -202,6 +210,7 @@ with the same dimension as `val`.
 unshift(c::ComponentPath, val::Address) = AddressPath(val, c)
 
 unshift(p::PortPath, val)   = PortPath(p.name, unshift(p.path, val))
+unshift(p::PortPath, a::AddressPath) = PortPath(p.name, a)
 unshift(l::LinkPath, val)   = LinkPath(l.name, unshift(l.path, val))
 
 ########
@@ -351,7 +360,7 @@ links(c::AbstractComponent) = values(c.links)
 # Component
 #-------------------------------------------------------------------------------
 #=
-Note - Components are purposely not parameterized because of nesting. 
+Note - Components are purposely not parameterized because of nesting.
 Parameterizing on child type would result in much confusion.
 =#
 struct Component <: AbstractComponent
@@ -408,6 +417,7 @@ are not given.
 """
 ports(c::Component) = values(c.ports)
 
+ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
 #-------------------------------------------------------------------------------
 # TopLevel
@@ -633,7 +643,7 @@ end
 
 Return `true` if port `p` has no neighbors assigned to it yet.
 """
-function isfree(c::AbstractComponent, p::PortPath) 
+function isfree(c::AbstractComponent, p::PortPath)
     # If this is a top level port - just check the link assigned to the port.
     # If the link name is empty - the port is not yet assigned.
     if istop(p)

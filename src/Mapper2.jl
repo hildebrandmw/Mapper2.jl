@@ -18,6 +18,8 @@ const PKGDIR = dirname(SRCDIR)
 const DEBUG     = true
 const USEPLOTS  = false
 
+import Base: start, next, done
+
 ###############################
 # Common types and operations #
 ###############################
@@ -41,8 +43,7 @@ include("Placement/SA/SA.jl")
 ###########
 # Routing #
 ###########
-include("Routing/Primitives.jl")
-include("Routing/BaseGraph.jl")
+include("Routing/Routing.jl")
 
 ############
 # Plotting #
@@ -67,12 +68,12 @@ include("benchmark.jl")
 function testmap()
     options = Dict{Symbol, Any}()
     #arch = build_asap4()
-    #arch = build_asap4(A = KCLink)
+    arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    arch  = build_asap3(A = KCLink)
+    #arch  = build_asap3(A = KCLink)
     dict = initialize_mem_dict()
     #arch = build_generic(33,33,2,dict, A = KCLink)
-    sdc   = SimDumpConstructor("fft")
+    sdc   = SimDumpConstructor("553_cores")
     tg    = apply_transforms(Taskgraph(sdc), sdc)
     return NewMap(arch, tg)
 end
