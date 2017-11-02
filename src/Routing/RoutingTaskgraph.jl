@@ -26,20 +26,20 @@ function build_routing_taskgraph(m::Map{A,D}, rg::RoutingGraph) where {
         sources = getpath.(m, getsources(edge))
         sinks   = getpath.(m, getsinks(edge))
         # Collect the nodes in the routing graph for these ports.
-        start = collect_nodes(architecture, rg, edge, sources, get_source_ports)
-        stop  = collect_nodes(architecture, rg, edge, sinks, get_sink_ports)
+        start = collect_nodes(architecture, rg, edge, sources, :source)
+        stop  = collect_nodes(architecture, rg, edge, sinks, :sink)
         start_stop[i] = (start,stop)
     end
     return DefaultRoutingTaskgraph(start_stop)
 end
 
-function collect_nodes(arch, resource_graph, edge, paths, f::Function)
+function collect_nodes(arch, resource_graph, edge, paths, symbol)
     A = architecture(arch)
     # Iterate through the source paths - get the port names.
     first = true
     local port_paths
     for path in paths
-        newpaths = f(A, edge, arch[path])
+        newpaths = get_routing_ports(A, edge, arch[path], symbol)
         # Augment the port paths to get a full path.
         if first
             port_paths = [PortPath(p, path) for p in newpaths]
@@ -54,17 +54,23 @@ function collect_nodes(arch, resource_graph, edge, paths, f::Function)
     return unique(resource_graph.portmap[p] for p in port_paths)
 end
 
+function get_routing_ports(::Type{A}, edge::TaskgraphEdge, component::Component, sym) where A <: AbstractArchitecture
+    if sym == :source
+        return [k for (k,v) in component.ports if isvalid_source_port(A,v,edge)]
+    elseif sym == :sink
+        return [k for (k,v) in component.ports if isvalid_sink_port(A,v,edge)]
+    else
+        KeyError("Symbol: $sym not recognized")
+    end
+end
+
 ################################################################################
 # Default extraction for source and sink ports.
 ################################################################################
-function get_source_ports(::Type{A}, edge, component) where A <: AbstractArchitecture
-    # Just grab all the output ports of the component.
-    paths = [k for (k,v) in component.ports if v.class in PORT_SINKS]
-    return paths
-end
 
-function get_sink_ports(::Type{A}, edge, component) where A <: AbstractArchitecture
-    # Just grab all the output ports of the component.
-    paths = [k for (k,v) in component.ports if v.class in PORT_SOURCES]
-    return paths
-end
+# Functions defined in Routing.jl
+
+# get_source_ports
+# get_sink_ports
+# isvalid_source_port
+# isvalid_sink_port

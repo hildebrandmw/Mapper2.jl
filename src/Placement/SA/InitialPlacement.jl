@@ -12,7 +12,7 @@ function initial_placement!(placement_struct)
     graph, node_dict, component_dict = build_graph(placement_struct)
     # Run Bipartite Matching
     bipartite_match!(graph)
-    DEBUG && print_with_color(:cyan, "Bipartite Matching Complete\n")
+    DEBUG && debug_print(:success, "Bipartite Matching Complete\n")
     do_assignment(placement_struct, graph, node_dict, component_dict)
     return graph
 end
@@ -100,15 +100,15 @@ function build_graph(sa::SAStruct)
 
     # Prints for debug.
     if DEBUG
-        print_with_color(:cyan, "Building Translation Tables\n")
-        print_with_color(:green, "Number of vertices: ")
-        println(vertex_number)
-        print_with_color(:green, "Number of tasks: ")
-        println(length(node_dict))
-        print_with_color(:green, "Number of components: ")
-        println(length(component_dict))
-        print_with_color(:green, "Number of edges added: ")
-        println(edges_added)
+        debug_print(:start, "Building Translation Tables\n")
+        debug_print(:info, "Number of vertices: ")
+        debug_print(:none, vertex_number, "\n")
+        debug_print(:info, "Number of tasks: ")
+        debug_print(:none, length(node_dict), "\n")
+        debug_print(:info, "Number of components: ")
+        debug_print(:none, length(component_dict), "\n")
+        debug_print(:info, "Number of edges added: ")
+        debug_print(:none, edges_added, "\n")
     end
     return graph, node_dict, component_dict
 end

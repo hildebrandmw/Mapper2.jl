@@ -13,7 +13,7 @@ end
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 #Base.==(a::CostVertex, b::CostVertex) = a.cost == b.cost
 
-mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
+mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     """
     The present and historical link costs.
     """
@@ -27,35 +27,45 @@ mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
     discovered  ::BitVector
     predecessor ::Vector{Int64}
     pq          ::Q
+    function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
+        rg = rs.resource_graph
+        num_vertices = nv(rg.graph)
+        # Initialize a vector with the number of vertices in the routing resouces
+        # graph.
+        historical_cost         = ones(Float64, num_vertices)
+        current_cost_factor     = 3.0
+        historical_cost_factor  = 3.0
+        iteration_limit         = 2000
+        links_to_route = 1:num_edges(m.taskgraph)
+        # Runtime Structures
+        discovered  = falses(num_vertices)
+        predecessor = zeros(Int64, num_vertices)
+        pq = binary_minheap(CostVertex)
+
+        return new{A,typeof(links_to_route),typeof(pq)}(
+            historical_cost,
+            current_cost_factor,
+            historical_cost_factor,
+            iteration_limit,
+            links_to_route,
+            # runtime structures
+            discovered,
+            predecessor,
+            pq,)
+    end
 end
 
-function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
-    rg = rs.resources_graph
-    num_vertices = nv(rg.graph)
-    # Initialize a vector with the number of vertices in the routing resouces
-    # graph.
-    historical_cost         = ones(Float64, num_vertices)
-    current_cost_factor     = 2.0
-    historical_cost_factor  = 2.0
-    iteration_limit         = 100
-    links_to_route = 1:num_edges(m.taskgraph)
-    # Runtime Structures
-    discovered  = falses(num_vertices)
-    predecessor = zeros(Int64, num_vertices)
-    pq = binary_minheap(CostVertex)
+getarchitecture(::Pathfinder{A,T,Q}) where {A,T,Q} = A
 
-    return Pathfinder(
-        historical_cost,
-        current_cost_factor,
-        historical_cost_factor,
-        iteration_limit,
-        links_to_route,
-        # runtime structures
-        discovered,
-        predecessor,
-        pq,)
+function links_to_route(p::Pathfinder, rs, i)
+    # Every so many iterations, reset the entire routing process to help
+    # global convergence.
+    if mod(i,50) == 1
+        return collect(p.links_to_route)
+    else
+        return [link for link in p.links_to_route if iscongested(rs,link)]
+    end
 end
-
 
 """
     soft_reset(p::Pathfinder)
@@ -106,10 +116,11 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
 end
 
 function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
+    A = getarchitecture(p)
     # Reset the runtime structures.
     soft_reset(p)
     # Unpack the certain variables.
-    graph       = rs.resources_graph.graph
+    graph       = rs.resource_graph.graph
     pq          = p.pq
     discovered  = p.discovered
     predecessor = p.predecessor
@@ -136,27 +147,27 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         # If the node has not been discovered yet - mark it as discovered and
         # mark its predecessor for a potential backtrace. Add all neighbors
         # of this node to the queue.
-        if !discovered[v.index]
-            discovered[v.index] = true
-            predecessor[v.index] = v.predecessor
-            for u in out_neighbors(graph, v.index)
-                if !discovered[u] && canuse(rs, u, link)
-                    # Compute the cost of taking the new vertex and add it
-                    # to the queue.
-                    new_cost = v.cost + nodecost(p,rs,u)
-                    push!(pq, CostVertex(new_cost,u,v.index))
-                end
+        discovered[v.index] && continue
+        # Mark node as discovered and all all undiscovered neighbors.
+        discovered[v.index] = true
+        predecessor[v.index] = v.predecessor
+        for u in out_neighbors(graph, v.index)
+            if !discovered[u] && canuse(A, rs, u, link)
+                # Compute the cost of taking the new vertex and add it
+                # to the queue.
+                new_cost = v.cost + nodecost(p,rs,u)
+                push!(pq, CostVertex(new_cost,u,v.index))
             end
         end
     end
     # Raise an error if routing was not successful
-    success || error()
+    success || error("Shortest Path failed epically.")
     # Do a back-trace from the last vertex to determine the path that
     # this connection took through the graph.
     path = [previous_index]
     # Iterate until we find a start node.
-    while !in(path[end], startnodes)
-        push!(path, predecessor[path[end]])
+    while !in(first(path), startnodes)
+        unshift!(path, predecessor[first(path)])
     end
     # Wrap the path in an edge path and add it to the RoutingStruct.
     set_route(rs, EdgePath(path), link)
@@ -166,26 +177,28 @@ end
 function route(p::Pathfinder, rs::RoutingStruct)
     DEBUG && print_with_color(:cyan, "Running Pathfinder Routing Algorithm.\n")
     for i in 1:p.iteration_limit
-        rip_up_routes(p, rs)
-        for link in shuffle(p.links_to_route)
+        for link in links_to_route(p,rs,i)
+            clear_route(rs, link)
             shortest_path(p, rs, link)
         end
         update_historical_congestion(p, rs)
         # Debug Update
         if DEBUG
-            print_with_color(:yellow,"On iteration: ")
-            print(i)
-            print_with_color(:yellow, " of ")
-            println(p.iteration_limit)
+            debug_print(:info,"On iteration: ")
+            debug_print(:none, i)
+            debug_print(:info, " of ")
+            debug_print(:none, p.iteration_limit, "\n")
             # Print out the number of congested paths
             congested_links = Int64[]
-            for i in  p.links_to_route
+            for i in p.links_to_route
                 if iscongested(rs, i)
                     push!(congested_links, i)
                 end
             end
-            print_with_color(:red, "Number of Congested Links: ")
-            println(length(congested_links))
+            if length(congested_links) > 0
+                debug_print(:warning, "Number of Congested Links: ")
+                debug_print(:none,length(congested_links), "\n")
+            end
         end
 
         iscongested(rs) || break

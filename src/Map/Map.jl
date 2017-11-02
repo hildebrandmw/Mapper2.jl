@@ -91,6 +91,14 @@ end
 #-- Methods
 getpath(nodemap::NodeMap) = nodemap.path
 
+mutable struct EdgeMap
+    path        ::Vector{Any}
+    metadata    ::Dict{String,Any}
+    #-- constructors
+    EdgeMap(path::Vector{Any}; metadata = Dict{String,Any}()) = new(path, metadata)
+    EdgeMap() = new(Any[], Dict{String,Any}())
+end
+getpath(edgemap::EdgeMap) = edgemap.path
 
 """
 Flexible data structure recording the mapping of nodes and edges in the taskgraph
@@ -98,12 +106,12 @@ to elements in the top level.
 """
 mutable struct Mapping{D}
     nodes::Dict{String, NodeMap{D}}
-    edges::Dict{Int64,  Dict{String,Any}}
+    edges::Vector{EdgeMap}
 end
-
 getpath(m::Mapping, nodename::String) = getpath(m.nodes[nodename])
-
-
+getpath(m::Mapping, i::Integer) = getpath(m.edges[i])
+Base.getindex(m::Mapping, i::Integer) = m.edges[i]
+Base.setindex!(m::Mapping, v::EdgeMap, i::Integer) = setindex!(m.edges, v, i)
 """
 Top level data structure. Summary of parameters:
 
@@ -139,7 +147,7 @@ function NewMap(architecture::TopLevel,
     # Get the node names
     D = dimension(architecture)
     nodes = Dict(n => NodeMap{D}() for n in nodenames(taskgraph)) 
-    edges = Dict(i => Dict{String,Any}() for i in 1:length(taskgraph.edges)) 
+    edges = [EdgeMap() for i = 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)
     return Map(
         architecture,
@@ -151,4 +159,6 @@ end
 ################################################################################
 # Methods for interacting with the Map.
 ################################################################################
+getmapping(m::Map) = m.mapping
 getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
+getpath(m::Map, i::Integer) = getpath(m.mapping, i)

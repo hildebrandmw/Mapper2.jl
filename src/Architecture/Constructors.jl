@@ -314,7 +314,8 @@ function connection_rule(tl::TopLevel,
         end
     end
     if DEBUG
-        print_with_color(:green, "Made ", count, " connections.\n")
+        debug_print(:info, "Connections made: ")
+        debug_print(:none, count, "\n")
     end
     return nothing
 end

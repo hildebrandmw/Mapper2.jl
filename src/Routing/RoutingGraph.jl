@@ -30,6 +30,9 @@ end
 Base.getindex(rg::RoutingGraph, p::PortPath) = rg.portmap[p]
 Base.getindex(rg::RoutingGraph, p::LinkPath) = rg.linkmap[p]
 
+get_portmap(rg::RoutingGraph) = rg.portmap
+get_linkmap(rg::RoutingGraph) = rg.linkmap
+
 """
     build_routing_mux(c::Component)
 

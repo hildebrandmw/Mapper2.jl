@@ -147,6 +147,8 @@ Create a SAStruct from the provided map `m`. Returned structure does not
 have any kind of initial placement.
 """
 function SAStruct(m::Map{A,D}) where {A,D}
+    DEBUG && debug_print(:start, "Building Placement Structure\n")
+
     architecture = m.architecture
     taskgraph    = m.taskgraph
     # First step - create the component_table.
@@ -202,7 +204,6 @@ function SAStruct(m::Map{A,D}) where {A,D}
         component_table,
         task_table,
     )
-    DEBUG && print_with_color(:cyan, "Finished Building Placement Structure\n")
     # Run initial placement to return a valid structure.
     initial_placement!(sa)
     # Verify that everything worked correctly.
@@ -335,6 +336,7 @@ Returns a tuple of 3 elements:
 
 """
 function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+    DEBUG && debug_print(:start, "Classifying Taskgraph Nodes\n")
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
     nodeclasses = Vector{Int64}(length(nodes(taskgraph)))
@@ -373,16 +375,15 @@ function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: Abstrac
     # Print out statistics if DEBUG mode is turned on.
     ##################################################
     if DEBUG
-        print_with_color(:cyan, "Finished Classifying Taskgraph Nodes\n")
-        print_with_color(:green, "Number of Normal Representatives: ")
-        println(length(normal_node_reps))
+        debug_print(:info, "Number of Normal Representatives: ")
+        debug_print(:none, length(normal_node_reps), "\n")
         for node in normal_node_reps
-            println(node.name)
+            debug_print(:none, node.name, "\n")
         end
-        print_with_color(:green, "Number of Special Representatives: ")
-        println(length(special_node_reps))
+        debug_print(:info, "Number of Special Representatives: ")
+        debug_print(:none, length(special_node_reps), "\n")
         for node in special_node_reps
-            println(node.name)
+            debug_print(:none, node.name, "\n")
         end
     end
     return nodeclasses, normal_node_reps, special_node_reps
@@ -450,7 +451,7 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # Get the neighbor table for finding adjacent components in the top level.
     neighbor_table = build_neighbor_table(architecture)
 
-    DEBUG && print_with_color(:cyan, "Building Distance Table\n")
+    DEBUG && debug_print(:start, "Building Distance Table\n")
     # Run a BFS for each starting address
     @showprogress 1 for address in addresses(architecture)
         bfs!(distance, architecture, address, neighbor_table)
@@ -493,7 +494,7 @@ end
 
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
     dims = Int64.(address_extrema(addresses(architecture)).addr)
-    DEBUG && print_with_color(:cyan, "Building Neighbor Table\n")
+    DEBUG && debug_print(:start, "Building Neighbor Table\n")
     # Get the connected component dictionary
     cc = connected_components(architecture)
     # Create a big list of lists
@@ -510,7 +511,7 @@ end
 function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
     # Assert that the SAStruct belongs to the same architecture
     @assert A == architecture(sa)
-    DEBUG && print_with_color(:cyan, "Verifying Placement\n")
+    DEBUG && debug_print(:substart, "Verifying Placement\n")
 
     bad_nodes = check_grid_population(sa)
     append!(bad_nodes, check_consistency(sa))
@@ -521,10 +522,10 @@ function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
     passed = length(bad_nodes) == 0
     if DEBUG
         if passed
-            print_with_color(:green, "Placement verified :)\n")
+            debug_print(:success, "Placement verified :)\n")
         else
-            print_with_color(:red, "Placement failed :(\n", bold = true)
-            print_with_color(:red, "\nOffending Node Names:\n")
+            debug_print(:error, "Placement failed :(\n")
+            debug_print(:error, "\nOffending Node Names:\n")
             #=
             Convert the bad indices to the names of the offending nodes
             by iterating through the names in the taskgraph nodes. If there's
@@ -558,7 +559,7 @@ function check_grid_population(sa::SAStruct)
     for g in sa.grid
         g == 0 && continue
         if found[g]
-            print_with_color(:red, "Found node ", g, " more than once\n")
+            debug_print(:error, "Found node ", g, " more than once\n")
             push!(bad_indices, g)
         else
             found[g] = true
@@ -567,7 +568,7 @@ function check_grid_population(sa::SAStruct)
     # Make sure all nodes have been found
     for i in 1:length(found)
         if found[i] == false
-            print_with_color(:red, "Node ", i, " not placed.\n")
+            debug_print(:error, "Node ", i, " not placed.\n")
             push!(bad_nodes, i)
         end
     end
@@ -583,7 +584,7 @@ function check_consistency(sa::SAStruct)
             push!(bad_nodes, index)
             push!(bad_nodes, node_assigned)
             passed = false
-            print_with_color(:red, 
+            debug_print(:error, 
                  "Data structure inconsistency for node ", 
                  index, ". Nodes assigned location: ", node.address,
                  ", ", node.component, ". Node assigned in the grid",
@@ -609,7 +610,7 @@ function check_mapability(m::Map, sa::SAStruct)
         component = m.architecture[path]
         if !canmap(A, m_node, component)
             push!(bad_nodes, index)
-            print_with_color(:red, "Node index ", index, 
+            debug_print(:error, "Node index ", index, 
                              " incorrectly assigned to architecture node ",
                              m_node_name, ".\n")
         end

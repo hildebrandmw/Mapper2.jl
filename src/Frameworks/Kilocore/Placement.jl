@@ -38,6 +38,7 @@ end
 Return `true` if taskgraph node `t` and be mapped to component `c`.
 """
 function canmap(::Type{T}, t::TaskgraphNode, c::Component) where {T <: AbstractKC}
+    haskey(c.metadata, "attributes") || return false
     return issubset(t.metadata["required_attributes"], c.metadata["attributes"])
 end
 

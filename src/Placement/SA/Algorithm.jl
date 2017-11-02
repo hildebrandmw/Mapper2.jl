@@ -74,7 +74,7 @@ end
 function place(
         sa::SAStruct;
         # Number of moves before doing a parameter update.
-        move_attempts = 50_000,
+        move_attempts = 100_000,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
         cooler ::AbstractSACool  = DefaultSACool(0.997),
@@ -183,7 +183,7 @@ end
 # Default state-changing functions
 ################################################################################
 @inline function warm(w::DefaultSAWarm, state::SAState)
-    # Compute acceprance ratio from the state
+    # Compute acceptance ratio from the state
     acceptance_ratio = state.recent_accepted_moves /
                        state.recent_successful_moves
 
@@ -210,7 +210,7 @@ function limit(l::DefaultSALimit, state::SAState)
     acceptance_ratio = state.recent_accepted_moves /
                        state.recent_successful_moves
     # Update distance limit
-    temporary = (1 - l.ratio + acceptance_ratio)
+    temporary = (2 - l.ratio + acceptance_ratio)
     state.distance_limit = clamp(state.distance_limit * temporary, 1,
                                 state.max_distance_limit)
     return nothing
@@ -219,7 +219,7 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
-function isvalid(sa::SAStruct, node::Int64, address, component)
+function isvalid(sa::SAStruct, node::Int64, address::Address, component)
     # Get the class associated with this node.
     class = sa.nodeclass[node]
     # Get the map tables for the node. Check if the component is in the 

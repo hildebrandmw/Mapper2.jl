@@ -170,6 +170,11 @@ Base.length(ap::AddressPath)  = 1 + length(ap.path)
 ==(a::AddressPath,   b::AddressPath)   = (a.address == b.address) && (a.path == b.path)
 ==(a::T, b::T) where T <: AbstractPath = (a.name == b.name) && (a.path == b.path)
 
+##########
+# PREFIX #
+##########
+prefix(p::AbstractPath) = p.path
+
 ##################
 # PUSH operators #
 ##################
@@ -196,6 +201,8 @@ to the beginning of the path. Does not modify `c`.
 """
 unshift(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(val, c.path))
 
+unshift(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
+
 #=
 Here, there is an implicit promotion from a component path to an address
 path. This makes sense because adding an address to a component path SHOULD
@@ -209,8 +216,10 @@ with the same dimension as `val`.
 """
 unshift(c::ComponentPath, val::Address) = AddressPath(val, c)
 
+unshift(c::ComponentPath, a::AddressPath) = AddressPath(a.address, unshift(c, a.path))
+
 unshift(p::PortPath, val)   = PortPath(p.name, unshift(p.path, val))
-unshift(p::PortPath, a::AddressPath) = PortPath(p.name, a)
+unshift(p::PortPath, a::AddressPath) = PortPath(p.name, unshift(p.path, a))
 unshift(l::LinkPath, val)   = LinkPath(l.name, unshift(l.path, val))
 
 ########
@@ -333,7 +342,17 @@ struct Link{P <: AbstractComponentPath}
     sinks    ::Vector{PortPath{P}}
     "Metadata for the link."
     metadata::Dict{String,Any}
+    function Link(name, 
+                  directed, 
+                  sources::Vector{PortPath{P}}, 
+                  sinks::Vector{PortPath{P}}, 
+                  metadata) where P
+        return new{P}(name,directed,sources,sinks,Dict{String,Any}(metadata))
+    end
 end
+
+isaddresslink(l::Link{AddressPath{D}}) where {D} = true
+isaddresslink(l::Link{ComponentPath}) = false
 
 ################################################################################
 #                               COMPONENT TYPES                                #
@@ -513,6 +532,13 @@ function Base.getindex(c::Component, p::PortPath)
     return c.ports[p.name]
 end
 
+function Base.getindex(c::Component, p::LinkPath)
+    # Get the component part.
+    c = c[p.path]
+    # Return the link.
+    return c.links[p.name]
+end
+
 """
     Base.getindex(tl::TopLevel, p::AddressPath)
 
@@ -520,6 +546,7 @@ Return decendent of the top level pointed by path `p`.
 """
 function Base.getindex(tl::TopLevel, p::AddressPath)
     # Get the component at the address
+    haskey(tl.children, p.address) || return tl
     c = tl.children[p.address]
     return c[p.path]
 end
@@ -534,6 +561,13 @@ function Base.getindex(tl::TopLevel, p::PortPath{T}) where T <: AddressPath
     c = tl[p.path]
     return c.ports[p.name]
 end
+
+function Base.getindex(tl::TopLevel, p::LinkPath{T}) where T <: AddressPath
+    # Get the component and then the link.
+    c = tl[p.path]
+    return c.links[p.name]
+end
+
 
 """
     walk_children(c::Component)
@@ -587,10 +621,10 @@ end
 ################################################################################
 # METHODS FOR NAVIGATING THE HIERARCHY
 ################################################################################
-function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
-    # If it doesn't have the key, than just return flase. Otherwise, apply
+function search_metadata(a, key, value, f::Function = ==)::Bool
+    # If it doesn't have the key, than just return false. Otherwise, apply
     # the provided function to the value and result.
-    return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
+    return haskey(a.metadata, key) ? f(value, a.metadata[key]) : false
 end
 
 function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
@@ -603,6 +637,50 @@ function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
     return false
 end
 
+#=
+Strategy - get the link and its collection of source or sink ports.
+We then augment the source/sink paths with the prefix from the link path
+to get the actual path. We then check the actual path with the port path
+for a match.
+=#
+function check_connectivity(architecture, 
+                            portpath::PortPath, 
+                            linkpath::LinkPath, 
+                            dir::Symbol = :source)::Bool
+    # Get the link from the architecture. 
+    link = architecture[linkpath]
+    # Collect the ports
+    if dir == :source
+        portpaths_short = link.sources
+    elseif dir == :sink
+        portpaths_short = link.sinks
+    else
+        KeyError(dir)
+    end
+    # If the link type returned is of AddressPath type, just check to see if
+    # the link ports match
+    if isaddresslink(link)
+        return in(portpath, portpaths_short)
+    else
+        # Append the prefix of the linkpath to the all the port paths
+        link_prefix = prefix(linkpath)
+        portpaths = unshift.(portpaths_short, link_prefix)
+        # Return true if the port path is in the collection.
+        return in(portpath, portpaths)
+    end
+end
+
+function get_connected_port(architecture,
+                            portpaths::Vector{T},
+                            linkpath::LinkPath,
+                            dir::Symbol = :source) where T <: PortPath
+    for portpath in portpaths
+        if check_connectivity(architecture, portpath, linkpath, dir)
+            return portpath
+        end
+    end
+    error("Connected port path not found.")
+end
 ################################################################################
 # ASSERTION METHODS.
 ################################################################################
@@ -656,11 +734,3 @@ function isfree(c::AbstractComponent, p::PortPath)
         return !haskey(c.port_link, p)
     end
 end
-
-#=
-Not the best for now. Main idea is that ports at the top level are always
-going to be free. Because the top level cannot declare any new top ports.
-
-TODO: Build a checker for multiple links being assigned to a port.
-=#
-#isfree(c::TopLevel,  p::PortPath) = true

@@ -95,13 +95,13 @@ Desirable properties:
     are used by each edge.
 =#
 
-abstract type AbstractTaskgraphType end
 # Type for choosing the constructor.
 abstract type AbstractTaskgraphConstructor end
+
 """
 Nodes of the taskgraph.
 """
-mutable struct TaskgraphNode <: AbstractTaskgraphType
+mutable struct TaskgraphNode
     name    ::String
     metadata::Dict{String,Any}
     """
@@ -118,7 +118,7 @@ end
 """
 Hypergraph edge for the taskgraph.
 """
-mutable struct TaskgraphEdge <: AbstractTaskgraphType
+mutable struct TaskgraphEdge
     sources ::Vector{String}
     sinks   ::Vector{String}
     metadata::Dict{String,Any}
@@ -140,7 +140,7 @@ end
 getsources(t::TaskgraphEdge) = t.sources
 getsinks(t::TaskgraphEdge)   = t.sinks
 
-mutable struct Taskgraph <: AbstractTaskgraphType
+mutable struct Taskgraph
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
     edges           ::Vector{TaskgraphEdge}
@@ -178,12 +178,13 @@ mutable struct Taskgraph <: AbstractTaskgraphType
 end
 
 function apply_transforms(tg, atc::AbstractTaskgraphConstructor)
-    # Get the tranformst requested by the constructor.
+    debug_print(:start, "Applying Transforms\n")
+    # Get the transforms requested by the constructor.
     transforms = get_transforms(atc)
     for t in transforms
         if DEBUG
-            print_with_color(:yellow, "Applying Transform: ")
-            println(string(t))
+            debug_print(:substart, "Transform: ")
+            debug_print(:none, string(t), "\n")
         end
         tg = t(tg)::Taskgraph
     end
@@ -196,6 +197,7 @@ end
 getnodes(tg::Taskgraph) = tg.nodes
 getedges(tg::Taskgraph) = tg.edges
 getnode(tg::Taskgraph, node::String) = tg.nodes[node]
+getedge(tg::Taskgraph, i::Integer) = tg.edges[i]
 nodenames(tg::Taskgraph) = keys(tg.nodes)
 num_nodes(tg::Taskgraph) = length(getnodes(tg))
 num_edges(tg::Taskgraph) = length(getedges(tg))
@@ -265,7 +267,7 @@ in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
 # Checking methods
 hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
 
-# Methods for accessing metadata - might not necessarily be useful.
+# Methods for accessing metadata
 metadata(t::TaskgraphNode) = t.metadata
 metadata(t::TaskgraphEdge) = t.metadata
 
@@ -280,5 +282,4 @@ function out_nodes(tg::Taskgraph, node)
     return nodes
 end
 
-#out_nodes(tg::Taskgraph, node::TaskgraphNode) = out_nodes(tg, node.name)
 # ph

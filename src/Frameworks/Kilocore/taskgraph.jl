@@ -186,8 +186,10 @@ function t_unpack_attached_memories(tg::Taskgraph)
         end
     end
     if DEBUG
-        print_with_color(:green, "Nodes added: ", nodes_added, "\n")
-        print_with_color(:green, "Edges added: ", edges_added, "\n")
+        debug_print(:info, "Nodes added: ")
+        debug_print(:none, nodes_added, "\n")
+        debug_print(:info, "Edges added: ")
+        debug_print(:none, edges_added, "\n")
     end
     return tg
 end
@@ -281,6 +283,10 @@ function t_assign_link_weights(tg::Taskgraph)
                        ("input_handler", "output_handler"))
                 edge.metadata["weight"] = 1/8
             end
+            if oneofin(tg.nodes[nodename].metadata["required_attributes"],
+                       ("memory_1port","memory_2port"))
+                edge.metadata["weight"] = 3.0
+            end
         end
     end
 
@@ -307,10 +313,10 @@ function t_confirm_and_sort_attributes(tg::Taskgraph)
         end
     end
     if length(badnodes) > 0
-        print_with_color(:red, "Found ", length(badnodes), " nodes without a",
+        debug_print(:error, "Found ", length(badnodes), " nodes without a",
                          " \"required_attributes\" metadata.")
         for node in badnodes
-            println(node)
+            debug_print(:none, node)
         end
         error()
     end

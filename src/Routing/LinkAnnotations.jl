@@ -9,6 +9,7 @@ mutable struct LinkState
 end
 LinkState() = LinkState(Int64[])
 
+Base.values(ls::LinkState) = ls.values
 Base.push!(ls::LinkState, value) = push!(ls.values, value)
 Base.delete!(ls::LinkState, value) = deleteat!(ls.values,findfirst(x -> x == value, ls.values))
 
@@ -19,8 +20,6 @@ getoccupancy(ls::LinkState) = length(ls.values)
 ################################################################################
 
 # Default link for recording the information about routing links.
-abstract type AbstractRoutingLink end
-const ARL = AbstractRoutingLink
 struct DefaultRoutingLink <: AbstractRoutingLink
     state   ::LinkState
     cost    ::Float64
@@ -42,11 +41,6 @@ remlink(arl::ARL, link_index) = delete!(getstate(arl), link_index)
 ################################################################################
 # DEFAULT LINK ANNOTATOR.
 ################################################################################
-
-# Abstract super types for all link annotators.
-abstract type AbstractLinkAnnotator end
-const ANA = AbstractLinkAnnotator
-
 Base.setindex!(a::ANA, l::AbstractRoutingLink, i::Integer) = a.links[i] = l
 Base.getindex(a::ANA, i::Integer) = a.links[i]
 getlinks(a::ANA) = a.links
@@ -63,32 +57,19 @@ struct DefaultLinkAnnotator{T <: AbstractRoutingLink} <: AbstractLinkAnnotator
     links::Vector{T} 
 end
 
+#-- iterator interface.
+Base.start(a::ANA)   = start(a.links)
+Base.next(a::ANA, s) = next(a.links, s)
+Base.done(a::ANA, s) = done(a.links, s)
 
 ################################################################################
 # DEFAULT CONSTRUCTORS FOR ABSTRACT ARCHITECTURES
 ################################################################################
+# Function definitions located in Routing.jl
 
-# Default constructors.
-function empty_annotator(::Type{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-    links = Vector{DefaultRoutingLink}(nv(rg.graph))
-    return DefaultLinkAnnotator(links)
-end
-
-function annotate_port(::Type{A}, 
-                       annotator::B, 
-                       ports, 
-                       link_index) where {A <: AbstractArchitecture,
-                                          B <: AbstractLinkAnnotator}
-    annotator[link_index] = DefaultRoutingLink()
-end
-
-function annotate_link(::Type{A}, 
-                       annotator::B, 
-                       links, 
-                       link_index) where {A <: AbstractArchitecture,
-                                          B <: AbstractLinkAnnotator}
-    annotator[link_index] = DefaultRoutingLink()
-end
+# empty_annotator
+# annotate_port
+# annotate_link
 
 ################################################################################
 # DEFAULT ANNOTATION FUNCTION
