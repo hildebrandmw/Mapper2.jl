@@ -2,12 +2,13 @@ function build_asap4(;A = KCBasic)
     # Start with a new component - clarify that it is 2 dimensional
     arch = TopLevel{A,2}("asap4")
 
+    num_links = 4
+    num_fifos = 2
     ####################
     # Normal Processor #
     ####################
-
     # Get a processor tile to instantiate.
-    processor = build_processor_tile()
+    processor = build_processor_tile(num_links)
     # Instantiate it at the required addresses
     for r in 1:24, c in 2:28
         add_child(arch, processor, Address{2}(r,c))
@@ -19,7 +20,7 @@ function build_asap4(;A = KCBasic)
     ####################
     # Memory Processor #
     ####################
-    memory_processor = build_memory_processor_tile()
+    memory_processor = build_memory_processor_tile(num_links)
     for r = 25, c = 2:28
         add_child(arch, memory_processor, Address{2}(r,c))
     end
@@ -40,7 +41,7 @@ function build_asap4(;A = KCBasic)
     #################
     # Input Handler #
     #################
-    input_handler = build_input_handler()
+    input_handler = build_input_handler(num_links)
     for r ∈ (1, 13), c = 1
         add_child(arch, input_handler, Address{2}(r,c))
     end
@@ -50,7 +51,7 @@ function build_asap4(;A = KCBasic)
     ##################
     # Output Handler #
     ##################
-    output_handler = build_output_handler()
+    output_handler = build_output_handler(num_links)
     for (r,c) ∈ zip((12,18,1,14), (1, 1, 30, 30))
         add_child(arch, output_handler, Address{2}(r,c))
     end
@@ -58,12 +59,12 @@ function build_asap4(;A = KCBasic)
     #######################
     # Global Interconnect #
     #######################
-    connect_processors(arch)
+    connect_processors(arch, num_links)
     connect_memories(arch)
     return arch
 end
 
-function connect_processors(tl)
+function connect_processors(tl, num_links)
     # General rule - we're looking for the attribute "processor" to be somewhere
     # in the component stack. If so, we'll try to connect all of the circuit
     # switched ports.
@@ -87,7 +88,7 @@ function connect_processors(tl)
         src_ports = String[]
         dst_ports = String[]
         # Iterate through the number of source and destination ports.
-        for i in 0:1
+        for i in 0:num_links-1
             src_port = "$(src)_out[$(string(i))]"
             push!(src_ports, src_port)
             dst_port = "$(dst)_in[$(string(i))]"
@@ -107,7 +108,7 @@ function connect_processors(tl)
     for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
         src_ports = String[]
         dst_ports = String[]
-        for i in 0:1
+        for i in 0:num_links-1
             # Input handler -> processor
             src_port = "out[$(string(i))]"
             dst_port = "$(dst)_in[$(string(i))]"
@@ -186,11 +187,11 @@ end
 ##################
 # COMPLEX BLOCKS #
 ##################
-function build_processor_tile(name = "processor_tile", include_memory = false)
+function build_processor_tile(num_links, name = "processor_tile", include_memory = false)
     # Working towards parameterizing this. For now, just leave this at two
     # because the "processor" components aren't parameterized for the number
     # of ports. This should be easy to fix though.
-    num_links = 2
+    num_fifos = 2
     # Create a new component for the processor tile
     # No need to set the primtiive class or metadata because we won't
     # be needing it.
@@ -204,15 +205,16 @@ function build_processor_tile(name = "processor_tile", include_memory = false)
         end
     end
     # Instantiate the processor primitive
-    add_child(comp, build_processor(include_memory), "processor")
+    add_child(comp, build_processor(num_links, include_memory), "processor")
     # Instantiate the directional routing muxes
-    routing_mux = build_mux(4,1)
+    routing_mux = build_mux(length(directions),1)
     for dir in directions
-        name = join((dir, "_mux"))
+        name = "$(dir)_mux"
         add_child(comp, routing_mux, name, num_links)
     end
     # Instantiate the muxes routing data to the fifos
-    add_child(comp, build_mux(9,1), "fifo_mux", 2)
+    num_fifo_entries = length(directions) * num_links + 2
+    add_child(comp, build_mux(num_fifo_entries,1), "fifo_mux", num_fifos)
     # Add memory ports - only memory processor tiles will have the necessary
     # "memory_processor" attribute in the core to allow memory application
     # to be mapped to them.
@@ -228,76 +230,76 @@ function build_processor_tile(name = "processor_tile", include_memory = false)
 
     # Connect outputs of muxes to the tile outputs
     for dir in directions, i = 0:num_links-1
-        mux_port = join((dir, "_mux[",string(i),"].out"))
-        tile_port = join((dir, "_out[",string(i),"]"))
+        mux_port = "$(dir)_mux[$i].out"
+        tile_port = "$(dir)_out[$i]"
         connect_ports!(comp, mux_port, tile_port)
     end
+
     # Circuit switch output links
-    connect_ports!(comp, "processor.north[0]", ["north_mux[0].in[0]"])
-    connect_ports!(comp, "processor.north[1]", ["north_mux[1].in[0]"])
-    connect_ports!(comp, "processor.east[0]",  ["east_mux[0].in[0]"])
-    connect_ports!(comp, "processor.east[1]",  ["east_mux[1].in[0]"])
-    connect_ports!(comp, "processor.south[0]", ["south_mux[0].in[0]"])
-    connect_ports!(comp, "processor.south[1]", ["south_mux[1].in[0]"])
-    connect_ports!(comp, "processor.west[0]",  ["west_mux[0].in[0]"])
-    connect_ports!(comp, "processor.west[1]",  ["west_mux[1].in[0]"])
+    for dir in directions, i = 0:num_links-1
+        # Make the name for the processor.
+        proc_port = "processor.$dir[$i]"
+        mux_port = "$(dir)_mux[$i].in[0]"
+        connect_ports!(comp, proc_port, mux_port)
+    end
 
-    # Input Links
-    connect_ports!(comp, "fifo_mux[0].out", ["processor.fifo[0]"])
-    connect_ports!(comp, "fifo_mux[1].out", ["processor.fifo[1]"])
+    # Connect input fifos.
+    for i = 0:num_fifos-1
+        fifo_port = "fifo_mux[$i].out"
+        proc_port = "processor.fifo[$i]"
+        connect_ports!(comp, fifo_port, proc_port)
+    end
+
+    
+
     # Connect input ports to inputs of muxes
-    #=
-    TODO: Throw this in a loop to make it easier to do.
 
-    Also - think about how to parameterize this to allow for more generic
-    routing and construction.
-    =#
-    connect_ports!(comp, "north_in[0]", [ "east_mux[0].in[1]",
-                                        "south_mux[0].in[1]",
-                                        "west_mux[0].in[1]",
-                                        "fifo_mux[0].in[0]",
-                                        "fifo_mux[1].in[0]"])
-    connect_ports!(comp, "north_in[1]", [ "east_mux[1].in[1]",
-                                        "south_mux[1].in[1]",
-                                        "west_mux[1].in[1]",
-                                        "fifo_mux[0].in[1]",
-                                        "fifo_mux[1].in[1]"])
-    connect_ports!(comp, "east_in[0]", [ "north_mux[0].in[1]",
-                                        "south_mux[0].in[2]",
-                                        "west_mux[0].in[2]",
-                                        "fifo_mux[0].in[2]",
-                                        "fifo_mux[1].in[2]"])
-    connect_ports!(comp, "east_in[1]", [ "north_mux[1].in[1]",
-                                        "south_mux[1].in[2]",
-                                        "west_mux[1].in[2]",
-                                        "fifo_mux[0].in[3]",
-                                        "fifo_mux[1].in[3]"])
-    connect_ports!(comp, "south_in[0]", [ "north_mux[0].in[2]",
-                                        "east_mux[0].in[2]",
-                                        "west_mux[0].in[3]",
-                                        "fifo_mux[0].in[4]",
-                                        "fifo_mux[1].in[4]"])
-    connect_ports!(comp, "south_in[1]", [ "north_mux[1].in[2]",
-                                        "east_mux[1].in[2]",
-                                        "west_mux[1].in[3]",
-                                        "fifo_mux[0].in[5]",
-                                        "fifo_mux[1].in[5]"])
-    connect_ports!(comp, "west_in[0]", [ "north_mux[0].in[3]",
-                                        "east_mux[0].in[3]",
-                                        "south_mux[0].in[3]",
-                                        "fifo_mux[0].in[6]",
-                                        "fifo_mux[1].in[6]"])
-    connect_ports!(comp, "west_in[1]", [ "north_mux[1].in[3]",
-                                        "east_mux[1].in[3]",
-                                        "south_mux[1].in[3]",
-                                        "fifo_mux[0].in[7]",
-                                        "fifo_mux[1].in[7]"])
+    # Tracker Structure storing what ports on a mux have been used.
+    # Initialize to 1 because the processor is connect to port 0 on all
+    # multiplexors.
+    index_tracker = Dict((d,i) => 1 for d in directions, i in 0:num_links)
+    # Add entries for the fifo
+    for i in 0:num_fifos
+        index_tracker[("fifo",i)] = 0
+    end
+    for dir in directions
+        for i in 0:num_links-1
+            # Create a source port for the tile input.
+            source_port = "$(dir)_in[$i]" 
+            # Begin adding sink ports.
+            # Need one for each mux on this layer and num_fifos for each of
+            # the input fifos.
+            sink_ports = String[]
+            # Go through all fifos that directions that are not the current
+            # directions.
+            for d in Iterators.filter(x -> x != dir, directions)
+                # Get the next free port for this mux.
+                key = (d,i)
+                index = index_tracker[key]
+                mux_port = "$(d)_mux[$i].in[$index]"
+                # Add this port to the list of sink ports
+                push!(sink_ports, mux_port)
+                # increment the index tracker
+                index_tracker[key] += 1
+            end
+            # Add the fifo mux entries.
+            for j = 0:num_fifos-1
+                key = ("fifo", j)
+                index = index_tracker[key]
+                fifo_port = "fifo_mux[$j].in[$index]"
+                push!(sink_ports, fifo_port)
+                index_tracker[key] += 1
+            end
+            # Add the connection to the component.
+            connect_ports!(comp, source_port, sink_ports)
+        end
+    end
     return comp
 end
 
-function build_memory_processor_tile()
+function build_memory_processor_tile(num_links)
     # Get a normal processor and add the memory ports to it.
-    tile = build_processor_tile("memory_processor", true)
+    tile = build_processor_tile(num_links,"memory_processor", true)
     # Need to add the memory processor attribute the processor.
     push!(tile.children["processor"].metadata["attributes"], "memory_processor")
     return tile
@@ -323,11 +325,11 @@ end
 #        PROCESSOR
 ##############################
 """
-    build_processor()
+    build_processor(num_links)
 
 Build a simple processor.
 """
-function build_processor(include_memory = false)
+function build_processor(num_links,include_memory = false)
     # Build the metadata dictionary for the processor component
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["processor"]
@@ -341,7 +343,7 @@ function build_processor(include_memory = false)
     add_port(component, "fifo", "input", 2)
     # Add the output ports
     for str in ("north", "east", "south", "west")
-        add_port(component, str, "output", 2)
+        add_port(component, str, "output", num_links)
     end
     # Add the dynamic circuit switched network
     add_port(component, "dynamic", "output", 1)
@@ -387,13 +389,13 @@ end
 ##############################
 #       INPUT HANDLER        #
 ##############################
-function build_input_handler()
+function build_input_handler(num_links)
     # Build the metadata dictionary for the input handler
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["input_handler"]
     component = Component("input_handler", primitive = "", metadata = metadata)
     # Add the input and output ports
-    add_port(component, "out", "output", 2)
+    add_port(component, "out", "output", num_links)
     # Return the created type
     return component
 end
@@ -401,13 +403,13 @@ end
 ##############################
 #       OUTPUT HANDLER       #
 ##############################
-function build_output_handler()
+function build_output_handler(num_links)
     # Build the metadata dictionary for the input handler
     metadata = Dict{String,Any}()
     metadata["attributes"] = ["output_handler"]
     component = Component("output_handler", primitive = "", metadata = metadata)
     # Add the input and output ports
-    add_port(component, "in", "input", 2)
+    add_port(component, "in", "input", num_links)
     # Return the created type
     return component
 end

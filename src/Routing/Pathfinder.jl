@@ -35,7 +35,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         historical_cost         = ones(Float64, num_vertices)
         current_cost_factor     = 3.0
         historical_cost_factor  = 3.0
-        iteration_limit         = 2000
+        iteration_limit         = 200
         links_to_route = 1:num_edges(m.taskgraph)
         # Runtime Structures
         discovered  = falses(num_vertices)

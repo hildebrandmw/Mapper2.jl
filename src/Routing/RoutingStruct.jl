@@ -80,10 +80,11 @@ get_linkmap(rs::RoutingStruct) = get_linkmap(rs.resource_graph)
 # Methods #
 #---------#
 iscongested(rs::RoutingStruct) = iscongested(rs.link_info)
-function iscongested(rs::RoutingStruct, path::Integer)
-    p = getpath(rs, path)
-    for i in p
-        iscongested(get_link_info(rs,i)) && return true
+iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getpath(rs, path))
+
+function iscongested(rs::RoutingStruct, path::EdgePath)
+    for i in path
+        iscongested(get_link_info(rs, i)) && return true
     end
     return false
 end
@@ -128,7 +129,7 @@ end
 function record(m::Map, rs::RoutingStruct)
     architecture = m.architecture
     # Run the verification routine.
-    verify_routing(m, rs)
+    errors = verify_routing(m, rs)
     mapping = getmapping(m)
     # Run safe reverse on the port map since multiple port paths can point to
     # the same port.
@@ -142,8 +143,9 @@ function record(m::Map, rs::RoutingStruct)
         # Get the mapping unit.
         mapping[i] = EdgeMap(routing_path)
     end
-    return nothing
+    return errors
 end
+
 function get_routing_path(architecture, path, portmap_rev, linkmap_rev)
     routing_path = Any[]
     for (j,node) in enumerate(path)

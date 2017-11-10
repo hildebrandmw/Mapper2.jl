@@ -143,6 +143,7 @@ LinkPath(link::String, address) = LinkPath(link, AddressPath(address, ComponentP
 #-------------------------------------------------------------------------------
 const PPC = PortPath{ComponentPath}
 const LPC = LinkPath{ComponentPath}
+const RoutingResourcePath = Union{PortPath,LinkPath}
 
 #-------------------------------------------------------------------------------
 # PATH METHODS
@@ -594,9 +595,6 @@ function walk_children(c::Component)
     return components
 end
 
-#=
-TODO: Make this faster.
-=#
 function connected_components(tl::TopLevel{A,D}) where A where D
     # Construct the associative for the connected components.
     cc = Dict{Address{D}, Set{Address{D}}}()

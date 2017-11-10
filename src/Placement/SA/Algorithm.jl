@@ -74,7 +74,7 @@ end
 function place(
         sa::SAStruct;
         # Number of moves before doing a parameter update.
-        move_attempts = 100_000,
+        move_attempts = 20_000,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
         cooler ::AbstractSACool  = DefaultSACool(0.997),

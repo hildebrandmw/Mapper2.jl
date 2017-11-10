@@ -194,10 +194,13 @@ end
 ################################################################################
 # METHODS FOR THE TASKGRAPH
 ################################################################################
+# -- Some accessor methods.
 getnodes(tg::Taskgraph) = tg.nodes
 getedges(tg::Taskgraph) = tg.edges
 getnode(tg::Taskgraph, node::String) = tg.nodes[node]
 getedge(tg::Taskgraph, i::Integer) = tg.edges[i]
+
+# -- helpful query methods.
 nodenames(tg::Taskgraph) = keys(tg.nodes)
 num_nodes(tg::Taskgraph) = length(getnodes(tg))
 num_edges(tg::Taskgraph) = length(getedges(tg))
@@ -238,8 +241,8 @@ function add_edge(tg::Taskgraph, edge::TaskgraphEdge)
     return nothing
 end
 
-# Iterator interfaces for nodes. Can easily just grab an itertor over the node
-# data types in the nodes dictionary.
+# - Redirect iterators over the noes to iterating over the values in the
+# nodes field.
 """
     nodes(tg::Taskgraph)
 
@@ -281,5 +284,3 @@ function out_nodes(tg::Taskgraph, node)
     nodes = (getnode(tg, n) for n in distinct_sink_names)
     return nodes
 end
-
-# ph

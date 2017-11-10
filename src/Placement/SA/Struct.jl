@@ -595,8 +595,12 @@ function check_consistency(sa::SAStruct)
 end
 
 function check_mapability(m::Map, sa::SAStruct)
+    # Create a list of bad nodes for more helpful error messages.
     bad_nodes = Int64[]
-    A = architecture(m)
+    # Get the architecture parameter.
+    A = get_A(m)
+    # Get the architecture itself.
+    architecture = getarchitecture(m)
     # Iterate through each node in the SA
     for (index, (m_node_name, m_node)) in zip(1:length(sa.nodes), m.taskgraph.nodes)
         sa_node = sa.nodes[index]
@@ -607,7 +611,7 @@ function check_mapability(m::Map, sa::SAStruct)
         component_path = sa.component_table[address][component_index]
         # Get the component from the architecture
         path = AddressPath(address, component_path)
-        component = m.architecture[path]
+        component = architecture[path]
         if !canmap(A, m_node, component)
             push!(bad_nodes, index)
             debug_print(:error, "Node index ", index, 

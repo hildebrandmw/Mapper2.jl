@@ -16,7 +16,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = true
+const USEPLOTS  = false
 
 import Base: start, next, done
 
@@ -54,6 +54,7 @@ include("Taskgraph/Taskgraph.jl")
 # Top-level Map datatype
 include("Map/Map.jl")
 include("Map/Save.jl")
+include("Map/Inspection.jl")
 
 #############
 # Placement #
@@ -84,7 +85,7 @@ include("Frameworks/Kilocore/Kilocore.jl")
 ################################################################################
 
 # Profile Routines
-include("benchmark.jl")
+#include("benchmark.jl")
 
 function testmap()
     options = Dict{Symbol, Any}()
@@ -95,7 +96,7 @@ function testmap()
     #arch  = build_asap3(A = KCLink)
     dict = initialize_mem_dict()
     #arch = build_generic(33,33,2,dict, A = KCLink)
-    sdc   = SimDumpConstructor("560_cores")
+    sdc   = SimDumpConstructor("alexnet")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)
@@ -121,6 +122,19 @@ function initialize_mem_dict()
     # move to a bigger dict
     dict["memory_dict"] = mem_dict
     return dict
+end
+
+function slow_run(m, savename)
+    # build the sa structure
+    sa = SAStruct(m)
+    # Run placement
+    place(sa,
+          move_attempts = 300000,
+          warmer = DefaultSAWarm(0.95, 1.1, 0.99),
+          cooler = DefaultSACool(0.999),
+         )
+    record(m, sa)
+    save(m, savename)
 end
 
 end #module Mapper2
