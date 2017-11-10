@@ -16,7 +16,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = false
+const USEPLOTS  = true
 
 import Base: start, next, done
 
@@ -73,7 +73,8 @@ include("Routing/Routing.jl")
 # Optionally include plotting. Mapper will start up faster if plotting is turned
 # off because Plots takes a while to load.
 if USEPLOTS
-    include("Plots/Plots.jl")
+    #include("Plots/Plots.jl")
+    include("Plots/Plots3d.jl")
 end
 ################################################################################
 # Frameworks
@@ -91,12 +92,12 @@ function testmap()
     options = Dict{Symbol, Any}()
     debug_print(:start, "Building Architecture\n")
     #arch = build_asap4()
-    arch = build_asap4(A = KCLink)
+    #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
     #arch  = build_asap3(A = KCLink)
     dict = initialize_mem_dict()
-    #arch = build_generic(33,33,2,dict, A = KCLink)
-    sdc   = SimDumpConstructor("alexnet")
+    arch = build_generic(33,33,2,dict, A = KCLink)
+    sdc   = SimDumpConstructor("fft")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)

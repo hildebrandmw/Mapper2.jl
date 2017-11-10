@@ -1,5 +1,5 @@
 function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any}
-                        ;A = KCBasic)
+                        ;A = KCBasic, num_links = 2)
 
     # check for memory_dict key in the bigger dictionary
     if haskey(dict, "memory_dict")
@@ -53,7 +53,7 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
 	####################
    	# Memory Processor #
    	####################
-   	memory_processor = build_memory_processor_tile()
+   	memory_processor = build_memory_processor_tile_generic(dim,directions)
    	for addr in mem_proc_array
 	  	add_child(arch, memory_processor, addr)
    	end
@@ -69,13 +69,13 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
     #################
     # Input Handler #
     #################
-    input_handler = build_input_handler()
+    input_handler = build_input_handler(num_links)
     add_child(arch, input_handler, Address(1,1,1))
 
     ##################
     # Output Handler #
     ##################
-    output_handler = build_output_handler()
+    output_handler = build_output_handler(num_links)
     add_child(arch, output_handler, Address(1,col+2,1))
 
     #######################
@@ -203,6 +203,15 @@ directions::Tuple{NTuple{4,String},NTuple{6,String}})
     end
     return comp
 
+end
+
+function build_memory_processor_tile_generic(dimension::Int64,
+directions::Tuple{NTuple{4,String},NTuple{6,String}})
+    # Get a normal processor and add the memory ports to it.
+    tile = build_processor_tile_generic(dimension,directions)
+    # Need to add the memory processor attribute the processor.
+    push!(tile.children["processor"].metadata["attributes"], "memory_processor")
+    return tile
 end
 
 function connect_processors_generic(tl,dimension)
