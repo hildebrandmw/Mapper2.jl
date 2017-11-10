@@ -74,6 +74,7 @@ Base.done(a::ANA, s) = done(a.links, s)
 ################################################################################
 # DEFAULT ANNOTATION FUNCTION
 ################################################################################
+# TODO: add the actual ports and links to the function calls for annotation.
 function annotate(::Type{A}, rg::RoutingGraph) where A <: AbstractArchitecture
     DEBUG && print_with_color(:cyan, "Annotating Graph Links.\n")
     # Construct an empty annotator supplied by the framework declaring the

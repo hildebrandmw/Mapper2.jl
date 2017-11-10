@@ -70,7 +70,5 @@ end
 
 # Functions defined in Routing.jl
 
-# get_source_ports
-# get_sink_ports
 # isvalid_source_port
 # isvalid_sink_port

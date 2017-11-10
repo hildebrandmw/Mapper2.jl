@@ -76,7 +76,6 @@ function check_congestion(m::Map, rs::RoutingStruct, errors)
     end
 end
 
-
 function check_paths(m::Map{A,D}, rs::RoutingStruct, errors) where {A,D}
     # Unpack the structures.
     architecture    = getarchitecture(m)
@@ -103,6 +102,7 @@ function walkpath(architecture::TopLevel{A,D},
                   path,
                   taskedge::TaskgraphEdge,
                   errors) where {A,D}
+
     # Check the validity of start nodes.
     for source_port_path in first(path)
         if !isvalid_source_port(A, architecture[source_port_path], taskedge)

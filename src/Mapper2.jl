@@ -73,8 +73,8 @@ include("Routing/Routing.jl")
 # Optionally include plotting. Mapper will start up faster if plotting is turned
 # off because Plots takes a while to load.
 if USEPLOTS
-    #include("Plots/Plots.jl")
-    include("Plots/Plots3d.jl")
+    include("Plots/Plots.jl")
+    #include("Plots/Plots3d.jl")
 end
 ################################################################################
 # Frameworks
@@ -94,10 +94,11 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    #arch  = build_asap3(A = KCLink)
-    dict = initialize_mem_dict()
-    arch = build_generic(33,33,2,dict, A = KCLink)
-    sdc   = SimDumpConstructor("fft")
+    arch  = build_asap3(A = KCLink)
+    #dict = initialize_mem_dict()
+    dict = Dict{String,Any}()
+    #arch = build_generic(10,10,10,dict, A = KCLink)
+    sdc   = SimDumpConstructor("sort")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)
