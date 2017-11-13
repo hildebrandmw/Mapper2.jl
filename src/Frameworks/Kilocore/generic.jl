@@ -2,6 +2,10 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
                         ;A = KCBasic, num_links = 2)
 
     # check for memory_dict key in the bigger dictionary
+    if haskey(dict, "input_handler")
+        num_in = dict["input_handler"]
+    end
+
     if haskey(dict, "memory_dict")
         mem_dict = dict["memory_dict"]
     else
@@ -70,8 +74,12 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
     # Input Handler #
     #################
     input_handler = build_input_handler(num_links)
-    add_child(arch, input_handler, Address(1,1,1))
-
+    s = floor(row/num_in) # spacing
+    for i = 0:num_in-1
+        row = Int(1+(s*i))
+        println(row)
+        add_child(arch, input_handler, Address(row,1,1))
+    end
     ##################
     # Output Handler #
     ##################
