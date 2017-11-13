@@ -316,13 +316,28 @@ function connect_memories_generic(tl)
     mem_rule = PortRule(mem_key, mem_val, mem_fn)
     # Make connections from memory to memory-processors
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address{3}(-1,0,0), "out[0]", "memory_in"))
-    push!(offset_rules, OffsetRule(Address{3}(-1,1,0), "out[1]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 0,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 1,0), "out[1]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 1, 0,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 1, 1,0), "out[1]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 0, 1,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 1, 1,0), "out[1]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 0,-1,0), "out[0]", "memory_in"))
+    push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "out[1]", "memory_in"))
     connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
     # Make connections from memory-processors to memories.
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address{3}(1,0,0), "memory_out", "in[0]"))
-    push!(offset_rules, OffsetRule(Address{3}(1,-1,0), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(-Address{3}(-1, 0,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(-Address{3}(-1, 1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 1, 0,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 1, 1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 0, 1,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 1, 1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 0,-1,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(-Address{3}( 1,-1,0), "memory_in", "out[1]"))
+
+    #push!(offset_rules, OffsetRule(Address{3}(1,0,0), "memory_out", "in[0]"))
+    #push!(offset_rules, OffsetRule(Address{3}(1,-1,0), "memory_out", "in[1]"))
     connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
 
     ###########################

@@ -98,7 +98,7 @@ function testmap()
     #dict = initialize_mem_dict()
     dict = Dict{String,Any}()
     #arch = build_generic(10,10,10,dict, A = KCLink)
-    sdc   = SimDumpConstructor("sort")
+    sdc   = SimDumpConstructor("ldpc")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)
@@ -131,7 +131,7 @@ function slow_run(m, savename)
     sa = SAStruct(m)
     # Run placement
     place(sa,
-          move_attempts = 300000,
+          move_attempts = 500000,
           warmer = DefaultSAWarm(0.95, 1.1, 0.99),
           cooler = DefaultSACool(0.999),
          )
