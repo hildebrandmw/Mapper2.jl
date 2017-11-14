@@ -1,4 +1,3 @@
-
 function report_routing_stats(m::Map{A,D}) where {A,D}
     # Get the link histogram first - this will make later analysis steps much
     # easier as we won't have to traverse through the architecture a bunch
@@ -31,6 +30,7 @@ function report_routing_stats(m::Map{A,D}) where {A,D}
 
     return histogram
 end
+
 function global_link_histogram(m::Map{A,D}) where {A,D}
     histogram = SortedDict{Int64,Int64}()
     for edge in m.mapping.edges

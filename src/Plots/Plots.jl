@@ -141,11 +141,11 @@ function plot_3d(sa:: SAStruct)
       distance[i] = sqrt((x[1,i]-x[2,i])^2+(y[1,i]-y[2,i])^2+(z[1,i]-z[2,i])^2)
 
       if distance[i] > 10
-          lc_symbol[i] = :red
+          lc_symbol[i] = :black
       elseif distance[i] > 1
           lc_symbol[i] = :blue
       else
-          lc_symbol[i] = :black
+          lc_symbol[i] = :green
       end
 
    end
