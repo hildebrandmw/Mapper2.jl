@@ -83,7 +83,7 @@ import Base: +,-,*
 +(a::Address{N}, b::Address{N}) where {N} = Address(a.addr .+ b.addr)
 -(a::Address{N}, b::Address{N}) where {N} = Address(a.addr .- b.addr)
 *(a::Address{N}, b::Address{N}) where {N} = Address(a.addr .* b.addr)
--(a::Address{N}) where {N} = Address(-a.addr)
+-(a::Address{N}) where {N} = Address(-1.*a.addr)
 
 # Function to return the extreme addresses of a collection
 function address_extrema(addresses)
