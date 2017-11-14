@@ -1,6 +1,6 @@
-function initialize_dict()
+function initialize_dict(r,c,n)
     # initialize memory addr and memory neighbor addr
-    mem_dict = mem_layout(15,16,12)
+    mem_dict = mem_layout(r,c,n)
     dict = Dict{String,Any}()
     # move to a bigger dict
     dict["memory_dict"] = mem_dict

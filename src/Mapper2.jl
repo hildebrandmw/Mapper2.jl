@@ -106,15 +106,17 @@ end
 function bulk_run()
     app = "ldpc"
     # Build up the architectures to test.
-    kc_no_link = build_asap3()
-    kc_link    = build_asap3(A = KCLink)
-    generic    = build_generic(15,16,4, initialize_dict(), A = KCLink)
+    generic_15_16_4    = build_generic(15,16,4, initialize_dict(15,16,12), A = KCLink)
+    generic_16_16_4    = build_generic(16,16,4, initialize_dict(16,16,12), A = KCLink)
+    generic_16_17_4    = build_generic(16,17,4, initialize_dict(16,17,12), A = KCLink)
+    generic_17_17_4    = build_generic(17,17,4, initialize_dict(17,17,12), A = KCLink)
+    generic_17_18_4    = build_generic(17,18,4, initialize_dict(17,18,12), A = KCLink)
 
     # Add all of the architectures to an array.
-    architectures = [kc_no_link, kc_link, generic]
+    architectures = [generic_15_16_4, generic_16_16_4, generic_16_17_4, generic_17_17_4, generic_17_18_4]
     # Give names to each of the architectures - append the app name to
     # the front
-    save_names = "$(app)_" .* ["kc_no_link", "kc_link", "generic_15_16_4"]
+    save_names = "$(app)_" .* ["generic_15_16_4","generic_16_16_4","generic_16_17_4","generic_17_17_4","generic_17_18_4"]
 
     # Build the taskgraphs
     taskgraph_constructor = SimDumpConstructor(app)
@@ -122,12 +124,12 @@ function bulk_run()
     taskgraph = Taskgraph(taskgraph_constructor)
     taskgraph = apply_transforms(taskgraph, taskgraph_constructor)
 
-    # Build the maps for each architecture/taskgraph pair. 
+    # Build the maps for each architecture/taskgraph pair.
     maps = NewMap.(architectures, taskgraph)
 
     # Build an anonymous function to allow finer control of the placement
     # function.
-    place_algorithm = m -> place(m, 
+    place_algorithm = m -> place(m,
           move_attempts = 5000,
           warmer = DefaultSAWarm(0.95, 1.1, 0.99),
           cooler = DefaultSACool(0.999),
@@ -154,7 +156,7 @@ function parallel_run(maps, save_names; place_algorithm = m -> place(m))
     print_with_color(:yellow, "Run Statistics\n")
     for (m, name) in zip(routed, save_names)
         print_with_color(:light_cyan, name, "\n")
-        report_routing_stats(m) 
+        report_routing_stats(m)
         save(m, name)
     end
     return routed
