@@ -13,7 +13,7 @@ sa = SAStruct(m)
 place(sa,
         move_attempts = 500000,
         warmer = DefaultSAWarm(0.95, 1.1, 0.99),
-        cooler = DefaultSACool(0.9),
+        cooler = DefaultSACool(0.999),
        )
 
 # Take the results of the SA Struct and save it to the "Map" data structure.
