@@ -1,5 +1,6 @@
 using Plots
-Plots.pyplot()
+Plots.gr()
+#Plots.pyplot()
 ################################################################################
 # OH-NO PLOTTING
 ################################################################################
@@ -145,7 +146,7 @@ function plot_3d(sa:: SAStruct)
       elseif distance[i] > 1
           lc_symbol[i] = :blue
       else
-          lc_symbol[i] = :green
+          lc_symbol[i] = :black
       end
 
    end

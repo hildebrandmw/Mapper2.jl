@@ -16,7 +16,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = false
+const USEPLOTS  = true
 
 import Base: start, next, done
 
@@ -93,9 +93,8 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    arch  = build_asap3(A = KCLink)
-    dict = initialize_dict()
-    #arch = build_generic(15,16,4,dict, A = KCLink)
+    #Qarch  = build_asap3(A = KCLink)
+    arch = build_generic(15,16,4,initialize_dict(15,16,12), A = KCLink)
     sdc   = SimDumpConstructor("ldpc")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
@@ -103,7 +102,7 @@ function testmap()
     return NewMap(arch, tg)
 end
 
-function bulk_run()
+function get_maps()
     app = "ldpc"
     # Build up the architectures to test.
     generic_15_16_4    = build_generic(15,16,4, initialize_dict(15,16,12), A = KCLink)
@@ -111,13 +110,31 @@ function bulk_run()
     generic_16_17_4    = build_generic(16,17,4, initialize_dict(16,17,12), A = KCLink)
     generic_17_17_4    = build_generic(17,17,4, initialize_dict(17,17,12), A = KCLink)
     generic_17_18_4    = build_generic(17,18,4, initialize_dict(17,18,12), A = KCLink)
+    generic_18_18_4    = build_generic(18,18,4, initialize_dict(18,18,12), A = KCLink)
+    generic_18_19_4    = build_generic(18,19,4, initialize_dict(18,19,12), A = KCLink)
+    generic_19_19_4    = build_generic(19,19,4, initialize_dict(19,19,12), A = KCLink)
 
     # Add all of the architectures to an array.
-    architectures = [generic_15_16_4, generic_16_16_4, generic_16_17_4, generic_17_17_4, generic_17_18_4]
+    architectures = [generic_15_16_4, 
+                     generic_16_16_4, 
+                     generic_16_17_4, 
+                     generic_17_17_4, 
+                     generic_17_18_4,
+                     generic_18_18_4,
+                     generic_18_19_4,
+                     generic_19_19_4]
+
     # Give names to each of the architectures - append the app name to
     # the front
-    save_names = "$(app)_" .* ["generic_15_16_4","generic_16_16_4","generic_16_17_4","generic_17_17_4","generic_17_18_4"]
-
+    save_names = "$(app)_" .* ["generic_15_16_4",
+                               "generic_16_16_4",
+                               "generic_16_17_4",
+                               "generic_17_17_4",
+                               "generic_17_18_4",
+                               "generic_18_18_4",
+                               "generic_18_19_4",
+                               "generic_19_19_4"]
+    
     # Build the taskgraphs
     taskgraph_constructor = SimDumpConstructor(app)
     debug_print(:start, "Building Taskgraph\n")
@@ -127,12 +144,19 @@ function bulk_run()
     # Build the maps for each architecture/taskgraph pair.
     maps = NewMap.(architectures, taskgraph)
 
+    return maps, save_names
+end
+
+
+function bulk_run()
+    maps, save_names = get_maps()
+
     # Build an anonymous function to allow finer control of the placement
     # function.
     place_algorithm = m -> place(m,
-          move_attempts = 5000,
+          move_attempts = 500000,
           warmer = DefaultSAWarm(0.95, 1.1, 0.99),
-          cooler = DefaultSACool(0.999),
+          cooler = DefaultSACool(0.998),
          )
 
     # Execute the parallel run
