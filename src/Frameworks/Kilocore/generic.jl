@@ -47,7 +47,7 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
     # Get a processor tile to instantiate
 	processor = build_processor_tile_generic(dim,directions)
     # Instantiate it at the required addresses
-  	for r in 1:row, c in 2:col+1, l in 1:lev
+  	for r in 2:row+1, c in 2:col+1, l in 1:lev
         if Address(r,c,l) in mem_proc_array || Address(r,c,l) in mem_array
             continue # avoid the addresses in mem_dict
         end
@@ -76,7 +76,7 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
     input_handler = build_input_handler(num_links)
     s = floor(row/num_in) # spacing
     for i = 0:num_in-1
-        row = Int(1+(s*i))
+        row = Int(2+(s*i))
         println(row)
         add_child(arch, input_handler, Address(row,1,1))
     end
@@ -84,7 +84,7 @@ function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any
     # Output Handler #
     ##################
     output_handler = build_output_handler(num_links)
-    add_child(arch, output_handler, Address(1,col+2,1))
+    add_child(arch, output_handler, Address(2,col+2,1))
 
     #######################
     # Global Interconnect #
@@ -334,15 +334,16 @@ function connect_memories_generic(tl)
     push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "out[1]", "memory_in"))
     connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
     # Make connections from memory-processors to memories.
+
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(-Address{3}(-1, 0,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(-Address{3}(-1, 1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 1, 0,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 1, 1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 0, 1,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 1, 1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 0,-1,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(-Address{3}( 1,-1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 1, 0,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 0,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 0,-1,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_in", "out[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 0, 1,0), "memory_in", "out[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 1,0), "memory_in", "out[1]"))
 
     #push!(offset_rules, OffsetRule(Address{3}(1,0,0), "memory_out", "in[0]"))
     #push!(offset_rules, OffsetRule(Address{3}(1,-1,0), "memory_out", "in[1]"))

@@ -94,10 +94,9 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    arch  = build_asap3(A = KCLink)
-    #dict = initialize_mem_dict()
-    dict = Dict{String,Any}()
-    #arch = build_generic(10,10,10,dict, A = KCLink)
+    #arch  = build_asap3(A = KCLink)
+    dict = initialize_dict()
+    arch = build_generic(15,16,4,dict, A = KCLink)
     sdc   = SimDumpConstructor("ldpc")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
@@ -105,26 +104,49 @@ function testmap()
     return NewMap(arch, tg)
 end
 
-function initialize_mem_dict()
+function initialize_dict()
     # initialize memory addr and memory neighbor addr
-    mem_dict = Dict(  Address(34,2,1)  => [Address(33,2,1),  Address(33,3,1)],
-                      Address(34,4,1)  => [Address(33,4,1),  Address(33,5,1)],
-                      Address(34,6,1)  => [Address(33,6,1),  Address(33,7,1)],
-                      Address(34,8,1)  => [Address(33,8,1),  Address(33,9,1)],
-                      Address(34,10,1) => [Address(33,10,1), Address(33,11,1)],
-                      Address(34,12,1) => [Address(33,12,1), Address(33,13,1)],
-                      Address(34,14,1) => [Address(33,14,1), Address(33,15,1)],
-                      Address(34,16,1) => [Address(33,16,1), Address(33,17,1)],
-                      Address(34,18,1) => [Address(33,18,1), Address(33,19,1)],
-                      Address(34,20,1) => [Address(33,20,1), Address(33,21,1)],
-                      Address(34,22,1) => [Address(33,22,1), Address(33,23,1)],
-                      Address(34,24,1) => [Address(33,24,1), Address(33,25,1)],
-                      Address(34,26,1) => [Address(33,26,1), Address(33,27,1)] )
+    mem_dict = mem_layout(15,16,12)
     dict = Dict{String,Any}()
     # move to a bigger dict
     dict["memory_dict"] = mem_dict
+    dict["input_handler"] = 1
+    println(dict)
     return dict
 end
+
+function mem_layout(row,col,count)
+    row_spacing = floor((row-1)/(count/4)) #leave one row for input handler
+    col_spacing = floor(col/(count/4))
+    row_addr = Int64[]
+    col_addr = Int64[]
+    for i = 0:(count/4)-1
+        push!(row_addr,(i*row_spacing)+4)
+    end
+    for i = 0:(count/4)-1
+        push!(col_addr,(i*col_spacing)+4)
+    end
+    mem_dict = Dict{Mapper2.Address{3},Array{Mapper2.Address{3},1}}()
+    for r in row_addr
+        mem_addr = Address(r,1,1)
+        memproc_addr = [Address(r,2,1),Address(r+1,2,1)]
+        mem_dict[mem_addr] = memproc_addr
+        mem_addr = Address(r,col+2,1)
+        memproc_addr = [Address(r,col+1,1),Address(r+1,col+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+    end
+    for c in col_addr
+        mem_addr = Address(1,c,1)
+        memproc_addr = [Address(2,c,1),Address(2,c+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+        mem_addr = Address(row+2,c,1)
+        memproc_addr = [Address(row+1,c,1),Address(row+1,c+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+    end
+
+    return mem_dict
+end
+
 
 function slow_run(m, savename)
     # build the sa structure

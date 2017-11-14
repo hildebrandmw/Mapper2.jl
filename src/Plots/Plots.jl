@@ -1,5 +1,5 @@
 using Plots
-Plots.gr()
+Plots.pyplot()
 ################################################################################
 # OH-NO PLOTTING
 ################################################################################
@@ -26,8 +26,8 @@ function plot_2d(sa::SAStruct)
    #addr_length = length(addresses(pa))
    num_nodes = length(sa.nodes)
 
-   x1 = Int64[] 
-   y1 = Int64[] 
+   x1 = Int64[]
+   y1 = Int64[]
 
    max_row      = 0
    max_column   = 0
@@ -78,20 +78,20 @@ function plot_2d(sa::SAStruct)
    #title = join(("Mapping for: ", sa.application_name, " on ", pa.name))
    p = Plots.plot(legend = :none, size = (700,700))
    ## plot the architecture tiles ##
-   Plots.plot!(x1, y1,  shape = :rect, 
+   Plots.plot!(x1, y1,  shape = :rect,
                         linewidth = 0.5,
-                        color = :white, 
+                        color = :white,
                         markerstrokewidth = 1)
    ## plot task links ##
-   Plots.plot!(x, y, line = :arrow, 
-               linewidth = 4.0, 
-               linecolor = lc_symbol, 
-               xlims = (0,max_row+1), 
+   Plots.plot!(x, y, line = :arrow,
+               linewidth = 4.0,
+               linecolor = lc_symbol,
+               xlims = (0,max_row+1),
                ylims = (0,max_column+1),)
    ## export as png ##
    gui()
    #savefig("plot.png")
-   return nothing 
+   return nothing
 end
 
 function plot_3d(sa:: SAStruct)
@@ -154,7 +154,7 @@ function plot_3d(sa:: SAStruct)
    #title = join(("Mapping for: ", sa.application_name, " on ", pa.name))
    p = Plots.plot(legend = :none, size = (700,700))
    ## plot the architecture tiles ##
-   Plots.plot!(x1, y1, z1,  
+   Plots.plot!(x1, y1, z1,
                 shape = :circle,
                 linewidth = 0.5,
                 color = :white,
