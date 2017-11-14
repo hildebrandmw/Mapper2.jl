@@ -21,6 +21,10 @@ function push_to_dict(d, k, v)
     return nothing
 end
 
+function add_to_dict(d, k, v = 1; b = 1)
+    haskey(d, k) ? d[k] += v : d[k] = b
+end
+
 """
     rev_dict(d)
 

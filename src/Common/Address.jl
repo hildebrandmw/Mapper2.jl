@@ -69,7 +69,12 @@ Base.string(a::Address) = join(("Address", string(a.addr)))
 # tuples
 Base.isequal(a::Address{N}, b::Address{N}) where {N} = a.addr == b.addr
 Base.isless(a::Address{N}, b::Address{N}) where {N} = a.addr < b.addr
-
+function Base.isempty(a::Address{N}) where {N} 
+    for i in a.addr
+        i != 0 && return false
+    end
+    return true
+end
 # Hash functions - removed because not needed.
 Base.maximum(a::Address) = maximum(a.addr)
 

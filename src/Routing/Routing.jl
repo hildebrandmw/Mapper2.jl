@@ -25,6 +25,23 @@ include("Pathfinder.jl")
 # Verification
 include("Verification.jl")
 
+# Routing dispatch
+function route(m::Map{A,D}) where {A,D}
+    # Build the routing structure
+    routing_struct = RoutingStruct(m)
+    # Default to Pathfinder
+    algorithm = routing_algorithm(m, routing_struct)
+    # Run the routing algorithm.
+    route(algorithm, routing_struct)
+    # Record the final results.
+    record(m, routing_struct)
+    return m
+end
+
+function routing_algorithm(m::Map{A,D}, rs) where {A <: AbstractArchitecture, D} 
+    return Pathfinder(m, rs)
+end
+
 ################################################################################
 # REQUIRED METHODS
 ################################################################################

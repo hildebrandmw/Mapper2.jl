@@ -1,7 +1,7 @@
 function build_asap3(;A = KCBasic)
     # Start with a new component - clarify that it is 2 dimensional
     arch = TopLevel{A,2}("asap3")
-    num_links = 4
+    num_links = 3
 
     ####################
     # Normal Processor #

@@ -16,7 +16,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = true
+const USEPLOTS  = false
 
 import Base: start, next, done
 
@@ -74,7 +74,6 @@ include("Routing/Routing.jl")
 # off because Plots takes a while to load.
 if USEPLOTS
     include("Plots/Plots.jl")
-    #include("Plots/Plots3d.jl")
 end
 ################################################################################
 # Frameworks
@@ -94,9 +93,9 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    #arch  = build_asap3(A = KCLink)
+    arch  = build_asap3(A = KCLink)
     dict = initialize_dict()
-    arch = build_generic(15,16,4,dict, A = KCLink)
+    #arch = build_generic(15,16,4,dict, A = KCLink)
     sdc   = SimDumpConstructor("ldpc")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
@@ -104,49 +103,62 @@ function testmap()
     return NewMap(arch, tg)
 end
 
-function initialize_dict()
-    # initialize memory addr and memory neighbor addr
-    mem_dict = mem_layout(15,16,12)
-    dict = Dict{String,Any}()
-    # move to a bigger dict
-    dict["memory_dict"] = mem_dict
-    dict["input_handler"] = 1
-    println(dict)
-    return dict
+function bulk_run()
+    app = "ldpc"
+    # Build up the architectures to test.
+    kc_no_link = build_asap3()
+    kc_link    = build_asap3(A = KCLink)
+    generic    = build_generic(15,16,4, initialize_dict(), A = KCLink)
+
+    # Add all of the architectures to an array.
+    architectures = [kc_no_link, kc_link, generic]
+    # Give names to each of the architectures - append the app name to
+    # the front
+    save_names = "$(app)_" .* ["kc_no_link", "kc_link", "generic_15_16_4"]
+
+    # Build the taskgraphs
+    taskgraph_constructor = SimDumpConstructor(app)
+    debug_print(:start, "Building Taskgraph\n")
+    taskgraph = Taskgraph(taskgraph_constructor)
+    taskgraph = apply_transforms(taskgraph, taskgraph_constructor)
+
+    # Build the maps for each architecture/taskgraph pair. 
+    maps = NewMap.(architectures, taskgraph)
+
+    # Build an anonymous function to allow finer control of the placement
+    # function.
+    place_algorithm = m -> place(m, 
+          move_attempts = 5000,
+          warmer = DefaultSAWarm(0.95, 1.1, 0.99),
+          cooler = DefaultSACool(0.999),
+         )
+
+    # Execute the parallel run
+    routed_maps = parallel_run(maps, save_names, place_algorithm = place_algorithm)
+
+    return routed_maps
 end
 
-function mem_layout(row,col,count)
-    row_spacing = floor((row-1)/(count/4)) #leave one row for input handler
-    col_spacing = floor(col/(count/4))
-    row_addr = Int64[]
-    col_addr = Int64[]
-    for i = 0:(count/4)-1
-        push!(row_addr,(i*row_spacing)+4)
-    end
-    for i = 0:(count/4)-1
-        push!(col_addr,(i*col_spacing)+4)
-    end
-    mem_dict = Dict{Mapper2.Address{3},Array{Mapper2.Address{3},1}}()
-    for r in row_addr
-        mem_addr = Address(r,1,1)
-        memproc_addr = [Address(r,2,1),Address(r+1,2,1)]
-        mem_dict[mem_addr] = memproc_addr
-        mem_addr = Address(r,col+2,1)
-        memproc_addr = [Address(r,col+1,1),Address(r+1,col+1,1)]
-        mem_dict[mem_addr] = memproc_addr
-    end
-    for c in col_addr
-        mem_addr = Address(1,c,1)
-        memproc_addr = [Address(2,c,1),Address(2,c+1,1)]
-        mem_dict[mem_addr] = memproc_addr
-        mem_addr = Address(row+2,c,1)
-        memproc_addr = [Address(row+1,c,1),Address(row+1,c+1,1)]
-        mem_dict[mem_addr] = memproc_addr
-    end
+"""
+    parallel_run(maps, save_names)
 
-    return mem_dict
+Place and route the given collection of maps in parallel. After routing,
+all maps will be saved according to the respective entry in `save_names`.
+"""
+function parallel_run(maps, save_names; place_algorithm = m -> place(m))
+    # Parallel Placement
+    placed = pmap(place_algorithm, maps)
+    # Parallel Routing
+    routed = pmap(m -> route(m), placed)
+    # Print out statistic for each run - also save everything.
+    print_with_color(:yellow, "Run Statistics\n")
+    for (m, name) in zip(routed, save_names)
+        print_with_color(:light_cyan, name, "\n")
+        report_routing_stats(m) 
+        save(m, name)
+    end
+    return routed
 end
-
 
 function slow_run(m, savename)
     # build the sa structure

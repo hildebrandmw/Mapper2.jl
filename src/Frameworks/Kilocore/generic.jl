@@ -1,3 +1,47 @@
+function initialize_dict()
+    # initialize memory addr and memory neighbor addr
+    mem_dict = mem_layout(15,16,12)
+    dict = Dict{String,Any}()
+    # move to a bigger dict
+    dict["memory_dict"] = mem_dict
+    dict["input_handler"] = 1
+    debug_print(:info, "Generic Architecture Initialization Dictionary:\n")
+    DEBUG && display(dict)
+    return dict
+end
+
+function mem_layout(row,col,count)
+    row_spacing = floor((row-1)/(count/4)) #leave one row for input handler
+    col_spacing = floor(col/(count/4))
+    row_addr = Int64[]
+    col_addr = Int64[]
+    for i = 0:(count/4)-1
+        push!(row_addr,(i*row_spacing)+4)
+    end
+    for i = 0:(count/4)-1
+        push!(col_addr,(i*col_spacing)+4)
+    end
+    mem_dict = Dict{Mapper2.Address{3},Array{Mapper2.Address{3},1}}()
+    for r in row_addr
+        mem_addr = Address(r,1,1)
+        memproc_addr = [Address(r,2,1),Address(r+1,2,1)]
+        mem_dict[mem_addr] = memproc_addr
+        mem_addr = Address(r,col+2,1)
+        memproc_addr = [Address(r,col+1,1),Address(r+1,col+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+    end
+    for c in col_addr
+        mem_addr = Address(1,c,1)
+        memproc_addr = [Address(2,c,1),Address(2,c+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+        mem_addr = Address(row+2,c,1)
+        memproc_addr = [Address(row+1,c,1),Address(row+1,c+1,1)]
+        mem_dict[mem_addr] = memproc_addr
+    end
+
+    return mem_dict
+end
+
 function build_generic(row::Int64, col::Int64, lev::Int64, dict::Dict{String,Any}
                         ;A = KCBasic, num_links = 2)
 
@@ -333,20 +377,17 @@ function connect_memories_generic(tl)
     push!(offset_rules, OffsetRule(Address{3}( 0,-1,0), "out[0]", "memory_in"))
     push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "out[1]", "memory_in"))
     connection_rule(tl, offset_rules, mem_rule, proc_rule, metadata = metadata)
+
     # Make connections from memory-processors to memories.
-
     offset_rules = OffsetRule[]
-    push!(offset_rules, OffsetRule(Address{3}( 1, 0,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(Address{3}(-1, 0,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(Address{3}( 0,-1,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_in", "out[1]"))
-    push!(offset_rules, OffsetRule(Address{3}( 0, 1,0), "memory_in", "out[0]"))
-    push!(offset_rules, OffsetRule(Address{3}(-1, 1,0), "memory_in", "out[1]"))
-
-    #push!(offset_rules, OffsetRule(Address{3}(1,0,0), "memory_out", "in[0]"))
-    #push!(offset_rules, OffsetRule(Address{3}(1,-1,0), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 1, 0,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{3}( 1,-1,0), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 0,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 0,-1,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1,-1,0), "memory_out", "in[1]"))
+    push!(offset_rules, OffsetRule(Address{3}( 0, 1,0), "memory_out", "in[0]"))
+    push!(offset_rules, OffsetRule(Address{3}(-1, 1,0), "memory_out", "in[1]"))
     connection_rule(tl, offset_rules, proc_rule, mem_rule, metadata = metadata)
 
     ###########################

@@ -42,7 +42,7 @@ mutable struct SAState
     dt::Float64
 
     function SAState(temperature, distance_limit, objective)
-        SAStateUpdateInterval = 2
+        SAStateUpdateInterval = 10
         return new(
             # Most recent run
             temperature,        # temperature
