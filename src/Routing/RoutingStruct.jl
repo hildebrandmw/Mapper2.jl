@@ -21,6 +21,7 @@ PathTracker(n::Integer) = PathTracker([EdgePath() for i = 1:n])
 Base.getindex(pt::PathTracker, i::Integer) = pt.edges[i]
 Base.setindex!(pt::PathTracker, e::EdgePath, i::Integer) = setindex!(pt.edges,e,i)
 Base.length(pt::PathTracker) = length(pt.edges)
+total_links(pt::PathTracker) = sum(length(e) for e in pt.edges)
 #- Iterator Interface
 Base.start(e::PathTracker)      = start(e.edges)
 Base.next(e::PathTracker, s)    = next(e.edges, s)
@@ -81,6 +82,7 @@ get_linkmap(rs::RoutingStruct) = get_linkmap(rs.resource_graph)
 #---------#
 iscongested(rs::RoutingStruct) = iscongested(rs.link_info)
 iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getpath(rs, path))
+total_links(rs::RoutingStruct) = total_links(rs.paths)
 
 function iscongested(rs::RoutingStruct, path::EdgePath)
     for i in path

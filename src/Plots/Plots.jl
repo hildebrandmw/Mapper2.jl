@@ -1,6 +1,6 @@
 using Plots
-Plots.gr()
-#Plots.pyplot()
+#Plots.gr()
+Plots.pyplot()
 ################################################################################
 # OH-NO PLOTTING
 ################################################################################
@@ -95,6 +95,7 @@ function plot_2d(sa::SAStruct)
    return nothing
 end
 
+# Oh boy
 function plot_3d(sa:: SAStruct)
 
   x1 = Int64[]
@@ -157,13 +158,13 @@ function plot_3d(sa:: SAStruct)
    ## plot the architecture tiles ##
    Plots.plot!(x1, y1, z1,
                 shape = :circle,
-                linewidth = 0.5,
-                color = :white,
-                markerstrokewidth = 0.5)
+                linewidth = 1,
+                color = :black,
+                markerstrokewidth = 1)
 
    ## plot task links ##
    Plots.plot!(x, y, z, line = :arrow,
-               linewidth = 4.0,
+               linewidth = 1,
                linecolor = lc_symbol,
                xlims = (0,max_row+1),
                ylims = (0,max_column+1),
@@ -173,4 +174,4 @@ function plot_3d(sa:: SAStruct)
    gui()
    #savefig("plot.png")
    return nothing
-   end
+end

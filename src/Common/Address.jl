@@ -10,7 +10,6 @@ struct Address{N} <: AbstractAddress
 end
 
 
-
 """
 Empty Constructors. Returns an address with each entry zero.
 """
@@ -20,7 +19,7 @@ Address(x::T...) where {T <: Integer} = Address{length(x)}(__ADDR_REP.(x))
 Address{N}(x::T...) where {N, T<:Integer} = Address{N}(__ADDR_REP.(x))
 
 #=
-Function to efficientrly generate a random address given a tuple of lower bounds
+Function to efficiently generate a random address given a tuple of lower bounds
 and a tuple of upper bounds.
 =#
 function rand_address_impl(lb::Type{T}, ub::Type{T}) where T <: NTuple{N,Any} where N

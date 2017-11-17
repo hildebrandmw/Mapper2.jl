@@ -16,7 +16,7 @@ const PKGDIR = dirname(SRCDIR)
 
 # Flag for debug mode
 const DEBUG     = true
-const USEPLOTS  = true
+const USEPLOTS  = false
 
 import Base: start, next, done
 
@@ -93,9 +93,9 @@ function testmap()
     #arch = build_asap4()
     #arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    #Qarch  = build_asap3(A = KCLink)
-    arch = build_generic(15,16,4,initialize_dict(15,16,12), A = KCLink)
-    sdc   = SimDumpConstructor("ldpc")
+    arch  = build_asap3(A = KCLink)
+    #arch = build_generic(15,16,4,initialize_dict(15,16,12), A = KCLink)
+    sdc   = SimDumpConstructor("sort")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)
@@ -115,10 +115,10 @@ function get_maps()
     generic_19_19_4    = build_generic(19,19,4, initialize_dict(19,19,12), A = KCLink)
 
     # Add all of the architectures to an array.
-    architectures = [generic_15_16_4, 
-                     generic_16_16_4, 
-                     generic_16_17_4, 
-                     generic_17_17_4, 
+    architectures = [generic_15_16_4,
+                     generic_16_16_4,
+                     generic_16_17_4,
+                     generic_17_17_4,
                      generic_17_18_4,
                      generic_18_18_4,
                      generic_18_19_4,
@@ -134,7 +134,7 @@ function get_maps()
                                "generic_18_18_4",
                                "generic_18_19_4",
                                "generic_19_19_4"]
-    
+
     # Build the taskgraphs
     taskgraph_constructor = SimDumpConstructor(app)
     debug_print(:start, "Building Taskgraph\n")
@@ -197,6 +197,55 @@ function slow_run(m, savename)
          )
     record(m, sa)
     save(m, savename)
+end
+
+function shotgun(m::Map{A,D}, iterations; kwargs...) where {A,D}
+    # Get the placement struct.
+    placement_struct = get_placement_struct(m)
+    structs = typeof(placement_struct)[]
+    first = true
+    local state
+    for i = 1:iterations
+        if first
+            ps = deepcopy(placement_struct)
+            state = place(ps; kwargs...)
+            push!(structs, ps)
+            first = false
+        else
+            ps = deepcopy(last(structs))
+            state = place(ps; supplied_state = state,
+                              kwargs...,
+                              warmer = TrueSAWarm(),
+                             )
+            push!(structs, ps)
+        end
+    end
+
+    first = true
+    best  = 0
+    for ps in structs
+        # Record the placement.
+        record(m, ps)
+        # Run the routing protocol.
+        routing_struct = RoutingStruct(m)
+        algorithm = routing_algorithm(m, routing_struct)
+        route(algorithm, routing_struct)
+        # Continue if routing structure is congested
+        iscongested(routing_struct) && continue
+        tl = total_links(routing_struct)
+        if first
+            best = tl
+            record(m, routing_struct)
+            first = false
+        else
+            if best > tl
+                best = tl
+                record(m, routing_struct)
+            end
+        end
+    end
+    first == true && error()
+    return m
 end
 
 end #module Mapper2

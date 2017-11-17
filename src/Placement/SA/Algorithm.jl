@@ -37,6 +37,8 @@ mutable struct DefaultSAWarm <: AbstractSAWarm
     decay       ::Float64
 end
 
+struct TrueSAWarm <: AbstractSAWarm end
+
 # Cooling Schedules
 abstract type AbstractSACool end
 """
@@ -73,6 +75,7 @@ end
 
 function place(
         sa::SAStruct;
+        supplied_state = nothing,
         # Number of moves before doing a parameter update.
         move_attempts = 20_000,
         # Parameters for high-level control
@@ -110,7 +113,12 @@ function place(
 
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
-    state = SAState(1.0, Float64(largest_address), cost)
+    if supplied_state == nothing
+        state = SAState(1.0, Float64(largest_address), cost)
+    else
+        state = supplied_state
+    end
+
     # Print out the header for the statistic columns.
     show_stats(state, true)
     first_display = true
@@ -198,6 +206,8 @@ end
     end
     return nothing
 end
+
+warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
 
