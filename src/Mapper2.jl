@@ -87,6 +87,27 @@ include("Frameworks/Kilocore/Kilocore.jl")
 # Profile Routines
 #include("benchmark.jl")
 
+# Running from a script
+function place_and_route(input_profile, output_file, appname)
+    # Build the asap4 architecture
+    arch = build_asap4(A = KCLink) 
+
+    # Construct the taskgraph from the given profile file.
+    sdc  = SimDumpConstructor{false}(appname, input_profile)
+    taskgraph = Taskgraph(sdc)
+    tg = apply_transforms(taskgraph, sdc)
+
+    # Build a map
+    m = NewMap(arch, tg)
+    
+    # Run Placement and routing
+    m = (route ∘ place)(m)
+    
+    # Save the placement and routing information
+    dump(m, output_file)
+    return nothing
+end
+
 function testmap()
     options = Dict{Symbol, Any}()
     debug_print(:start, "Building Architecture\n")
@@ -95,7 +116,7 @@ function testmap()
     #arch = build_asap3()
     arch  = build_asap3(A = KCLink)
     #arch = build_generic(15,16,4,initialize_dict(15,16,12), A = KCLink)
-    sdc   = SimDumpConstructor("sort")
+    sdc   = CachedSimDump("sort")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)

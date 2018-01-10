@@ -78,6 +78,22 @@ function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
     return cost
 end
 
+#@generated function node_cost(::Type{A}, sa::SAStruct, node) where { A<: AbstractArchitecture}
+#    # Get the return type of "edge_cost(A, sa, edge)"
+#    cost_type = Core.Inference.return_type(edge_cost, (A, sa, edgetype(sa)))
+#    return quote
+#        cost = zero($cost_type) 
+#        n = sa.nodes[node]
+#        for edge in n.out_edges
+#            cost += edge_cost(A, sa, edge)
+#        end
+#        for edge in n.in_edges
+#            cost += edge_cost(A, sa, edge)
+#        end
+#        return cost
+#    end
+#end
+
 function node_cost(::Type{A}, sa::SAStruct, node) where {A <: AbstractArchitecture}
     # Get the node type from the SA Structure.
     n = sa.nodes[node]

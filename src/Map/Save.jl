@@ -19,6 +19,18 @@ function save(m::Map, filename::String = "")
     close(f)
 end
 
+function Base.dump(m::Map, filename::String)
+    # Build a dictionary for json serialize
+    jsn = Dict{String,Any}() 
+    jsn["nodes"] = create_node_dict(m.mapping)
+    jsn["edges"] = create_edge_vec(m.mapping)
+    # Open up the file to save
+    f = open(filename, "w")
+    # Print to JSON with pretty printing.
+    print(f, json(jsn, 2))
+    close(f)
+end
+
 #=
 NOTE: This function is still experimental and is by no means robust. Use
 at your own risk.

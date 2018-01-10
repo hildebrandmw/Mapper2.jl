@@ -27,6 +27,8 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     discovered  ::BitVector
     predecessor ::Vector{Int64}
     pq          ::Q
+
+    # Constructor
     function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
         rg = rs.resource_graph
         num_vertices = nv(rg.graph)
@@ -37,8 +39,18 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         historical_cost_factor  = 3.0
         iteration_limit         = 200
         links_to_route = 1:num_edges(m.taskgraph)
-        # Runtime Structures
+
+        #=
+        Runtime Structures 
+
+        Put in this structure to avoid reallocation for each invocation of the 
+            Pathfinder Algorithm
+        =#
+
+        # Initialized all nodes as undiscovered
         discovered  = falses(num_vertices)
+        # Initially, all nodes have no predecessors. The initial state of this
+        # structure should be cleared to the correct default values.
         predecessor = zeros(Int64, num_vertices)
         pq = binary_minheap(CostVertex)
 
@@ -55,15 +67,23 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     end
 end
 
+"Return the Architecture type for the given Pathfinder structure."
 getarchitecture(::Pathfinder{A,T,Q}) where {A,T,Q} = A
 
-function links_to_route(p::Pathfinder, rs, i)
+
+"""
+    links_to_route(p::Pathfinder, routing_struct, iteration)
+
+Return an iterator of links to route given the `Pathfinder` state, the 
+`RoutingStruct`, and the `iteration` number.
+"""
+function links_to_route(p::Pathfinder, routing_struct, iteration)
     # Every so many iterations, reset the entire routing process to help
     # global convergence.
-    if mod(i,50) == 1
+    if mod(iteration,50) == 1
         return collect(p.links_to_route)
     else
-        return [link for link in p.links_to_route if iscongested(rs,link)]
+        return [link for link in p.links_to_route if iscongested(routing_struct,link)]
     end
 end
 
@@ -83,7 +103,7 @@ function soft_reset(p::Pathfinder)
 end
 
 """
-    rip_up_routes(p, rs)
+    rip_up_routes(p::Pathfinder, rs::RoutingStruct)
 
 Rip up all the routes.
 """
@@ -93,6 +113,12 @@ function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
     end
 end
 
+
+"""
+    nodecost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
+
+Return the cost of a routing resource `node` for the current routing state.
+"""
 function nodecost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
     # Get the link info from the routing structure.
     link = get_link_info(rs, node)
@@ -115,6 +141,12 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
     return nothing
 end
 
+"""
+    shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
+
+Run weighted shortest path routing computation on the routing structure given
+the current `Pathfinder` state.
+"""
 function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
     A = getarchitecture(p)
     # Reset the runtime structures.
@@ -161,7 +193,7 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         end
     end
     # Raise an error if routing was not successful
-    success || error("Shortest Path failed epically.")
+    success || error("Shortest Path failed epicly.")
     # Do a back-trace from the last vertex to determine the path that
     # this connection took through the graph.
     path = [previous_index]

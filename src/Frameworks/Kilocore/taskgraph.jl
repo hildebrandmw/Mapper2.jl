@@ -22,24 +22,28 @@ convenient and will yield cleaner code.
 ################################################################################
 # Taskgraph Constructors used by the Kilocore framework.
 ################################################################################
-struct SimDumpConstructor <: AbstractTaskgraphConstructor
+struct SimDumpConstructor{C} <: AbstractTaskgraphConstructor
     name::String
     file::String
-    function SimDumpConstructor(appname)
-        # Just copy the app name for the "name" portion of the constructor
-        # Split it on any "." points and take the first argument.
-        name = split(appname, ".")[1]
-        # Check if appname ends in ".json.gz". If not, fix that
-        appname = split(appname, ".")[1] * ".json.gz"
-        # Append the sim dump file path to the beginning.
-        file = joinpath(PKGDIR, "sim-dumps", appname)
-        return new(name, file)
-    end
 end
+
+function CachedSimDump(appname::String)
+    # Just copy the app name for the "name" portion of the constructor
+    # Split it on any "." points and take the first argument.
+    name = split(appname, ".")[1]
+    # Check if appname ends in ".json.gz". If not, fix that
+    appname = split(appname, ".")[1] * ".json.gz"
+    # Append the sim dump file path to the beginning.
+    path = joinpath(PKGDIR, "sim-dumps", appname)
+    return SimDumpConstructor{true}(appname, path)
+end
+
+Base.open(c::SimDumpConstructor{true}) = GZip.open(c.file, "r")
+Base.open(c::SimDumpConstructor{false}) = open(c.file, "r")
 
 function Taskgraph(c::SimDumpConstructor)
     # Get the file from the sim-dump constructor and JSON parse the file.
-    f = GZip.open(c.file, "r")
+    f = open(c)
     jsn = JSON.parse(f)::Dict{String,Any}
     close(f)
     # Pre-allocate array to hold the taskgraph nodes.
@@ -126,7 +130,7 @@ Transforms needed to get Mapper2 to the state of Mapper1:
 2. Annotate the links with weights and distance limits.
     - Think about if it makes sense to break apart having just pure weights
         and adding distnace limits as one of the options that can be chosen
-        by the top level Map data structure.  
+        by the top level Map data structure.
 =#
 ################################################################################
 
@@ -279,7 +283,7 @@ function t_assign_link_weights(tg::Taskgraph)
         # Check if any of the sources or sinks of this edge is an input.
         # if so - assign a small weight to that link
         for nodename in chain(edge.sources, edge.sinks)
-            if oneofin(tg.nodes[nodename].metadata["required_attributes"], 
+            if oneofin(tg.nodes[nodename].metadata["required_attributes"],
                        ("input_handler", "output_handler"))
                 edge.metadata["weight"] = 1/8
             end

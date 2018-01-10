@@ -134,7 +134,6 @@ function connect_processors(tl, num_links)
     return nothing
 end
 
-
 function connect_memories(tl)
     # Create metadata dictionary for the memory links.
     metadata = Dict(

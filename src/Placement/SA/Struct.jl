@@ -97,11 +97,13 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     task_table::Dict{String,Int64}
 end
 
+
+
 # Convenience decoding methods - this is kinda gross.
 dimension(::SAStruct{A,U,D,D2,D1,N,L})      where {A,U,D,D2,D1,N,L} = D
 architecture(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = A
 nodetype(::SAStruct{A,U,D,D2,D1,N,L})       where {A,U,D,D2,D1,N,L} = N
-edgetype(::SAStruct{A,U,D,D2,D1,N,L})       where {A,U,D,D2,D1,N,L} = L
+edgetype(::Type{SAStruct{A,U,D,D2,D1,N,L}}) where {A,U,D,D2,D1,N,L} = L
 distancetype(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = U
 
 ################################################################################

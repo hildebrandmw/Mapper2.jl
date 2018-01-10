@@ -68,7 +68,7 @@ function build_sa_edge(::Type{KCLink}, edge::TaskgraphEdge, node_dict)
 end
 
 # Costed metric functions
-function edge_cost(::Type{KCLink}, sa::SAStruct, edge)
+function edge_cost(::Type{KCLink}, sa::SAStruct, edge)::Float64
     cost = 0.0
     for src in sa.edges[edge].sources, snk in sa.edges[edge].sinks
         # Get the source and sink addresses

@@ -2,7 +2,7 @@
     # Do some tests on 1d addresses
     let
         # Create a 1d Address
-        a = Address(1)
+        a = Address(0)
         # Make sure the tuple created is what is expected.
         @test a.addr == (0,)
         # Make sure address equality if working
@@ -14,8 +14,6 @@
     end
     # 2D Addresses
     let
-        a = Address(2)
-        @test a == Address((0,0))
         @test Address(0,0) == Address((0,0))
         a = Address((1,2))
         b = Address((1,3))
@@ -63,9 +61,5 @@
         @test arr[a,b] == arr[2,2,3,1]
         arr[a,b] = 0.5
         @test arr[2,2,3,1] == 0.5
-        # Test the throwing of errors when array size is incorrect.
-        barr = rand(3,3,3)
-        @test_throws AssertionError getindex(barr,a,b)
-        @test_throws AssertionError setindex!(barr,10.0,a,b)
     end
 end

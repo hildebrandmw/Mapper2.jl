@@ -212,7 +212,6 @@ function routing_order_error(errors, path, index, expected, recieved)
     """)
     push!(error.logs, log_entry)
 end
-
 function routing_length_error(errors, path, index, expected)
     increment(errors)
     log_entry = RoutingLengthError("""
@@ -225,7 +224,6 @@ function routing_length_error(errors, path, index, expected)
     push!(errors.logs, log_entry)
     return nothing
 end
-
 function routing_congested_link_error(errors, index, portmap_rev, linkmap_rev)
     increment(errors)
     # Get the path for the link from the reversed dictionaries.
@@ -251,7 +249,6 @@ function routing_congested_path_error(errors, taskgraph::Taskgraph, i)
      )
     push!(errors.logs, entry)
 end
-
 function routing_invalid_port(errors, port, taskedge, direction)
     increment(errors)
     entry = RoutingInvalidPort(
