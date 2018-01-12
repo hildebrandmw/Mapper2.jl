@@ -114,7 +114,6 @@ mutable struct TaskgraphNode
     end
 end
 
-
 """
 Hypergraph edge for the taskgraph.
 """
@@ -253,7 +252,7 @@ nodes(tg::Taskgraph) = values(tg.nodes)
 """
     edges(tg::Taskgraph)
 
-Return an iterator to uniqely visit each edge of the taskgraph.
+Return an iterator to uniquely visit each edge of the taskgraph.
 """
 edges(tg::Taskgraph) = tg.edges
 

@@ -142,8 +142,15 @@ function record(m::Map, rs::RoutingStruct)
     # For now - just dump everything.
     for (i,path) in enumerate(getpaths(rs))
         routing_path = get_routing_path(architecture, path, portmap_rev, linkmap_rev)
-        # Get the mapping unit.
-        mapping[i] = EdgeMap(routing_path)
+        # Extract the sources and destinations for this edges of the taskgraph.
+        taskgraph_edge = getedge(m.taskgraph, i)
+        sources = getsources(taskgraph_edge)
+        sinks   = getsinks(taskgraph_edge)
+        metadata = Dict(
+                    "sources" => sources,
+                    "sinks" => sinks,
+                   )
+        mapping[i] = EdgeMap(routing_path, metadata = metadata)
     end
     return errors
 end

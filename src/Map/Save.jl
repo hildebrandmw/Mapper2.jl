@@ -9,7 +9,7 @@ function save(m::Map, filename::String = "")
     filename = split(filename, ".")[1] * ".json.gz"
     filename = joinpath(PKGDIR, "saved", filename)
     # Wrap this in one more dictionary
-    jsn = Dict{String,Any}() 
+    jsn = Dict{String,Any}()
     jsn["nodes"] = create_node_dict(m.mapping)
     jsn["edges"] = create_edge_vec(m.mapping)
     # Open up the file to save
@@ -19,17 +19,6 @@ function save(m::Map, filename::String = "")
     close(f)
 end
 
-function Base.dump(m::Map, filename::String)
-    # Build a dictionary for json serialize
-    jsn = Dict{String,Any}() 
-    jsn["nodes"] = create_node_dict(m.mapping)
-    jsn["edges"] = create_edge_vec(m.mapping)
-    # Open up the file to save
-    f = open(filename, "w")
-    # Print to JSON with pretty printing.
-    print(f, json(jsn, 2))
-    close(f)
-end
 
 #=
 NOTE: This function is still experimental and is by no means robust. Use
@@ -39,7 +28,7 @@ function load(m::Map, filename)
     filename = split(filename, ".")[1] * ".json.gz"
     filename = joinpath(PKGDIR, "saved", filename)
 
-    # Open the provided filename and 
+    # Open the provided filename and
     f = GZip.open(filename, "r")
     jsn = JSON.parse(f)
     close(f)
@@ -74,7 +63,7 @@ function read_node_dict(m::Mapping, d)
         address = Address(Tuple(value["address"]))
         component = ComponentPath(value["component"])
         metadata::Dict{String,Any} = value["metadata"]
-                                         
+
         nodemap.path     = AddressPath(address, component)
         nodemap.metadata = metadata
     end

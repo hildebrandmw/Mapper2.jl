@@ -22,6 +22,19 @@ Fields required by specialized SANode types:
 abstract type AbstractSAEdge end
 
 """
+Container allowing specific data to be associated with addresses in the 
+SAStruct. Useful for processor specific mappings such as core frequency or
+leakage.
+"""
+abstract type AbstractAddressData end
+
+"""
+Default mapping doesn't use address specific data for its mapping objective.
+The placeholder is just this empty type.
+"""
+struct EmptyAddressData <: AbstractAddressData end
+
+"""
 Paramters:
 
 * `A` - The Architecture Type
@@ -32,17 +45,14 @@ Paramters:
 * `D1` - `D + 1`.
 * `N` - Task node type.
 * `L` - Edge node type.
+* `T` - The AddressData type.
 """
-mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
+mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
+                        T <: AbstractAddressData}
     "Specialized node type."
     nodes::Vector{N}
     "Specialized link type."
     edges::Vector{L}
-    #= Look up tables for doing placement.  =#
-    #=
-    TODO: Think if making a special "maptables" class makes sense. Might be
-        more testable.
-    =#
     """
     The node class maps nodes in the `nodes` vector to their category. This is
     used to reduce necessary size of the `maptable`.
@@ -89,6 +99,10 @@ mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge}
     because Julia column major.
     """
     grid::Array{Int64, D1}
+    """
+    Address specific data used for custom objective functions.
+    """
+    address_data::T
     #=
     Component tables for tracking local component references to the global
     reference in the Map data type
@@ -100,11 +114,11 @@ end
 
 
 # Convenience decoding methods - this is kinda gross.
-dimension(::SAStruct{A,U,D,D2,D1,N,L})      where {A,U,D,D2,D1,N,L} = D
-architecture(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = A
-nodetype(::SAStruct{A,U,D,D2,D1,N,L})       where {A,U,D,D2,D1,N,L} = N
-edgetype(::Type{SAStruct{A,U,D,D2,D1,N,L}}) where {A,U,D,D2,D1,N,L} = L
-distancetype(::SAStruct{A,U,D,D2,D1,N,L})   where {A,U,D,D2,D1,N,L} = U
+dimension(::SAStruct{A,U,D,D2,D1,N,L,T})      where {A,U,D,D2,D1,N,L,T} = D
+architecture(::SAStruct{A,U,D,D2,D1,N,L,T})   where {A,U,D,D2,D1,N,L,T} = A
+nodetype(::SAStruct{A,U,D,D2,D1,N,L,T})       where {A,U,D,D2,D1,N,L,T} = N
+edgetype(::Type{SAStruct{A,U,D,D2,D1,N,L,T}}) where {A,U,D,D2,D1,N,L,T} = L
+distancetype(::SAStruct{A,U,D,D2,D1,N,L,T})   where {A,U,D,D2,D1,N,L,T} = U
 
 ################################################################################
 # Templates for the basic task and link types
@@ -137,6 +151,11 @@ function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: Ab
     return BasicSAEdge(sources, sinks)
 end
 
+function build_address_data(::Type{T}, 
+                            architecture, 
+                            taskgraph) where {T <: AbstractArchitecture}
+    return EmptyAddressData()
+end
 
 ################################################################################
 # Constructor for the SA Structure
@@ -164,7 +183,7 @@ function SAStruct(m::Map{A,D}) where {A,D}
     node_dict = Dict(n.name => i for (i,n) in enumerate(nodes(taskgraph)))
     # Build the basic links
     sa_edges = [build_sa_edge(A, n, node_dict) for n in edges(taskgraph)]
-    # Reverse populate the the nodes so they track their edges.
+    # Reverse populate the nodes so they track their edges.
     record_edges!(sa_nodes, sa_edges)
 
     #=
@@ -193,8 +212,17 @@ function SAStruct(m::Map{A,D}) where {A,D}
     # Find the maximum number of components in any address.
     max_num_components = maximum(map(x -> length(x), component_table))
     grid = zeros(Int64, max_num_components, size(component_table)...)
+    address_data = build_address_data(A, architecture, taskgraph)
 
-    sa = SAStruct{A,eltype(distance),D,2*D,D+1,eltype(sa_nodes), eltype(sa_edges)}(
+    sa = SAStruct{A,                # Architecture Type
+                  eltype(distance), # Encoding of Tile Distance
+                  D,                # Dimensionality of the Architecture
+                  2*D,              # 2x Architecture Dimensionality
+                  D+1,              # Architecture Dimensionality + 1
+                  eltype(sa_nodes), # Type of the taskgraph nodes
+                  eltype(sa_edges), # Type of the taskgraph edges
+                  typeof(address_data)  # Type of address data
+                 }(
         sa_nodes,
         sa_edges,
         nodeclass,
@@ -203,6 +231,7 @@ function SAStruct(m::Map{A,D}) where {A,D}
         s_addresstables,
         distance,
         grid,
+        address_data,
         component_table,
         task_table,
     )

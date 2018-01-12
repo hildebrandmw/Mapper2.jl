@@ -319,3 +319,19 @@ function connection_rule(tl::TopLevel,
     end
     return nothing
 end
+
+##############################
+#           MUXES
+##############################
+"""
+    build_mux(inputs, outputs)
+
+Build a mux with the specified number of inputs and outputs.
+"""
+function build_mux(inputs, outputs)
+    name = "mux_" * string(inputs) * "_" * string(outputs)
+    component = Component(name, primitive = "mux")
+    add_port(component, "in", "input", inputs)
+    add_port(component, "out", "output", outputs)
+    return component
+end

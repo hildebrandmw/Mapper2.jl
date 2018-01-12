@@ -14,7 +14,7 @@ struct RoutingGraph{P <: AbstractComponentPath, T <: Integer}
     function RoutingGraph(graph,
                           portmap::Dict{PortPath{P}, T},
                           linkmap::Dict{LinkPath{P}, T}) where P where T
-        #= Make sure that all of the values in the port map are valid.  =#
+        #= Make sure that all of the values in the port map are valid. =#
         num_vertices = nv(graph)
         for v in values(portmap)
             v <= num_vertices || error()
@@ -229,7 +229,7 @@ function routing_graph(c::AbstractComponent,
     # Custom printouts for top level if DEBUG mode is on.
     if DEBUG
         if typeof(c) <: TopLevel
-            print_with_color(:cyan, "Building Routing Resources Graph.\n")
+            debug_print(:start, "Building Routing Resources Graph.\n")
         end
     end
     # Check to see if this component is memoized. If so - just return the
@@ -253,13 +253,13 @@ function routing_graph(c::AbstractComponent,
     # Custom printouts for top level if DEBUG mode is on.
     if DEBUG
         if typeof(c) <: TopLevel
-            print_with_color(:yellow, "Number of Vertices: ")
+            debug_print(:info, "Number of Vertices: ")
             println(nv(g.graph))
-            print_with_color(:yellow, "Number of Edges: ")
+            debug_print(:info, "Number of Edges: ")
             println(ne(g.graph))
-            print_with_color(:yellow, "Entries in PortMap Dictionary: ")
+            debug_print(:info, "Entries in PortMap Dictionary: ")
             println(length(g.portmap))
-            print_with_color(:yellow, "Entries in LinkMap Dictionary: ")
+            debug_print(:info, "Entries in LinkMap Dictionary: ")
             println(length(g.linkmap))
         end
     end

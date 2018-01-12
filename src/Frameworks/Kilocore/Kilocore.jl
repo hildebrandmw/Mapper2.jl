@@ -66,3 +66,6 @@ include("generic.jl")
 include("Taskgraph.jl")
 include("Placement.jl")
 include("Routing.jl")
+
+# Custom save format for the Project Manager
+include("MapDump.jl")

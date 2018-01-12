@@ -6,9 +6,57 @@ using LightGraphs
 using ProgressMeter
 using Formatting
 
-
 import Base.==
-export Address, Port, Component, benchmark
+export Address, Component, TopLevel,
+        # Architecture Types
+        AbstractArchitecture,
+        TopLevel,
+        Component,
+        # Architecture constructor types
+        OffsetRule, 
+        PortRule,
+        # Architecture constructor functions
+        add_port,
+        add_child,
+        connect_ports!,
+        connection_rule,
+        build_mux,
+        # Taskgraph Types
+        AbstractTaskgraphConstructor,
+        TaskgraphNode,
+        TaskgraphEdge,
+        Taskgraph,
+        # Taskgrpah Functions - todo: Add the necessary functions here.
+        getsources,
+        getsinks,
+        apply_transforms,
+        getnodes,
+        getnode,
+        gededges,
+        getedge,
+        ## Placement
+        place,
+        get_placement_struct,
+        # Simulated Annealing
+        SAStruct,
+        AbstractSANode,
+        AbstractSAEdge,
+        AbstractAddressData,
+        BasicSANode,
+        BasicSAEdge,
+        #build_sa_node,
+        #build_sa_edge,
+        #build_address_data,
+        #edge_cost,
+        #node_cost,
+        #map_cost,
+        # Routing
+        route,
+        RoutingStruct,
+        AbstractRoutingLink,
+        AbstractLinkAnnotator,
+        # Pathfinder
+        Pathfinder
 
 # Set up directory paths
 const SRCDIR = @__DIR__
@@ -27,17 +75,17 @@ const colors = Dict(
     # Start of a minor operation.
     :substart   => :light_cyan,
     # Completion of a major operation.
-    :done  => :light_green,
+    :done       => :light_green,
     # Completion of a minor operation.
-    :info  => :yellow,
+    :info       => :yellow,
     # More critical info.
-    :warning => 202,
+    :warning    => 202,
     # Something went wrong.
-    :error   => :red,
+    :error      => :red,
     # Something was successful.
-    :success => :green,
+    :success    => :green,
     # Normal print.
-    :none    => :white,
+    :none       => :white,
 )
 debug_print(sym::Symbol, args...) = print_with_color(colors[sym],args...)
 
@@ -112,11 +160,11 @@ function testmap()
     options = Dict{Symbol, Any}()
     debug_print(:start, "Building Architecture\n")
     #arch = build_asap4()
-    #arch = build_asap4(A = KCLink)
+    arch = build_asap4(A = KCLink)
     #arch = build_asap3()
-    arch  = build_asap3(A = KCLink)
+    #arch  = build_asap3(A = KCLink)
     #arch = build_generic(15,16,4,initialize_dict(15,16,12), A = KCLink)
-    sdc   = CachedSimDump("sort")
+    sdc   = CachedSimDump("alexnet")
     debug_print(:start, "Building Taskgraph\n")
     taskgraph = Taskgraph(sdc)
     tg    = apply_transforms(taskgraph, sdc)
@@ -207,17 +255,15 @@ function parallel_run(maps, save_names; place_algorithm = m -> place(m))
     return routed
 end
 
-function slow_run(m, savename)
-    # build the sa structure
-    sa = SAStruct(m)
+function slow_run(m)
     # Run placement
-    place(sa,
-          move_attempts = 500000,
+    m = place(m,
+          move_attempts = 50000,
           warmer = DefaultSAWarm(0.95, 1.1, 0.99),
-          cooler = DefaultSACool(0.999),
+          cooler = DefaultSACool(0.99),
          )
-    record(m, sa)
-    save(m, savename)
+    m = route(m)
+    return m
 end
 
 function shotgun(m::Map{A,D}, iterations; kwargs...) where {A,D}

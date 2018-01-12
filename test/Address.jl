@@ -36,11 +36,13 @@
     end
     # Test Address Arithmetic
     let
-        a = Address((1,2,3))
-        b = Address((4,5,6))
-        @test a + b == Address((1+4, 2+5, 3+6))
-        @test a - b == Address((1-4, 2-5, 3-6))
-        @test a * b == Address((1*4, 2*5, 3*6))
+        a_tuple = (1,2,3)
+        b_tuple = (4,5,6)
+        a = Address(a_tuple)
+        b = Address(b_tuple)
+        @test a + b == Address(a_tuple .+ b_tuple)
+        @test a - b == Address(a_tuple .- b_tuple)
+        @test a * b == Address(a_tuple .* b_tuple)
     end
     #########################
     # Test addressing modes #

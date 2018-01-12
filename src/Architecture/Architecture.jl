@@ -70,7 +70,44 @@ to sub components and will be used as the top level architecture
 #=
 These path types will be used to easily access ports, links,  and sub-components
 in a given hierarchy.
+
+The general hierarchy is as follows:
+
+At the top is the abstract type "AbstractPath". This further subtypes into
+"AbstractComponentPath" types. Subtypes of AbstractComponentPath are expected
+to be paths from some top level component down to a sub component. Since each
+instantiated component inside a component has a unique instance ID, a standard
+component path is simply an array of strings where each entry is the instance
+name of a subcomponent. 
+
+AbstractComponentPath come in two flavors: 
+
+    - ComponentPath: where the expected toplevel component is a "Component"
+        type.
+    - AddressPath: where the expected toplevel component is a "TopLevel". 
+        In this case, the key to access subcomponents is an Address. Thus,
+        AddressPaths can be thought of as a collection where the first item
+        is a Address and the rest of the items are strings like a normal
+        ComponentPath.
+
+        NOTE: AddressPaths are parameterized on their dimensions to allow for
+        type-stable code.
+
+
+--- PortPath and LinkPath ---
+
+There are other path type variables whose concrete instances subtype directly
+from AbstractPath. These are PortPath and LinkPath types. These are used to
+specify ports and links in much the same way that ComponentPaths are used to
+specify components in the hierarchy. 
+
+This is done by using a component path to select the correct component, and then
+using a string identifier to select the correct port/link. 
+
+These types are pamaterized by whether this underlying component path is a
+ComponentPath or an AddressPath.
 =#
+
 abstract type AbstractPath end
 abstract type AbstractComponentPath <: AbstractPath end
 
@@ -80,11 +117,12 @@ abstract type AbstractComponentPath <: AbstractPath end
 "Path to access sub components of a given component"
 struct ComponentPath <: AbstractComponentPath
     path::Vector{String}
+    # Inner constructor.
     ComponentPath(str::Vector{T}) where T <: AbstractString = new(String.(str))
 end
 
 #-- Constructors
-# Return an empty path. When called on a component, should return the component.
+# Return an empty path.
 ComponentPath() = ComponentPath(String[])
 function ComponentPath(str::String)
     if isempty(str)
@@ -97,6 +135,10 @@ end
 #-------------------------------------------------------------------------------
 # AddressPath
 #-------------------------------------------------------------------------------
+#=
+AddressPath simply wrap a ComponentPath with an extra address field. The Address
+can be used to get a component which is then indexed using the ComponentPath.
+=#
 "Path to access sub components of a TopLevel"
 struct AddressPath{D} <: AbstractComponentPath
     address ::Address{D}
@@ -230,21 +272,11 @@ unshift(l::LinkPath, val)   = LinkPath(l.name, unshift(l.path, val))
 NOTE: The default hash for these path type variables seems to be bound to
 the address of the type and is thus not stable from run to run.
 
-I've implemented custom hashes here. I used to have a single function that
-called "fieldnames" on the type, but that ended up being 50% slower than
-writing these custom ones
+Thus function 
 =#
-Base.hash(c::ComponentPath, u::UInt64) = hash(c.path, u)
-
-function Base.hash(c::AddressPath, u::UInt64)
-    u = hash(c.address, u)
-    return hash(c.path, u)
-end
-
-# Fallback for the Port and Link paths.
-function Base.hash(c::AbstractPath, u::UInt64)
-    u = hash(c.name, u)
-    return hash(c.path, u)
+@generated function Base.hash(c::T, u::UInt64) where T <: AbstractPath
+    ex = [:(u = hash(c.$f,u)) for f in fieldnames(c)]
+    return quote $(ex...) end
 end
 
 ########
@@ -607,7 +639,7 @@ function connected_components(tl::TopLevel{A,D}) where A where D
             push_to_dict(cc, src_address, snk_address)
         end
     end
-    # Clean up any unseen addresses
+    # Default unseen addresses to an empty set of addresses.
     for address in addresses(tl)
         if !haskey(cc, address)
             cc[address] = Set{Address{D}}()
