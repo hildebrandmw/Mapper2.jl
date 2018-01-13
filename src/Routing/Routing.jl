@@ -1,6 +1,15 @@
 #=
 Root file for the routing related files.
 =#
+
+module Routing
+
+using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture, MapType, Debug
+using DataStructures
+using LightGraphs
+
+export route
+
 abstract type AbstractRoutingLink end
 const ARL = AbstractRoutingLink
 
@@ -136,4 +145,6 @@ Return `true` if `port` is a valid sink for taskgraph `edge`.
 function isvalid_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge) where 
         A <: AbstractArchitecture
     return port.class in PORT_SOURCES
+end
+
 end

@@ -176,13 +176,13 @@ function SAStruct(m::Map{A,D}) where {A,D}
     component_table = build_component_table(architecture)
 
     # Next step, build the SA Taskgraph
-    node_iterator = nodes(taskgraph)
+    node_iterator = getnodes(taskgraph)
     sa_nodes    = [build_sa_node(A, n, D) for n in node_iterator]
     task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
     # Build dictionary to map node names to indices
-    node_dict = Dict(n.name => i for (i,n) in enumerate(nodes(taskgraph)))
+    node_dict = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
     # Build the basic links
-    sa_edges = [build_sa_edge(A, n, node_dict) for n in edges(taskgraph)]
+    sa_edges = [build_sa_edge(A, n, node_dict) for n in getedges(taskgraph)]
     # Reverse populate the nodes so they track their edges.
     record_edges!(sa_nodes, sa_edges)
 
@@ -309,7 +309,7 @@ end
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
-    table_dims = address_extrema(addresses(tl)).addr
+    table_dims = address_max(addresses(tl))
     component_table = fill(ComponentPath[], table_dims...)
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
@@ -370,13 +370,13 @@ function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: Abstrac
     DEBUG && debug_print(:start, "Classifying Taskgraph Nodes\n")
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
-    nodeclasses = Vector{Int64}(length(nodes(taskgraph)))
+    nodeclasses = Vector{Int64}(length(getnodes(taskgraph)))
     # Allocate empty vectors to serve as representatives for the normal and
     # special classes.
     normal_node_reps = TaskgraphNode[]
     special_node_reps = TaskgraphNode[]
     # Start iterating through the nodes in the taskgraph.
-    for (index,node) in enumerate(nodes(taskgraph))
+    for (index,node) in enumerate(getnodes(taskgraph))
         if isspecial(A, node)
             # Check if this node has an equivalent in the special node reps.
             i = findfirst(x -> isequivalent(A, x, node), special_node_reps)
@@ -476,7 +476,7 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # The data type for the LUT
     dtype = UInt8
     # Pre-allocate a table of the right dimensions.
-    dims = address_extrema(addresses(architecture)).addr
+    dims = address_max(addresses(architecture))
     # Replicate the dimensions once to get a 2D sized LUT.
     distance = Array{dtype}(dims..., dims...)
     # Get the neighbor table for finding adjacent components in the top level.
@@ -524,10 +524,10 @@ function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
 end
 
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    dims = Int64.(address_extrema(addresses(architecture)).addr)
+    dims = Int64.(address_max(addresses(architecture)))
     DEBUG && debug_print(:start, "Building Neighbor Table\n")
     # Get the connected component dictionary
-    cc = connected_components(architecture)
+    cc = Architecture.connected_components(architecture)
     # Create a big list of lists
     neighbor_table = Array{Vector{Address{D}}}(dims)
     for (address, set) in cc
@@ -625,13 +625,13 @@ function check_consistency(sa::SAStruct)
     return bad_nodes
 end
 
-function check_mapability(m::Map, sa::SAStruct)
+function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
     # Create a list of bad nodes for more helpful error messages.
     bad_nodes = Int64[]
     # Get the architecture parameter.
-    A = get_A(m)
+    # A = get_A(m)
     # Get the architecture itself.
-    architecture = getarchitecture(m)
+    architecture = m.architecture
     # Iterate through each node in the SA
     for (index, (m_node_name, m_node)) in zip(1:length(sa.nodes), m.taskgraph.nodes)
         sa_node = sa.nodes[index]

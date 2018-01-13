@@ -23,6 +23,15 @@ makedocs(
                     "dev/routing/algorithm.md",
                 ],
             ],
-        "Internal Documentation" => "lib/internal.md",
+        "Internal Documentation" => Any[
+                "lib/internal.md",
+                "lib/internals/addresses.md",
+                "lib/internals/architecture.md",
+                "lib/internals/helper.md",
+                "lib/internals/map.md",
+                "lib/internals/placement.md",
+                "lib/internals/routing.md",
+                "lib/internals/taskgraph.md",
+            ],
         ]
     )

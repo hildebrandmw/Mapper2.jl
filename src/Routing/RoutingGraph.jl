@@ -80,8 +80,8 @@ function routing_skeleton(c::Component)
     return f(c)
 end
 
-function routing_skeleton(tl::TopLevel)
-    path_type = AddressPath{dimension(tl)}
+function routing_skeleton(tl::TopLevel{A,D}) where {A,D}
+    path_type = AddressPath{D}
     # Return an empty graph
     graph = DiGraph(0)
     portmap = Dict{PortPath{path_type},eltype(graph)}()

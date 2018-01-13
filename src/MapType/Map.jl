@@ -142,12 +142,11 @@ get_D(::Map{A,D}) where {A,D} = D
 getarchitecture(m::Map) = m.architecture
 gettaskgraph(m::Map)    = m.taskgraph
 
-function NewMap(architecture::TopLevel, 
+function NewMap(architecture::TopLevel{A,D}, 
                 taskgraph   ::Taskgraph;
-                options = Dict{Symbol,Any}(),)
+                options = Dict{Symbol,Any}(),) where {A,D}
     # Create a new Mapping data type for the new map
     # Get the node names
-    D = dimension(architecture)
     nodes = Dict(n => NodeMap{D}() for n in nodenames(taskgraph)) 
     edges = [EdgeMap() for i = 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)

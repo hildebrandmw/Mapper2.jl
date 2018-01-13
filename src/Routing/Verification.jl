@@ -78,8 +78,8 @@ end
 
 function check_paths(m::Map{A,D}, rs::RoutingStruct, errors) where {A,D}
     # Unpack the structures.
-    architecture    = getarchitecture(m)
-    taskgraph       = gettaskgraph(m)
+    architecture    = m.architecture
+    taskgraph       = m.taskgraph
     resource_graph  = rs.resource_graph
     paths           = getpaths(rs)
     # Reverse the portmap and linkmap dictionaries.

@@ -63,7 +63,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
 end
 #-- Accessors
 getpaths(rs::RoutingStruct) = rs.paths
-getpath(rs::RoutingStruct, i::Integer) = rs.paths[i]
+MapType.getpath(rs::RoutingStruct, i::Integer) = rs.paths[i]
 setpath(rs::RoutingStruct, path::EdgePath, i::Integer) = rs.paths[i] = path
 
 get_link_info(rs::RoutingStruct) = rs.link_info
@@ -132,7 +132,7 @@ function record(m::Map, rs::RoutingStruct)
     architecture = m.architecture
     # Run the verification routine.
     errors = verify_routing(m, rs)
-    mapping = getmapping(m)
+    mapping = m.mapping
     # Run safe reverse on the port map since multiple port paths can point to
     # the same port.
     portmap_rev = rev_dict_safe(get_portmap(rs))

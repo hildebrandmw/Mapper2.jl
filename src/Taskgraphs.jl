@@ -95,6 +95,35 @@ Desirable properties:
     are used by each edge.
 =#
 
+module Taskgraphs
+
+using ..Mapper2: Debug
+using IterTools
+
+export  AbstractTaskgraphConstructor,
+        TaskgraphNode,
+        TaskgraphEdge,
+        Taskgraph,
+        # Methods
+        getsources,
+        getsinks,
+        apply_transforms,
+        get_transforms,
+        getnodes,
+        getedges,
+        getnode,
+        getedge,
+        nodenames,
+        num_nodes,
+        num_edges,
+        add_node,
+        add_edge,
+        out_edges,
+        in_edges,
+        hasnode,
+        out_nodes
+
+
 # Type for choosing the constructor.
 abstract type AbstractTaskgraphConstructor end
 
@@ -190,11 +219,13 @@ function apply_transforms(tg, atc::AbstractTaskgraphConstructor)
     return tg
 end
 
+get_transforms(atc::AbstractTaskgraphConstructor) = ()
+
 ################################################################################
 # METHODS FOR THE TASKGRAPH
 ################################################################################
 # -- Some accessor methods.
-getnodes(tg::Taskgraph) = tg.nodes
+getnodes(tg::Taskgraph) = values(tg.nodes)
 getedges(tg::Taskgraph) = tg.edges
 getnode(tg::Taskgraph, node::String) = tg.nodes[node]
 getedge(tg::Taskgraph, i::Integer) = tg.edges[i]
@@ -240,21 +271,6 @@ function add_edge(tg::Taskgraph, edge::TaskgraphEdge)
     return nothing
 end
 
-# - Redirect iterators over the noes to iterating over the values in the
-# nodes field.
-"""
-    nodes(tg::Taskgraph)
-
-Return an itertor to uniquely visit each node of the taskgraph.
-"""
-nodes(tg::Taskgraph) = values(tg.nodes)
-
-"""
-    edges(tg::Taskgraph)
-
-Return an iterator to uniquely visit each edge of the taskgraph.
-"""
-edges(tg::Taskgraph) = tg.edges
 
 # Methods for accessing the adjancy lists
 "Return the edges for which the task is a source."
@@ -283,3 +299,5 @@ function out_nodes(tg::Taskgraph, node)
     nodes = (getnode(tg, n) for n in distinct_sink_names)
     return nodes
 end
+
+end # module Taskgraphs

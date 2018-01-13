@@ -1,3 +1,12 @@
+module Helper
+
+export  oneofin,
+        push_to_dict,
+        add_to_dict,
+        rev_dict,
+        rev_dict_safe,
+        intern
+
 """
     oneofin(a, b)
 
@@ -21,7 +30,12 @@ function push_to_dict(d, k, v)
     return nothing
 end
 
-function add_to_dict(d, k, v = 1; b = 1)
+"""
+    add_to_dict(d::Dict{K}, k::K, v = 1; b = 1) where K
+
+Increment `d[k]` by `v`. If `d[k]` does not exist, initialize `d[k] = b`.
+"""
+function add_to_dict(d::Dict{K}, k::K, v = 1; b = 1) where K
     haskey(d, k) ? d[k] += v : d[k] = b
 end
 
@@ -41,8 +55,6 @@ Reverse the keys and values of dictionary `d`. Returns a dictionary of type
 multiple keys.
 """
 function rev_dict_safe(d::Dict{K,V}) where {K,V}
-    # Reverse the keys and values. Wrap the values in a vector to handle the
-    # case where a single value will point to multiple keys.
     r = Dict{V, Vector{K}}()
     for (k,v) in d
         push_to_dict(r, v, k)
@@ -60,12 +72,9 @@ can greatly decrease the amount of memory required to store `x`.
 function intern(x)
     d = Dict{eltype(x), eltype(x)}()
     for i in eachindex(x)
-        if haskey(d, x[i])
-            x[i] = d[x[i]]
-        else
-            d[x[i]] = x[i]
-        end
+        haskey(d, x[i]) ? (x[i] = d[x[i]]) : (d[x[i]] = x[i])
     end
     return nothing
 end
 
+end # module Helper
