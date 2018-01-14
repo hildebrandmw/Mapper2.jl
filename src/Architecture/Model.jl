@@ -168,10 +168,10 @@ push(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
 #####################
 # UNSHIFT operators #
 #####################
-unshift(a::ComponentPath, b::AbstractString) = ComponentPath(vcat(b, a.path))
+unshift(a::ComponentPath, b::AbstractString)= ComponentPath(vcat(b, a.path))
 unshift(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
-unshift(a::ComponentPath, b::Address) = AddressPath(a, c)
-unshift(a::ComponentPath, b::AddressPath) = AddressPath(b.address, unshift(a, b.path))
+unshift(a::ComponentPath, b::Address)       = AddressPath(b, a)
+unshift(a::ComponentPath, b::AddressPath)   = AddressPath(b.address, unshift(a, b.path))
 
 unshift(a::PortPath, b)   = PortPath(a.name, unshift(a.path, b))
 unshift(a::LinkPath, b)   = LinkPath(a.name, unshift(a.path, b))
