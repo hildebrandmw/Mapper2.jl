@@ -33,8 +33,12 @@ function build_routing_taskgraph(m::Map{A,D}, rg::RoutingGraph) where {
     return DefaultRoutingTaskgraph(start_stop)
 end
 
-function collect_nodes(arch, resource_graph, edge, paths, symbol)
-    A = architecture(arch)
+function collect_nodes(arch::TopLevel{A,D}, 
+                       resource_graph, 
+                       edge, 
+                       paths, 
+                       symbol) where {A,D}
+
     # Iterate through the source paths - get the port names.
     first = true
     local port_paths

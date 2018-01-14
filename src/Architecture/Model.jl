@@ -1,3 +1,7 @@
+
+abstract type AbstractArchitecture end
+struct BaseArchitecture <: AbstractArchitecture end
+
 "`AbstractPath` top level Abstract Type for Path Types."
 abstract type AbstractPath end
 "`AbstractComponentPath` specifies this path points to some component."
@@ -6,14 +10,8 @@ abstract type AbstractComponentPath <: AbstractPath end
 #-------------------------------------------------------------------------------
 # Component Path
 #-------------------------------------------------------------------------------
-```@meta
-DocTestSetup = quote
-    using Mapper2.Architecture
-end
-```
-
 """
-Data type for pointing to `Components` in a component hierarchy where the 
+Data type for pointing to `Components` in a component hierarchy where the
 top-most data type is a `Component`.
 
 See also: `AddressPath`.
@@ -48,7 +46,7 @@ end
 # AddressPath
 #-------------------------------------------------------------------------------
 """
-Data type for pointing to `Components` in a component hierarchy where the 
+Data type for pointing to `Components` in a component hierarchy where the
 top-most data type is a `TopLevel`.
 
 See also: `ComponentPath`.
@@ -83,7 +81,7 @@ end
 
 function PortPath(port::AbstractString, address::Address)
     parts = split(port, ".")
-    return PortPath(String(parts[end]), 
+    return PortPath(String(parts[end]),
                     AddressPath(address, ComponentPath(parts[1:end-1])))
 end
 
@@ -99,12 +97,12 @@ end
 #-- Constructors
 # Empty Link Path
 LinkPath() = LinkPath("", ComponentPath())
-function LinkPath(link::String) 
+function LinkPath(link::String)
     parts = split(link, ".")
     LinkPath(String(parts[end]), ComponentPath(parts[1:end-1]))
 end
 
-function LinkPath(link::String, address) 
+function LinkPath(link::String, address)
     parts = split(link, ".")
     LinkPath(String(parts[end]), AddressPath(address, ComponentPath(parts[1:end-1])))
 end
@@ -146,18 +144,19 @@ Base.:(==)(a::AddressPath,   b::AddressPath)   =  (a.address == b.address) &&
 Base.:(==)(a::T, b::T) where T <: AbstractPath =  (a.name == b.name) &&
                                                     (a.path == b.path)
 
-##########
-# PREFIX #
-##########
 prefix(p::AbstractPath) = p.path
+prefix(p::ComponentPath) = p.path[1:end-1]
+
+@doc """
+    prefix(p::AbstractPath)
+
+Return all but the last item in a `AbstractPath` type.
+""" prefix
 
 ##################
 # PUSH operators #
 ##################
-#=
-NOTE: The "push" and "unshift" operators do not mutate their arguments. Thus,
-    the "!" is left off of the function name.
-=#
+
 """
     push(c::ComponentPath, val::String)
 
@@ -169,68 +168,34 @@ push(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
 #####################
 # UNSHIFT operators #
 #####################
-"""
-    unshift(c::ComponentPath, val::String)
-
-Increase the depth of the ComponentPath updwards by appending the string `val`
-to the beginning of the path. Does not modify `c`.
-"""
-unshift(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(val, c.path))
-
+unshift(a::ComponentPath, b::AbstractString) = ComponentPath(vcat(b, a.path))
 unshift(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
+unshift(a::ComponentPath, b::Address) = AddressPath(a, c)
+unshift(a::ComponentPath, b::AddressPath) = AddressPath(b.address, unshift(a, b.path))
 
-#=
-Here, there is an implicit promotion from a component path to an address
-path. This makes sense because adding an address to a component path SHOULD
-return an address path.
-=#
-"""
-    unshift(c::ComponentPath, val::Address)
+unshift(a::PortPath, b)   = PortPath(a.name, unshift(a.path, b))
+unshift(a::LinkPath, b)   = LinkPath(a.name, unshift(a.path, b))
 
-Append an address to the "front" of component path `c`. Returns an AddressPath
-with the same dimension as `val`.
-"""
-unshift(c::ComponentPath, val::Address) = AddressPath(val, c)
+@doc """
+    unshift(a::AbstractPath, b)
 
-unshift(c::ComponentPath, a::AddressPath) = AddressPath(a.address, unshift(c, a.path))
+Append `b` to the front of path `a`. Return types are defined when
+`typeof(a) == ComponentPath` as follows:
 
-unshift(p::PortPath, val)   = PortPath(p.name, unshift(p.path, val))
-unshift(p::PortPath, a::AddressPath) = PortPath(p.name, unshift(p.path, a))
-unshift(l::LinkPath, val)   = LinkPath(l.name, unshift(l.path, val))
+| `typeof(b)`       | Return Type       |
+|------------------ | ----------------- |
+| `String`          | `ComponentPath`   |
+| `ComponentPath`   | `ComponentPath`   |
+| `Address{D}`      | `AddressPath{D}`  |
+| `AddressPath{D}`  | `AddressPath{D}`  |
+
+When `a <: PortPath` or `a <: LinkPath`, return type is determined automatically
+by calling `unshift` on the path portion of `a`.
+""" unshift
 
 ########
 # HASH #
 ########
-#=
-NOTE: The default hash for these path type variables seems to be bound to
-the address of the type and is thus not stable from run to run.
-
-Thus function
-=#
-# Base.hash(c::ComponentPath, u::UInt64) = hash(c.path, u)
-# function Base.hash(c::AddressPath, u::UInt64)
-#     u = hash(c.address, u)
-#     return hash(c.path, u)
-# end
-# 
-# # Fallback for the Port and Link paths.
-# function Base.hash(c::AbstractPath, u::UInt64)
-#     u = hash(c.name, u)
-#     return hash(c.path, u)
-# end
-
-# function hash_builder(t::Type{T}, expr) where T <: AbstractPath
-#     ex = [] 
-#     for f in fieldnames(t)
-#         if fieldtype(t, f) <: AbstractPath
-#             append!(ex, hash_builder(fieldtype(t,f), :($expr.$f)))
-#         else
-#             push!(ex, :(u = hash($expr.$f,u)))
-#         end
-#     end
-#     return ex
-# end
-# 
 @generated function Base.hash(c::T, u::UInt64) where T <: AbstractPath
     ex = [:(u = hash(c.$f,u)) for f in fieldnames(c)]
     return quote $(ex...) end
@@ -252,9 +217,6 @@ Base.show(io::IO, p::AbstractPath)  = print(io, join((typestring(p),string(p)), 
 ################################################################################
 #                                  PORT TYPES                                  #
 ################################################################################
-
-# Master abstract type - probably not needed.
-abstract type AbstractPort end
 
 # Must make the port mutable so we can progressively assign links.
 mutable struct Port
@@ -368,33 +330,55 @@ links(c::AbstractComponent) = values(c.links)
 #-------------------------------------------------------------------------------
 # Component
 #-------------------------------------------------------------------------------
-#=
-Note - Components are purposely not parameterized because of nesting.
-Parameterizing on child type would result in much confusion.
-=#
+"""
+    Component
+
+Basic building block of architecture models. Can be used to construct
+hierarchical models.
+
+Components may be indexed using: `ComponentPath`, `PortPath{ComponentPath}`,
+and `LinkPath{ComponentPath}`.
+
+# Constructor
+
+    Component(name, children = Dict{String, Component}(), metadata = Dict{String, Any}())
+
+Return an orphan component with the given name. Can construct with the
+given `children` and `metadata`, otherwise those fields will be empty.
+
+# Fields
+
+* `name::String` - The name of this component.
+* `primitive::String` - A optional primitive identifier used for potentially
+    special treatment. Leave as empty "" if not needed.
+
+    Examples include "mux", which will result in a simpler routing graph for
+    mux type components.
+* `children::Dict{String,Component}` - Record of the sub components of this
+    component. Key corresponds to an instance name, allowing multiple of the
+    same component to be instantiated with different instance names.
+* `ports::Dict{String,Port}` - Record of all the IO ports for this component.
+    Does not include the IO components of children.
+* `links::Dict{String,Link{ComponentPath}}` - Record of all links for this
+    component. Links can go between component IO ports, and IO ports of
+    immediate children of this component.
+* `port_link::Dict{PortPath{ComponentPath},String}` - Reverse data structure
+    mapping what link is connected to the specified port. A `PortPath` is used
+    to disambiguate between ports of the component and ports of the component's
+    children.
+* `metadata::Dict{String,Any}` - Any extra data that is to be stored with the
+    component.
+"""
 struct Component <: AbstractComponent
-    """The declared name of this component"""
-    name    ::String
-    """Reference to primitive for special operations. Default is \"\"."""
-    primitive::String
-    """
-    Dictionary of all children of this component. String keys will be the
-    instance names of the component.
-    """
-    children::Dict{String, Component}
-    ports   ::Dict{String, Port}
-    links   ::Dict{String, Link{ComponentPath}}
-    "Mapping between ports at this level and links."
+    name        ::String
+    primitive   ::String
+    children    ::Dict{String, Component}
+    ports       ::Dict{String, Port}
+    links       ::Dict{String, Link{ComponentPath}}
     port_link   ::Dict{PPC,String}
     metadata    ::Dict{String, Any}
 
     #-- Constructor
-    """
-        Component(name, children = Dict{String, Component}(), metadata = Dict{String, Any}())
-
-    Return an orphan component with the given name. Can construct with the
-    given `children` and `metadata`, otherwise those fields will be empty.
-    """
     function Component(
             name;
             primitive   ::String = "",
@@ -418,59 +402,66 @@ struct Component <: AbstractComponent
     end
 end
 # METHODS
-"""
-    ports(c::Component)
 
-Return a iterator for all the ports in the given component. Ports of children
-are not given.
-"""
 ports(c::Component) = values(c.ports)
-
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
+@doc """
+    ports(c::Component, [classes])
+
+Return an iterator for all the ports of the given component. Ports of children
+are not given. If `classes` are provided, only ports matching the specified
+classes will be returned.
+""" port
 #-------------------------------------------------------------------------------
 # TopLevel
 #-------------------------------------------------------------------------------
 
-#=
-The only difference with the top level is that children are accessed via
-addresses instead of names. Since it subtypes from AbstractComponent, it can
-share many of the methods defined for normal components.
-=#
-abstract type AbstractArchitecture end
-mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
-    """The declared name of this component"""
-    name    ::String
-    """Reference to primitive for special operations. Default is \"\"."""
-    primitive::String
-    """
-    Dictionary of all children of this component. String keys will be the
-    instance names of the component.
-    """
-    children::Dict{Address{D}, Component}
-    """
-    Links defined at the top level.
-    """
-    links   ::Dict{String, Link{AddressPath{D}}}
-    port_link::Dict{PortPath{AddressPath{D}}, String}
-    metadata::Dict{String, Any}
 
-    # Constructor
-    """
-        TopLevel(name, dimensions, metadata = Dict{String,Any}())
+"""
+    TopLevel{A <: AbstractArchitecture, D}
 
-    Create a top level component with the given name and number of dimensions.
-    """
-    function TopLevel{T,D}(name, metadata = Dict{String,Any}()) where {T,D}
-        # Add all component level ports to the ports of this component.
-        primitive   = "toplevel"
+Top level component for an architecture mode. Main difference is between a
+`TopLevel` and a `Component` is that children of a `TopLevel` are accessed
+via address instead of instance name. A `TopLevel` also does not have any
+ports of its own.
+
+Parameter `D` is the dimensionality of the `TopLevel`.
+
+A `TopLevel{A,D}` may be indexed using: `AddressPath{D}`,
+`PortPath{AddressPath{D}}`, and `LinkPath{AddressPath{D}}`.
+
+# Constructor
+    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where
+        {A <: AbstractArchitecture,D}
+
+Return a `TopLevel` with the given name and `metadata`.
+
+# Fields
+* `name::String` - The name of the TopLevel.
+* `children::Dict{Address{D},Component}` - Record of the subcomponents accessed
+    by address.
+* `links::Dict{String,Link{AddressPath{D}}}` - Record of links between ports of
+    immediate children.
+* `port_link::Dict{PortPath{AddressPath{D}},String} - Look up giving the `Link`
+    in the `links` field connected to the provided port.
+* `metadata::Dict{String,Any}()` - Any extra data associated with the
+    data structure.
+"""
+mutable struct TopLevel{A <: AbstractArchitecture,D} <: AbstractComponent
+    name        ::String
+    children    ::Dict{Address{D}, Component}
+    links       ::Dict{String, Link{AddressPath{D}}}
+    port_link   ::Dict{PortPath{AddressPath{D}}, String}
+    metadata    ::Dict{String, Any}
+
+    # --Constructor
+    function TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A,D}
         links       = Dict{String, Link}()
         port_link   = Dict{PortPath{AddressPath{D}}, String}()
         children    = Dict{Address{D}, Component}()
-        # Return the newly constructed type.
-        return new{T,D}(
+        return new{A,D}(
             name,
-            primitive,
             children,
             links,
             port_link,
@@ -479,30 +470,31 @@ mutable struct TopLevel{T <: AbstractArchitecture,D} <: AbstractComponent
     end
 end
 
-# Accessor Methods for easily getting parameters
-architecture(::TopLevel{T,D}) where {T,D} = T
-dimension(::TopLevel{T,D}) where {T,D}    = D
-
-
 ################################################################################
 # Convenience methods.
 ################################################################################
-"Return an iterator of addresses for the top-level architecture."
+"""
+    addresses(t::TopLevel)
+
+Return an iterator of all addresses with subcomponents of `t`.
+"""
 addresses(t::TopLevel) = keys(t.children)
 
 pathtype(::Component) = ComponentPath
 pathtype(t::TopLevel{A,D}) where {A,D} = AddressPath{D}
+
+@doc """
+    pathtype(a::AbstractComponent)
+
+Return the subtype of `AbstractPath` used to get subcomponents from this
+component.
+""" pathtype
 
 
 #-------------------------------------------------------------------------------
 # Various overloadings of the method "getindex"
 #-------------------------------------------------------------------------------
 
-"""
-    Base.getindex(c::Component, p::ComponentPath)
-
-Return decendent component of `c` pointed to by path `p`.
-"""
 function Base.getindex(c::Component, p::ComponentPath)
     for n in p.path
         c = c.children[n]
@@ -510,11 +502,6 @@ function Base.getindex(c::Component, p::ComponentPath)
     return c
 end
 
-"""
-    Base.getindex(c::Component, p::PortPath)
-
-Return port of component `c` pointed to by path `p`.
-"""
 function Base.getindex(c::Component, p::PortPath)
     # Get the component part
     c = c[p.path]
@@ -529,11 +516,6 @@ function Base.getindex(c::Component, p::LinkPath)
     return c.links[p.name]
 end
 
-"""
-    Base.getindex(tl::TopLevel, p::AddressPath)
-
-Return decendent of the top level pointed by path `p`.
-"""
 function Base.getindex(tl::TopLevel, p::AddressPath)
     # Get the component at the address
     haskey(tl.children, p.address) || return tl
@@ -541,11 +523,6 @@ function Base.getindex(tl::TopLevel, p::AddressPath)
     return c[p.path]
 end
 
-"""
-    Base.getindex(tl::TopLevel, p::PortPath{T})
-
-Return port of the top level pointed to by path `p`.
-"""
 function Base.getindex(tl::TopLevel, p::PortPath{T}) where T <: AddressPath
     # Get the component and then get the port.
     c = tl[p.path]
@@ -562,8 +539,7 @@ end
 """
     walk_children(c::Component)
 
-Return all decendents of the current component. Each decendent is in the form
-`(component, name)` where `name` is the full instance name of the sub-component.
+Return `Vector{ComponentPath}` enumerating paths to all the children of `c`.
 """
 function walk_children(c::Component)
     # Create an empty component path - which will return the component itself.
@@ -584,6 +560,13 @@ function walk_children(c::Component)
     return components
 end
 
+"""
+    connected_components(tl::TopLevel{A,D})
+
+Return `d = Dict{Address{D},Set{Address{D}}` where key `k` is a valid address of
+`tl` and where `d[k]` is the set of valid addresses of `tl` whose components
+are the destinations of links originating at address `k`.
+"""
 function connected_components(tl::TopLevel{A,D}) where A where D
     # Construct the associative for the connected components.
     cc = Dict{Address{D}, Set{Address{D}}}()
@@ -608,12 +591,24 @@ end
 ################################################################################
 # METHODS FOR NAVIGATING THE HIERARCHY
 ################################################################################
-function search_metadata(a, key, value, f::Function = ==)::Bool
+"""
+    search_metadata(c::AbstractComponent, key, value, f::Function = ==)
+
+Search the metadata of field of `c` for `key`. If `c.metadata[key]` does not
+exist, return `false`. Otherwise, return `f(value, c.metadata[key])`.
+"""
+function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
     # If it doesn't have the key, than just return false. Otherwise, apply
     # the provided function to the value and result.
-    return haskey(a.metadata, key) ? f(value, a.metadata[key]) : false
+    return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
 end
 
+"""
+    search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
+
+Call `search_metadata` on each subcomponent of `c`. Return `true` if function
+call return `true` for any subcomponent.
+"""
 function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
     # If 'f' evaluates to true here, return true in general.
     search_metadata(c, key, value, f) && return true

@@ -104,11 +104,6 @@ DECISION
 For now, go with option 2. Don't really need bidirectional connections for
 KiloCore architectures, and making the want of bidirectional components more
 explicit is probably better.
-
-MORE THOUGHT TRAIN
-
-May have to add wrappers around these functions to allow more advanced
-functionality like mass-connecting ports together.
 =#
 function connect_ports!(c   ::AbstractComponent,
                         src ::String,
