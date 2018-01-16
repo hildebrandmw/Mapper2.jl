@@ -16,6 +16,10 @@ top-most data type is a `Component`.
 
 See also: `AddressPath`.
 
+# Fields
+* `path::Vector{String}` - Sequential instance ID's specificying which children
+    to use to get to the final component.
+
 # Constructors
 ```julia
 julia> ComponentPath() == ComponentPath(String[]) == ComponentPath("")
@@ -51,6 +55,12 @@ top-most data type is a `TopLevel`.
 
 See also: `ComponentPath`.
 
+# Fields
+* `address::Address{D}` - The address in the `TopLevel` of the first component
+    in the path.
+* `path::ComponentPath` - The path to the final component after the component
+    at `address` has been retrieved.
+
 # Constructors
 ```julia
 julia> AddressPath{D}() == AddressPath{D}(Address{D}(), ComponentPath())
@@ -67,12 +77,31 @@ AddressPath{D}() where D = AddressPath{D}(Address{D}(), ComponentPath())
 #-------------------------------------------------------------------------------
 # PortPath
 #-------------------------------------------------------------------------------
-"Path to access Ports in a component"
+"""
+    PortPath{P <: AbstractComponentPath} <: AbstractPath
+
+Path to a `Port` type through a component hierarchy. Parameterized by whether
+it is means to work on a `TopLevel` or `Component`.
+
+# Fields
+* `name::String` - The instance name of the port to retrieve.
+* `path::P` - Path to the component containing the desired port.
+
+# Constructors
+```julia
+julia> PortPath("a.b.c.port")
+Port a.b.c.port
+
+julia PortPath("a.b.c.port", Address(0,0))
+Port Address(0, 0).a.b.c.port
+```
+"""
 struct PortPath{P <: AbstractComponentPath} <: AbstractPath
     name    ::String
     path    ::P
 end
 #-- Constructors
+PortPath() = PortPath("", ComponentPath())
 function PortPath(port::AbstractString)
     # Split the path into components based on the "." notation.
     parts = split(port, ".")
@@ -88,7 +117,25 @@ end
 #-------------------------------------------------------------------------------
 # LinkPath
 #-------------------------------------------------------------------------------
-"Path to access Links in a component"
+"""
+    LinkPath{P <: AbstractComponentPath} <: AbstractPath
+
+Path to a `Link` type through a component hierarchy. Parameterized by whether
+it is means to work on a `TopLevel` or `Component`.
+
+# Fields
+* `name::String` - The instance name of the port to retrieve.
+* `path::P` - Path to the component containing the desired port.
+
+# Constructors
+```julia
+julia> LinkPath("a.b.c.link")
+Port a.b.c.link
+
+julia PortPath("a.b.c.linkj", Address(0,0))
+Port Address(0, 0).a.b.c.link
+```
+"""
 struct LinkPath{P <: AbstractComponentPath} <: AbstractPath
     name    ::String
     path    ::P
@@ -219,31 +266,40 @@ Base.show(io::IO, p::AbstractPath)  = print(io, join((typestring(p),string(p)), 
 ################################################################################
 
 # Must make the port mutable so we can progressively assign links.
+"""
+    mutable struct Port
+
+Port type for modeling input/output ports of a `Component`. Can be one of three
+classes: "input", "output", or "bidir".
+
+Ports may be connected to links only at the same level of hierarchy.
+
+# Fields
+* `name::String` - The name of this Port.
+* `class::String` - The directionality class of the Port.
+* `link::LinkPath{ComponentPath}` - Path to the link connected to this port.
+    This path is meant to be used to index the component to which the Port
+    belongs.
+* `metadata::Dict{String,Any}` - Any associated metadata to help with down
+    stream processing.
+
+# Constructors
+
+    function Port(name::String, class::String, metadata = Dict{String,Any}())
+
+Return a `Port` with the given `name`, `class`, and `metadata`. Connected link
+defaults to an empty `LinkPath`.
+
+Argument `class` must belong to one of "input", "output", or "bidir".
+"""
 mutable struct Port
-    """The name of the port."""
     name        ::String
-    """
-    The class of the port. Can be "input", "output", "bidir".
-    More can be added if needed.
-    """
     class       ::String
-    """
-    Link connected to the port in the component in which it is declared.
-    """
     link        ::LPC
-    """
-    Metadata list - associated with characteristics of the link. Can include
-    attributes like "capacity", "network" etc.
-    """
     metadata    ::Dict{String,Any}
 end
 
 #-- Constructor
-"""
-    Port(name::String)
-
-Create a new port with the given `name`.
-"""
 function Port(name::String, class::String, metadata = Dict{String,Any}())
     # Make sure this is a valid port class.
     if !in(class, PORT_CLASSES)
@@ -251,27 +307,19 @@ function Port(name::String, class::String, metadata = Dict{String,Any}())
     end
     # Create an empty link assignment.
     link = LinkPath()
-    # Default
     return Port(
         name,
         class,
-        LinkPath(),
+        link,
         metadata,
 )
 end
 
-#=
-Collect all valid port class strings here.
-=#
 const PORT_CLASSES = Set([
     "input",
     "output",
     "bidir",
  ])
-#=
-Valid port classes that can serve as the source of a connection. Do this to
-help assure consistency of generated architectures.
-=#
 const PORT_SOURCES = Set([
     "input",
     "bidir",
@@ -285,27 +333,56 @@ const PORT_SINKS = Set([
 ################################################################################
 #                                  LINK TYPE                                   #
 ################################################################################
+"""
+    struct Link{P <: AbstractComponentPath}
+
+Link data type for describing which ports are connected. Can have multiple
+sources and multiple sinks.
+
+# Fields
+* `name::String` - THe name of the link. Can be autogenerated if it is not
+    impotant.
+* `directed::Bool` - Indicates if the Link is directed or bidirectional.
+* `sources::Vector{PortPath{P}}` - Collection of paths to the source ports of
+    the link. Meant to be used on the component to which the link belongs.
+* `sinks::Vector{PortPath{P}}`  - Collectino of paths to the sink ports of
+    the link. Meant to be used on the component to which the link belongs.
+* `metadata::Dict{String,Any}` - Any miscellaneous metadata to be used for
+    downstream processing.
+
+# Constructors
+
+    link(name::String,
+         directed::Bool,
+         sources::Vector{PortPath{P}},
+         sinks::Vector{PortPath{P}},
+         metadata) where P
+
+Returns a new `Link`.
+"""
 struct Link{P <: AbstractComponentPath}
-    "Name of the link. Will be autogenerated if not provided."
-    name    ::String
-    "Boolean if link is directed."
-    directed::Bool
-    sources  ::Vector{PortPath{P}}
-    sinks    ::Vector{PortPath{P}}
-    "Metadata for the link."
+    name        ::String
+    directed    ::Bool
+    sources     ::Vector{PortPath{P}}
+    sinks       ::Vector{PortPath{P}}
     metadata::Dict{String,Any}
     function Link(name,
                   directed,
-                  sources::Vector{PortPath{P}},
-                  sinks::Vector{PortPath{P}},
+                  sources   ::Vector{PortPath{P}},
+                  sinks     ::Vector{PortPath{P}},
                   metadata) where P
         return new{P}(name,directed,sources,sinks,Dict{String,Any}(metadata))
     end
 end
 
-isaddresslink(l::Link{AddressPath{D}}) where {D} = true
-isaddresslink(l::Link{ComponentPath}) = false
+isaddresslink(::Link{AddressPath{D}}) where {D} = true
+isaddresslink(::Link{ComponentPath}) = false
 
+@doc """
+    isaddresslink(l::Link)    
+
+Return `true` if `l` contains an `Address`. Otherwise, return `false`.
+""" isaddresslink
 ################################################################################
 #                               COMPONENT TYPES                                #
 ################################################################################
@@ -555,7 +632,7 @@ function walk_children(c::Component)
         push!(components, path)
         # Walk through all children of the component pointed to by the current
         # path - add all children to the queue
-        push!(queue, (push!(path, id) for id in values(c[path].children))...)
+        push!(queue, (push(path, id) for id in keys(c[path].children))...)
     end
     return components
 end
@@ -600,6 +677,7 @@ exist, return `false`. Otherwise, return `f(value, c.metadata[key])`.
 function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
     # If it doesn't have the key, than just return false. Otherwise, apply
     # the provided function to the value and result.
+    isempty(key) && return true
     return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
 end
 

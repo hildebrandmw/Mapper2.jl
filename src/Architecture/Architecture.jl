@@ -160,7 +160,7 @@ export  AbstractArchitecture,
         # Constructor Functions
         add_port,
         add_child,
-        connect_ports!,
+        connect_ports,
         connection_rule,
         build_mux
 

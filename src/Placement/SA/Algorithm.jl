@@ -184,6 +184,8 @@ function place(
         # Exit Condition
         loop = !done(doner, state)
     end
+    # Show final statistics
+    show_stats(state)
     return state
 end
 

@@ -100,15 +100,12 @@ module Taskgraphs
 using ..Mapper2: Debug
 using IterTools
 
-export  AbstractTaskgraphConstructor,
-        TaskgraphNode,
+export  TaskgraphNode,
         TaskgraphEdge,
         Taskgraph,
         # Methods
         getsources,
         getsinks,
-        apply_transforms,
-        get_transforms,
         getnodes,
         getedges,
         getnode,
@@ -123,9 +120,6 @@ export  AbstractTaskgraphConstructor,
         hasnode,
         out_nodes
 
-
-# Type for choosing the constructor.
-abstract type AbstractTaskgraphConstructor end
 
 """
 Nodes of the taskgraph.
@@ -204,22 +198,6 @@ mutable struct Taskgraph
         )
     end
 end
-
-function apply_transforms(tg, atc::AbstractTaskgraphConstructor)
-    debug_print(:start, "Applying Transforms\n")
-    # Get the transforms requested by the constructor.
-    transforms = get_transforms(atc)
-    for t in transforms
-        if DEBUG
-            debug_print(:substart, "Transform: ")
-            debug_print(:none, string(t), "\n")
-        end
-        tg = t(tg)::Taskgraph
-    end
-    return tg
-end
-
-get_transforms(atc::AbstractTaskgraphConstructor) = ()
 
 ################################################################################
 # METHODS FOR THE TASKGRAPH

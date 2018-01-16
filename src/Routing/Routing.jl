@@ -85,10 +85,9 @@ modify the Link Annotator entirely.
 """ 
 function annotate_port(
         ::Type{A}, 
-        annotator::B, 
+        annotator::AbstractLinkAnnotator
         ports,      # Single or collection of Port types 
-        link_index) where {A <: AbstractArchitecture,
-                           B <: AbstractLinkAnnotator}
+        link_index) where {A <: AbstractArchitecture}
     annotator[link_index] = DefaultRoutingLink()
 end
 

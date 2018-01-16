@@ -24,3 +24,47 @@
     # Test Link Paths
 end
 
+@testset "Testing Architecture Modeling" begin
+    push!(LOAD_PATH, joinpath(Mapper2.PKGDIR, "example"))
+    using Example
+    # Test General primitive
+    let
+        p = build_general_primitive()
+        @test sort(collect(keys(p.ports))) == ["in[0]","in[1]","out[0]","out[1]"]
+    end
+    let
+        t = build_io_tile()
+    end
+    expected_ports = sort(["north_out",
+                           "north_in",
+                           "south_out",
+                           "south_in",
+                           "east_out",
+                           "east_in",
+                           "west_out",
+                           "west_in"])
+
+    let
+        t = build_general_tile()
+        sorted_ports = sort(collect(keys(t.ports)))
+        @test sorted_ports == expected_ports
+    end
+    let
+        t = build_super_tile()
+        sorted_ports = sort(collect(keys(t.ports)))
+        @test sorted_ports == expected_ports
+    end
+    let
+        t = build_double_general_tile()
+        sorted_ports = sort(collect(keys(t.ports)))
+        @test sorted_ports == expected_ports
+    end
+    let
+        t = build_routing_tile()
+        sorted_ports = sort(collect(keys(t.ports)))
+        @test sorted_ports == expected_ports
+    end
+    let
+        t = build_test_arch()
+    end
+end

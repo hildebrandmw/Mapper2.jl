@@ -101,6 +101,6 @@ function node_cost(::Type{A}, sa::SAStruct, node) where {A <: AbstractArchitectu
         end
     end
     # If cost is not initialized, throw an error
-    first && error()
+    first && error("Node $node does not have any edges.")
     return cost
 end

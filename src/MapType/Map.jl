@@ -137,8 +137,8 @@ mutable struct Map{A,D}
     mapping     ::Mapping
 end
 
-get_A(::Map{A,D}) where {A,D} = A
-get_D(::Map{A,D}) where {A,D} = D
+#get_A(::Map{A,D}) where {A,D} = A
+#get_D(::Map{A,D}) where {A,D} = D
 getarchitecture(m::Map) = m.architecture
 gettaskgraph(m::Map)    = m.taskgraph
 

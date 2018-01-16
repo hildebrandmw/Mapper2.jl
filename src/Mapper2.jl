@@ -1,5 +1,8 @@
 module Mapper2
 
+const SRCDIR = @__DIR__
+const PKGDIR = dirname(SRCDIR)
+
 export Address, Component, TopLevel,
         # Architecture Types
         AbstractArchitecture,
@@ -11,7 +14,7 @@ export Address, Component, TopLevel,
         # Architecture constructor functions
         add_port,
         add_child,
-        connect_ports!,
+        connect_ports,
         connection_rule,
         build_mux,
         # Taskgraph Types

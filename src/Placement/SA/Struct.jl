@@ -610,16 +610,20 @@ function check_consistency(sa::SAStruct)
     bad_nodes = Int64[]
     # Verify that addresses for the nodes match the grid
     for (index,node) in enumerate(sa.nodes)
-        node_assigned = sa.grid[node.component, node.address]
-        if index != node_assigned
+        try
+            node_assigned = sa.grid[node.component, node.address]
+            if index != node_assigned
+                push!(bad_nodes, index)
+                push!(bad_nodes, node_assigned)
+                debug_print(:error, 
+                     "Data structure inconsistency for node ", 
+                     index, ". Nodes assigned location: ", node.address,
+                     ", ", node.component, ". Node assigned in the grid",
+                     " at this location: ", node_assigned, ".\n")
+            end
+        catch
+            debug_print(:error, "Something wrong with node: $index\n")
             push!(bad_nodes, index)
-            push!(bad_nodes, node_assigned)
-            passed = false
-            debug_print(:error, 
-                 "Data structure inconsistency for node ", 
-                 index, ". Nodes assigned location: ", node.address,
-                 ", ", node.component, ". Node assigned in the grid",
-                 " at this location: ", node_assigned, ".\n")
         end
     end
     return bad_nodes
@@ -639,15 +643,20 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
         address = sa_node.address
         component_index = sa_node.component
         # Get the component name in the original architecture
-        component_path = sa.component_table[address][component_index]
-        # Get the component from the architecture
-        path = AddressPath(address, component_path)
-        component = architecture[path]
-        if !canmap(A, m_node, component)
+        try
+            component_path = sa.component_table[address][component_index]
+            # Get the component from the architecture
+            path = AddressPath(address, component_path)
+            component = architecture[path]
+            if !canmap(A, m_node, component)
+                push!(bad_nodes, index)
+                debug_print(:error, "Node index ", index, 
+                                 " incorrectly assigned to architecture node ",
+                                 m_node_name, ".\n")
+            end
+        catch
+            debug_print(:error, "Something wrong with node index: $index\n")
             push!(bad_nodes, index)
-            debug_print(:error, "Node index ", index, 
-                             " incorrectly assigned to architecture node ",
-                             m_node_name, ".\n")
         end
     end
     return bad_nodes
