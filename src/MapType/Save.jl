@@ -7,7 +7,6 @@ function save(m::Map, filename::String = "")
     end
     # Append .json.gz to the end of the file.
     filename = split(filename, ".")[1] * ".json.gz"
-    filename = joinpath(PKGDIR, "saved", filename)
     # Wrap this in one more dictionary
     jsn = Dict{String,Any}()
     jsn["nodes"] = create_node_dict(m.mapping)
@@ -26,7 +25,6 @@ at your own risk.
 =#
 function load(m::Map, filename)
     filename = split(filename, ".")[1] * ".json.gz"
-    filename = joinpath(PKGDIR, "saved", filename)
 
     # Open the provided filename and
     f = GZip.open(filename, "r")
@@ -36,7 +34,6 @@ function load(m::Map, filename)
     read_node_dict(m.mapping, jsn["nodes"])
     return nothing
 end
-
 
 ################################################################################
 # Helper functions

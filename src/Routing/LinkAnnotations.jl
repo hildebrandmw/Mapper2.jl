@@ -4,13 +4,13 @@
 
 # Struct for recording which paths in the taskgraph are currently using the
 # given resource.
-mutable struct LinkState
+struct LinkState
     values::Vector{Int64}
 end
 LinkState() = LinkState(Int64[])
 
 Base.values(ls::LinkState) = ls.values
-Base.push!(ls::LinkState, value) = push!(ls.values, value)
+Base.push!(ls::LinkState, value...) = push!(ls.values, value...)
 Base.delete!(ls::LinkState, value) = deleteat!(ls.values,findfirst(x -> x == value, ls.values))
 
 getoccupancy(ls::LinkState) = length(ls.values)
@@ -20,12 +20,12 @@ getoccupancy(ls::LinkState) = length(ls.values)
 ################################################################################
 
 # Default link for recording the information about routing links.
-struct DefaultRoutingLink <: AbstractRoutingLink
+struct RoutingLink <: AbstractRoutingLink
     state   ::LinkState
     cost    ::Float64
     capacity::Int64
 end
-DefaultRoutingLink() = DefaultRoutingLink(LinkState(), 1.0, 1)
+RoutingLink(;cost = 1.0, capacity = 1) = RoutingLink(LinkState(), cost, capacity)
 
 # Accessor functions
 getstate(arl::ARL)      = arl.state
@@ -39,28 +39,30 @@ addlink(arl::ARL, link_index) = push!(getstate(arl), link_index)
 remlink(arl::ARL, link_index) = delete!(getstate(arl), link_index)
 
 ################################################################################
-# DEFAULT LINK ANNOTATOR.
+# LINK ANNOTATOR.
 ################################################################################
-Base.setindex!(a::ANA, l::AbstractRoutingLink, i::Integer) = a.links[i] = l
-Base.getindex(a::ANA, i::Integer) = a.links[i]
-getlinks(a::ANA) = a.links
-nodecost(a::ANA, i::Integer) = getcost(a[i])
+struct LinkAnnotator{T <: AbstractRoutingLink}
+    links::Vector{T} 
+end
 
-function iscongested(a::ANA)
+const LA = LinkAnnotator
+
+
+Base.setindex!(a::LA, l::AbstractRoutingLink, i::Integer) = a.links[i] = l
+Base.getindex(a::LA, i::Integer) = a.links[i]
+getlinks(a::LA) = a.links
+nodecost(a::LA, i::Integer) = getcost(a[i])
+
+function iscongested(a::LA)
     for link in getlinks(a)
         iscongested(link) && return true
     end
     return false
 end
-
-struct DefaultLinkAnnotator{T <: AbstractRoutingLink} <: AbstractLinkAnnotator
-    links::Vector{T} 
-end
-
 #-- iterator interface.
-Base.start(a::ANA)   = start(a.links)
-Base.next(a::ANA, s) = next(a.links, s)
-Base.done(a::ANA, s) = done(a.links, s)
+Base.start(a::LA)   = start(a.links)
+Base.next(a::LA, s) = next(a.links, s)
+Base.done(a::LA, s) = done(a.links, s)
 
 ################################################################################
 # DEFAULT CONSTRUCTORS FOR ABSTRACT ARCHITECTURES
@@ -75,20 +77,36 @@ Base.done(a::ANA, s) = done(a.links, s)
 # DEFAULT ANNOTATION FUNCTION
 ################################################################################
 # TODO: add the actual ports and links to the function calls for annotation.
-function annotate(::Type{A}, rg::RoutingGraph) where A <: AbstractArchitecture
+function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchitecture
     DEBUG && print_with_color(:cyan, "Annotating Graph Links.\n")
     # Construct an empty annotator supplied by the framework declaring the
     # architecture A
-    link_annotator = empty_annotator(A, rg)
+    routing_links = Vector{routing_link_type(A)}(nv(rg.graph))
     # Iterate first through the ports of the routing graph, and then through
     # the links of the routing graph.
     portmap_rev = rev_dict_safe(rg.portmap)
-    for (k,v) in portmap_rev
-        annotate_port(A, link_annotator, v, k)
+    for (index,portpaths) in portmap_rev
+        #=
+        For now, we're going to assume that if "portpaths" has a length greater
+        than 1 (meaning that multiple ports were condensed into 1), then it is
+        the result of some overloading of the routing graph policy and we're 
+        going to hand it over to a annotate_component function.
+        =#
+        ports = [arch[p] for p in portpaths]
+        if length(ports) > 1
+            # Get the prefix of the component
+            component_path = prefix(first(portpaths))
+            new_link = annotate_component(A, arch[component_path], ports)
+        else
+            new_link = annotate_port(A, first(ports))
+        end
+        routing_links[index] = new_link
     end
     linkmap_rev = rev_dict_safe(rg.linkmap)
-    for (k,v) in linkmap_rev
-        annotate_link(A, link_annotator, v, k)
+    for (index,linkpaths) in linkmap_rev
+        links = [arch[l] for l in linkpaths]
+        new_link = annotate_link(A, first(links))
+        routing_links[index] = new_link
     end
-    return link_annotator
+    return LinkAnnotator(routing_links)
 end

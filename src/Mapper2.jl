@@ -2,14 +2,17 @@ module Mapper2
 
 const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
+using Reexport
 
 export Address, Component, TopLevel,
         # Architecture Types
         AbstractArchitecture,
         TopLevel,
         Component,
+        Port,
+        Link,
         # Architecture constructor types
-        OffsetRule, 
+        OffsetRule,
         PortRule,
         # Architecture constructor functions
         add_port,
@@ -57,12 +60,24 @@ export Address, Component, TopLevel,
         route,
         RoutingStruct,
         AbstractRoutingLink,
-        AbstractLinkAnnotator,
+        RoutingLink,
+        AbstractRoutingTask,
+        RoutingTask,
+        LinkAnnotator,
+        LinkState,
+        # Interface
+        routing_link_type,
+        routing_task_type,
+        annotate_port,
+        annotate_link,
+        annotate_component,
+        canuse,
+        isvalid_source_port,
+        isvalid_sink_port,
         # Pathfinder
-        Pathfinder,
-        # TODO: Move these functions out of here
-        oneofin,
-        push_to_dict
+        Pathfinder
+
+export oneofin, push_to_dict
 
 ###############################
 # Common types and operations #
@@ -80,13 +95,13 @@ include("Routing/Routing.jl")
 
 # Use submodules to make exports visible.
 using .Debug
-using .Addresses
-using .Helper
-using .Taskgraphs
-using .Architecture
-using .MapType
-using .Place
-using .Routing
+@reexport using .Addresses
+@reexport using .Helper
+@reexport using .Taskgraphs
+@reexport using .Architecture
+@reexport using .MapType
+@reexport using .Place
+@reexport using .Routing
 
 # if USEPLOTS
 #     include("Plots/Plots.jl")

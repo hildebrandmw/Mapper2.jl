@@ -8,14 +8,25 @@ using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture, MapType, Debug
 using DataStructures
 using LightGraphs
 
-export route
+export  route,
+        RoutingStruct,
+        AbstractRoutingLink,
+        RoutingLink,
+        AbstractRoutingTask,
+        RoutingTask,
+        LinkAnnotator,
+        LinkState,
+        routing_link_type,
+        routing_task_type,
+        annotate_port,
+        annotate_link,
+        annotate_component,
+        canuse,
+        isvalid_source_port,
+        isvalid_sink_port
 
 abstract type AbstractRoutingLink end
 const ARL = AbstractRoutingLink
-
-# Abstract super types for all link annotators.
-abstract type AbstractLinkAnnotator end
-const ANA = AbstractLinkAnnotator
 
 abstract type AbstractRoutingAlgorithm end
 
@@ -47,7 +58,7 @@ function route(m::Map{A,D}) where {A,D}
     return m
 end
 
-function routing_algorithm(m::Map{A,D}, rs) where {A <: AbstractArchitecture, D} 
+function routing_algorithm(m::Map{A,D}, rs) where {A <: AbstractArchitecture, D}
     return Pathfinder(m, rs)
 end
 
@@ -55,60 +66,20 @@ end
 # REQUIRED METHODS
 ################################################################################
 
+routing_link_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingLink
+routing_task_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingTask
 
-#------------------#
-# Link Annotations #
-#------------------#
-
-"""
-    empty_annotator(::Type{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-
-Return an empty `DefaultLinkAnnotator()` for this architecture and routing graph.
-Specialized implementations may alter the type of the annotator returned.
-"""
-function empty_annotator(::Type{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-    links = Vector{DefaultRoutingLink}(nv(rg.graph))
-    return DefaultLinkAnnotator(links)
+function annotate_port(::Type{A}, port) where {A <: AbstractArchitecture}
+    RoutingLink()
 end
 
-"""
-    annotate_port( ::Type{A}, annotator::B, ports, link_index) where 
-    A <: AbstractArchitecture, 
-    B <: AbstractLinkAnnotator
-
-Add an entry to `annotator` for the architecture link at `link_index`. Ports
-given may be a collection of ports. Default implementation inserts a
-`DefaultRoutingLink()` into the DefaultLinkAnnotator.
-
-Specialized types may return different subtypes of AbstractRoutingLink or
-modify the Link Annotator entirely.
-""" 
-function annotate_port(
-        ::Type{A}, 
-        annotator::AbstractLinkAnnotator
-        ports,      # Single or collection of Port types 
-        link_index) where {A <: AbstractArchitecture}
-    annotator[link_index] = DefaultRoutingLink()
+function annotate_link(::Type{A}, link) where {A <: AbstractArchitecture}
+    return RoutingLink()
 end
 
-"""
-    annotate_link( ::Type{A}, annotator::B, links, link_index) where 
-    A <: AbstractArchitecture, 
-    B <: AbstractLinkAnnotator
-
-Add an entry to `annotator` for the architecture link at `link_index`. Links
-given may be a collection of links. Default implementation inserts a
-`DefaultRoutingLink()` into the DefaultLinkAnnotator.
-
-Specialized types may return different subtypes of AbstractRoutingLink or
-modify the Link Annotator entirely.
-""" 
-function annotate_link(
-        ::Type{A}, 
-        annotator::B, 
-        links,   # Single or collection of Link types
-        link_index) where {A <: AbstractArchitecture, B <: AbstractLinkAnnotator}
-    annotator[link_index] = DefaultRoutingLink()
+function annotate_component(::Type{A}, component::Component, ports) where {A <: AbstractArchitecture}
+    @assert component.primitive == "mux"
+    return RoutingLink()
 end
 
 
@@ -120,12 +91,16 @@ taskgraph link at `task_link`. Default implementation always returns true.
 
 Specialized implementations can allow for multiple, separate networks.
 """
-function canuse(::Type{A}, 
-                rs::RoutingStruct, 
-                arch_link::Integer, 
-                task_link::Integer) where A <: AbstractArchitecture
+function canuse(::Type{A},link::AbstractRoutingLink,task::AbstractRoutingTask) where
+        A <: AbstractArchitecture
     return true
 end
+
+function canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) where 
+        A <: AbstractArchitecture
+    return true
+end
+
 
 """
     isvalid_source_port(::Type{A}, port::Port, edge::TaskgraphEdge) where A <: AbstractArchitecture
@@ -141,7 +116,7 @@ end
 
 Return `true` if `port` is a valid sink for taskgraph `edge`.
 """
-function isvalid_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge) where 
+function isvalid_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge) where
         A <: AbstractArchitecture
     return port.class in PORT_SOURCES
 end

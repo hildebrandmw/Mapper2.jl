@@ -141,6 +141,8 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
     return nothing
 end
 
+const debug = []
+
 """
     shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
 
@@ -164,6 +166,8 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
     # Get the stop nodes for this link
     stopnodes = stop_nodes(rs, link)
 
+    task = get_taskgraph_node(rs, link)
+
     previous_index = 0
     success = false
     while !isempty(pq)
@@ -180,11 +184,12 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         # mark its predecessor for a potential backtrace. Add all neighbors
         # of this node to the queue.
         discovered[v.index] && continue
-        # Mark node as discovered and all all undiscovered neighbors.
+        # Mark node as discovered and all undiscovered neighbors.
         discovered[v.index] = true
         predecessor[v.index] = v.predecessor
         for u in out_neighbors(graph, v.index)
-            if !discovered[u] && canuse(A, rs, u, link)
+            link_type = get_link_info(rs,u)
+            if !discovered[u] && canuse(A, link_type, task)
                 # Compute the cost of taking the new vertex and add it
                 # to the queue.
                 new_cost = v.cost + nodecost(p,rs,u)
@@ -193,7 +198,13 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         end
     end
     # Raise an error if routing was not successful
-    success || error("Shortest Path failed epicly.")
+    if !success
+        empty!(debug)
+        push!(debug, p) 
+        push!(debug, rs)
+        push!(debug, link)
+        error("Shortest Path failed epicly on link: $link.")
+    end
     # Do a back-trace from the last vertex to determine the path that
     # this connection took through the graph.
     path = [previous_index]

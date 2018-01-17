@@ -40,6 +40,9 @@ function verify_routing(m::Map{A,D}, rs::RoutingStruct) where {A,D}
     # Check for errors.
     if errors.num_errors > 0
         debug_print(:error, "Verification Failed!\n")
+        for entry in errors.logs
+            println(entry.key)
+        end
     else
         debug_print(:success, "Verification Passed\n")
     end
@@ -71,7 +74,7 @@ function check_congestion(m::Map, rs::RoutingStruct, errors)
     # Enumerate through all paths.
     for (i, path) in enumerate(getpaths(rs))
         if iscongested(rs, path)
-            routing_congested_path_error(errors, gettaskgraph(m), i) 
+            routing_congested_path_error(errors, m.taskgraph, i) 
         end
     end
 end
@@ -124,6 +127,9 @@ function walkpath(architecture::TopLevel{A,D},
         # Get the collection of ports/link paths at this index of the walk
         # through the architecture.
         thispath = path[i]
+        if !canuse(A, architecture[first(thispath)], taskedge)
+            routing_invalid_resource(errors)
+        end
         if eltype(thispath) <: PortPath
             if !(eltype(path[i+1]) <: LinkPath)
                 routing_order_error(errors, path, i, LinkPath, PortPath)
@@ -199,6 +205,7 @@ struct RoutingCongestedLinkError;   key::Any; end
 struct RoutingCongestedPathError;   key::Any; end
 struct RoutingInvalidPort;          key::Any; end
 struct RoutingInvalidConnection;    key::Any; end
+struct RoutingInvalidResource;      key::Any; end
 
 function routing_order_error(errors, path, index, expected, recieved)
     increment(errors)
@@ -251,13 +258,14 @@ function routing_congested_path_error(errors, taskgraph::Taskgraph, i)
 end
 function routing_invalid_port(errors, port, taskedge, direction)
     increment(errors)
-    entry = RoutingInvalidPort(
+    log = RoutingInvalidPort(
     """
     Port $port is an invalid $direction port for task edge with:
     Sources: $(taskedge.sources)
     Sinks: $(taskedge.sinks)
     """
     )
+    push!(errors.logs, entry)
 end
 function routing_invalid_connection(errors, this, that)
     increment(errors)
@@ -266,4 +274,14 @@ function routing_invalid_connection(errors, this, that)
         Invalid connection from $this to $that.
         """
     )
+    push!(errors.logs, log)
+end
+function routing_invalid_resource(errors)
+    increment(errors)
+    log = RoutingInvalidResource(
+        """
+        Invalid Resource!!
+        """
+    )
+    push!(errors.logs, log)
 end

@@ -14,9 +14,9 @@ function build_general_primitive()
     component = Component("general_primitive", metadata = metadata)
     # Instantiate two output and two input ports.
     # Make the metadata for the two input ports slightly different to test routing
-    add_port(component, "in", "input", 2)
-    add_port(component, "out[0]", "output",metadata = Dict{String,Any}("class" => "A"))
-    add_port(component, "out[1]", "output",metadata = Dict{String,Any}("class" => "B"))
+    add_port(component, "in", "input", 2, metadata = Dict("capacity" => 1))
+    add_port(component, "out[0]", "output",metadata = Dict("class" => "A", "capacity" => 1))
+    add_port(component, "out[1]", "output",metadata = Dict("class" => "B", "capacity" => 1))
 
     return component
 end
@@ -24,14 +24,14 @@ end
 function build_input_primitive()
     metadata = Dict("task" => "input")
     component = Component("input_primitive", metadata = metadata)
-    add_port(component, "out", "output")
+    add_port(component, "out", "output", metadata = Dict("capacity" => 1))
     return component
 end
 
 function build_output_primitive()
     metadata = Dict("task" => "output")
     component = Component("output_primitive", metadata = metadata)
-    add_port(component, "in", "input")
+    add_port(component, "in", "input", metadata = Dict("capacity" => 1))
     return component
 end
 
@@ -58,6 +58,7 @@ function build_io_tile()
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     return tile
 end
@@ -83,13 +84,14 @@ function build_general_tile()
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     return tile
 end
 
 function build_super_tile()
     # Create a skeleton
-    tile = Component("general_tile")
+    tile = Component("super_tile")
     # Create IO ports for the four directions
     dir_tuple = ("north", "east", "south", "west")
     for dir in dir_tuple
@@ -109,9 +111,10 @@ function build_super_tile()
     connect_ports(tile, "routing_mux.out[5]", "general[0].in[1]")
     connect_ports(tile, "routing_mux.out[6]", "general[1].in[0]")
     connect_ports(tile, "routing_mux.out[7]", "general[1].in[1]")
-    metadata = Dict{String,Any}("capacity" => 5)
+    metadata = Dict{String,Any}("capacity" => 6)
     for (count, dir) in enumerate(dir_tuple)
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     return tile
 end
@@ -139,6 +142,9 @@ function build_routing_tile()
     dir_tuple = ("north", "east", "south", "west")
     # Instantiate a general tile inside of this one
     metadata = Dict{String,Any}("capacity" => 5)
+
+    a_metadata = Dict("capacity" => 5, "class" => "A", "cost" => 1.0)
+    b_metadata = Dict("capacity" => 5, "class" => "B", "cost" => 10.0)
     for (i,dir) in enumerate(dir_tuple)
         add_port(tile, "$(dir)_in", "input")
         add_port(tile, "$(dir)_out", "output")
@@ -149,8 +155,10 @@ function build_routing_tile()
                       ["mux_$(dir)[0].in[0]", "mux_$(dir)[1].in[0]"],
                       metadata)
 
-        connect_ports(tile,"mux_$dir[0].out[0]", "routing_mux.in[$(2*(i-1))]", metadata)
-        connect_ports(tile,"mux_$dir[1].out[0]", "routing_mux.in[$(2*(i-1)+1)]", metadata)
+        connect_ports(tile,"mux_$dir[0].out[0]", "routing_mux.in[$(2*(i-1))]", 
+                      a_metadata)
+        connect_ports(tile,"mux_$dir[1].out[0]", "routing_mux.in[$(2*(i-1)+1)]", 
+                      b_metadata)
 
         connect_ports(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata)
     end

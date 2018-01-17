@@ -18,7 +18,9 @@ export  build_input_primitive,
         # Map
         make_map,
         # Placement
-        place
+        place,
+        # Routing
+        route
 
 # Extensions of the base Mapper types
 struct TestArchitecture <: AbstractArchitecture end
@@ -28,6 +30,7 @@ make_map() = NewMap(build_test_arch(), make_taskgraph())
 include("Architecture.jl")
 include("Taskgraph.jl")
 include("Placement.jl")
+include("Routing.jl")
 
 
 end

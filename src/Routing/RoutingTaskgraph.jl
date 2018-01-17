@@ -1,25 +1,31 @@
-#=
-Data structure recording the start and stop nodes for each link in the taskgraph.
-=#
-abstract type AbstractRoutingTaskgraph end
+abstract type AbstractRoutingTask end
 
-struct DefaultRoutingTaskgraph <: AbstractRoutingTaskgraph
-    start_stop::Vector{Tuple{Vector{Int64}, Vector{Int64}}}
+struct RoutingTask <: AbstractRoutingTask
+    start::Vector{Int64}
+    stop::Vector{Int64}
+end
+RoutingTask(start, stop, taskgraph_edge) = RoutingTask(start, stop)
+
+
+struct RoutingTaskgraph{T <: AbstractRoutingTask}
+    elements::Vector{T}
 end
 
-start_nodes(t::DefaultRoutingTaskgraph, i::Integer) = t.start_stop[i][1]
-stop_nodes(t::DefaultRoutingTaskgraph, i::Integer) = t.start_stop[i][2]
+start_nodes(t::RoutingTaskgraph, i::Integer) = t.elements[i].start
+stop_nodes(t::RoutingTaskgraph, i::Integer) = t.elements[i].stop
+Base.getindex(t::RoutingTaskgraph, i::Integer) = t.elements[i]
 
-function build_routing_taskgraph(m::Map{A,D}, rg::RoutingGraph) where {
-            A <: AbstractArchitecture, D}
+function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: AbstractArchitecture}
     # Debug printing
     DEBUG && print_with_color(:cyan, "Building Default Routing Taskgraph.\n")
     # Unpack map
     taskgraph       = m.taskgraph
     architecture    = m.architecture
+    # Decode the routing task type for this architecture
+    task_type = routing_task_type(A)
     # Allocate a StartStopNodes vector with an index for each edge in the
     # base taskgraph.
-    start_stop = Vector{Tuple{Vector{Int64},Vector{Int64}}}(num_edges(taskgraph))
+    start_stop = Vector{task_type}(num_edges(taskgraph))
     # Iterate through all edges in the taskgraph
     for (i,edge) in enumerate(getedges(taskgraph))
         # Get the source nodes names
@@ -28,15 +34,15 @@ function build_routing_taskgraph(m::Map{A,D}, rg::RoutingGraph) where {
         # Collect the nodes in the routing graph for these ports.
         start = collect_nodes(architecture, rg, edge, sources, :source)
         stop  = collect_nodes(architecture, rg, edge, sinks, :sink)
-        start_stop[i] = (start,stop)
+        start_stop[i] = task_type(start,stop,edge)
     end
-    return DefaultRoutingTaskgraph(start_stop)
+    return RoutingTaskgraph(start_stop)
 end
 
-function collect_nodes(arch::TopLevel{A,D}, 
-                       resource_graph, 
-                       edge, 
-                       paths, 
+function collect_nodes(arch::TopLevel{A,D},
+                       resource_graph,
+                       edge,
+                       paths,
                        symbol) where {A,D}
 
     # Iterate through the source paths - get the port names.

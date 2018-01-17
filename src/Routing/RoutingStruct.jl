@@ -1,17 +1,16 @@
-mutable struct EdgePath{T}
+struct EdgePath{T}
     path::Vector{T}
 end
 EdgePath() = EdgePath(Int64[])
 
-#-- iterator interface for EdgePath
-# Just redirect to the iterator for the internal vector.
-Base.start(e::EdgePath)   = start(e.path)
-Base.next(e::EdgePath, s) = next(e.path, s)
-Base.done(e::EdgePath, s) = done(e.path, s)
-Base.length(e::EdgePath)  = length(e.path)
-Base.first(e::EdgePath)   = first(e.path)
-Base.last(e::EdgePath)    = last(e.path)
-Base.getindex(e::EdgePath, i) = getindex(e.path, i)
+# Simple redirection methods
+for fn in (:start, :length, :first, :last)
+    @eval (Base.$fn)(e::EdgePath) = ($fn)(e.path)
+end
+for fn in (:next, :done, :getindex)
+    @eval (Base.$fn)(e::EdgePath, s) = ($fn)(e.path, s)
+end
+
 
 struct PathTracker
     edges::Vector{EdgePath{Int64}}
@@ -27,17 +26,15 @@ Base.start(e::PathTracker)      = start(e.edges)
 Base.next(e::PathTracker, s)    = next(e.edges, s)
 Base.done(e::PathTracker, s)    = done(e.edges, s)
 
-struct RoutingStruct{RG <: RoutingGraph,
-                     LA <: AbstractLinkAnnotator,
-                     RT <: AbstractRoutingTaskgraph}
+struct RoutingStruct{RG <: RoutingGraph, T}
     "Routing Resources Graph"
     resource_graph      ::RG
     "Annotations for the graph"
-    link_info           ::LA
+    link_info           ::LinkAnnotator
     "Paths for links in the taskgraph"
     paths               ::PathTracker
     "Start and stop nodes for each connection to be routed."
-    routing_taskgraph   ::RT
+    routing_taskgraph   ::RoutingTaskgraph{T}
 end
 
 function RoutingStruct(m::Map{A,D}) where {A,D}
@@ -48,7 +45,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     resource_graph = routing_graph(architecture)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
-    link_info = annotate(A, resource_graph)
+    link_info = annotate(architecture, resource_graph)
     # Initialize the paths variable.
     paths = PathTracker(num_edges(taskgraph))
     # Get start and stop nodes for each taskgraph.
@@ -71,6 +68,8 @@ get_link_info(rs::RoutingStruct, i::Integer) = rs.link_info[i]
 
 start_nodes(rs::RoutingStruct, i::Integer) = start_nodes(rs.routing_taskgraph, i)
 stop_nodes(rs::RoutingStruct, i::Integer) = stop_nodes(rs.routing_taskgraph, i)
+
+get_taskgraph_node(rs::RoutingStruct, i::Integer) = rs.routing_taskgraph[i]
 
 nodecost(rs::RoutingStruct, i::Integer) = nodecost(rs.link_info, i)
 
@@ -165,7 +164,7 @@ function get_routing_path(architecture, path, portmap_rev, linkmap_rev)
             # Make an ordered set to keep track of things - this takes care
             # of the instance where a routing path through the architecture
             # can enter one port of something like a multiplexor and 
-            # exit through another port without taking a link inbetween.
+            # exit through another port without taking a link in between.
             set = OrderedSet()
             # Look behind - get the port of this collection that is connected
             # to the previous link.

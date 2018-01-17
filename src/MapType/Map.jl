@@ -108,6 +108,7 @@ mutable struct Mapping{D}
     nodes::Dict{String, NodeMap{D}}
     edges::Vector{EdgeMap}
 end
+
 getpath(m::Mapping, nodename::String) = getpath(m.nodes[nodename])
 getpath(m::Mapping, i::Integer) = getpath(m.edges[i])
 Base.getindex(m::Mapping, i::Integer) = m.edges[i]

@@ -32,15 +32,15 @@ function make_edges()
     # The following tuple is a collection: (source_task, sink_task, class)
     # Class can be one of: {A,B,all}
     edges = [("input1","task1","A"),
-             ("input2","task1","all"),
-             ("task1","task2","all"),
-             ("task2","task3","A"),
-             ("task3","task4","all"),
+             ("input2","task1","B"),
+             ("task1","task2","B"),
+             ("task2","task3","B"),
+             ("task3","task4","B"),
              ("task4","task5","B"),
              ("task5","task6","B"),
              ("task1","task6","A"),
-             ("task1","output1","all"),
-             ("task6","output2","all"),
+             ("task2","output1","A"),
+             ("task6","output2","B"),
             ]
 
     return [TaskgraphEdge(a[1],a[2],Dict("class" => a[3])) for a in edges]

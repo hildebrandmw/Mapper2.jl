@@ -25,7 +25,6 @@
 end
 
 @testset "Testing Architecture Modeling" begin
-    push!(LOAD_PATH, joinpath(Mapper2.PKGDIR, "example"))
     using Example
     # Test General primitive
     let

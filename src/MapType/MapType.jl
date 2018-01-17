@@ -1,5 +1,8 @@
 module MapType
 
+using GZip
+using JSON
+
 using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture, Debug
 
 export  Map,
@@ -7,7 +10,9 @@ export  Map,
         NewMap,
         NodeMap,
         EdgeMap,
-        getpath
+        getpath,
+        save,
+        load
 
 include("Map.jl")
 include("Save.jl")
