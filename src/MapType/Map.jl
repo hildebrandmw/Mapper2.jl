@@ -113,35 +113,30 @@ getpath(m::Mapping, nodename::String) = getpath(m.nodes[nodename])
 getpath(m::Mapping, i::Integer) = getpath(m.edges[i])
 Base.getindex(m::Mapping, i::Integer) = m.edges[i]
 Base.setindex!(m::Mapping, v::EdgeMap, i::Integer) = setindex!(m.edges, v, i)
+
 """
 Top level data structure. Summary of parameters:
 
 * `A` - The architecture type used for the mapping.
 * `D` - The number of dimensions in the architecture (will usually be 2 or 3).
+
+# Fields
+* `architecture::TopLevel{A,D}` - The architecture the taskgraph is mapped to.
+* `taskgraph::Taskgraph` - Traskgraph to be mapped.
+* `options::Dict{Symbol,Any}` - Miscellaneous runtime options.
+* `mapping::Mapping` - Data structure recording how the taskgraph is mapped
+    to the architecture.
+
+# Constructor
+    NewMap(a::TopLevel{A,D}, t::Taskgraph, options = Dict{Symbol,Any}())
+
 """
 mutable struct Map{A,D}
-    """
-    The underlying architecture to which the taskgraph is going to be mapped.
-    """
     architecture::TopLevel{A,D}
-    """
-    The application to be mapped to the architecture.
-    """
     taskgraph   ::Taskgraph
-    """
-    Options for dispatching and parameterizing placement and routing functions.
-    """
     options     ::Dict{Symbol, Any}
-    """
-    Record of how the taskgraph is mapped to the architecture.
-    """
     mapping     ::Mapping
 end
-
-#get_A(::Map{A,D}) where {A,D} = A
-#get_D(::Map{A,D}) where {A,D} = D
-getarchitecture(m::Map) = m.architecture
-gettaskgraph(m::Map)    = m.taskgraph
 
 function NewMap(architecture::TopLevel{A,D}, 
                 taskgraph   ::Taskgraph;
@@ -158,6 +153,10 @@ function NewMap(architecture::TopLevel{A,D},
         mapping
       )
 end
+
+getarchitecture(m::Map) = m.architecture
+gettaskgraph(m::Map)    = m.taskgraph
+
 ################################################################################
 # Methods for interacting with the Map.
 ################################################################################

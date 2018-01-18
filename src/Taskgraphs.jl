@@ -122,36 +122,51 @@ export  TaskgraphNode,
 
 
 """
-Nodes of the taskgraph.
+    struct TaskgraphNode
+
+Simple container representing a node in a taskgraph. Miscellaneous data should
+be stored in the `metadata` field.
+
+# Fields:
+* `name::String` - The name of the task.
+* `metadata::Dict{String,Any}` - Flexible container for storing any additional
+    information with the type to build datastructure down stream.
+
+# Constructor
+    TaskgraphNode(name, metadata = Dict{String,Any}())
+
 """
-mutable struct TaskgraphNode
+struct TaskgraphNode
     name    ::String
     metadata::Dict{String,Any}
-    """
-        TaskgraphNode(name, metadata = Dict{String,Any}())
-
-    Create a new `TaskgraphNode` with optional metadata.
-    """
-    function TaskgraphNode(name, metadata = Dict{String,Any}())
-        return new(name, metadata)
-    end
+    # Constructor
+    TaskgraphNode(name, metadata = Dict{String,Any}()) = new(name, metadata)
 end
 
 """
-Hypergraph edge for the taskgraph.
+    struct TaskgraphEdge
+
+Simple container representing an edge in a taskgraph. Miscellaneous data should
+be stored in the `metadatea` field.
+
+# Fields
+* `sources::Vector{String}` - Names of `TaskgraphNodes`s that are sources for
+    this edge.
+* `sinks::Vector{String}` - Names of `TaskgraphNode`s that are destinations
+    for this edge.
+* `metadata::Dict{String,Any}` - Flexible container for storing any additional
+    information with the type to build datastructure down stream.
+
+# Constructor
+    TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
+
+Arguments `source` and `sink` may either be of type `String` or `Vector{String}`.
 """
 mutable struct TaskgraphEdge
     sources ::Vector{String}
     sinks   ::Vector{String}
     metadata::Dict{String,Any}
-    """
-        TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
 
-    Convenience function allowing construction of an taskgraph edge initialized
-    with an empty metadata array.
-
-    Argument `source` or `sink` can either be strings or vectors of strings.
-    """
     function TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
         sources = typeof(source)   <: Vector ? source : [source]
         sinks   = typeof(sink)     <: Vector ? sink   : [sink]
@@ -159,9 +174,16 @@ mutable struct TaskgraphEdge
     end
 end
 
+"Return the sources of a `TaskgraphEdge`."
 getsources(t::TaskgraphEdge) = t.sources
+"Return the sinks of a `TaskgraphEdge`."
 getsinks(t::TaskgraphEdge)   = t.sinks
 
+"""
+    mutable struct Taskgraph
+
+
+"""
 mutable struct Taskgraph
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
@@ -214,37 +236,35 @@ num_nodes(tg::Taskgraph) = length(getnodes(tg))
 num_edges(tg::Taskgraph) = length(getedges(tg))
 
 """
-    add_node(tg::Taskgraph, task::TaskgraphNode)
+    add_node(t::Taskgraph, task::TaskgraphNode)
 
-Add a new node to the taskgraph. If a node with the same name already exists,
-throw an error.
+Add a new node to `t`. Error if node already exists.
 """
-function add_node(tg::Taskgraph, task::TaskgraphNode)
-    if haskey(tg.nodes, task.name)
+function add_node(t::Taskgraph, task::TaskgraphNode)
+    if haskey(t.nodes, task.name)
         error("Task ", task.name, " already exists in taskgraph.")
     end
-    tg.nodes[task.name] = task
+    t.nodes[task.name] = task
     # Create adjacency list entries for the new nodes
-    tg.adjacency_out[task.name] = TaskgraphEdge[]
-    tg.adjacency_in[task.name]  = TaskgraphEdge[]
+    t.adjacency_out[task.name] = TaskgraphEdge[]
+    t.adjacency_in[task.name]  = TaskgraphEdge[]
     return nothing
 end
 
 """
-    add_edge(tg::Taskgraph, edge::TaskgraphEdge)
+    add_edge(t::Taskgraph, edge::TaskgraphEdge)
 
-Add a new edge to the graph. No check is performed to ensure redundant edges
-are not added.
+Add a new edge to `t`.
 """
-function add_edge(tg::Taskgraph, edge::TaskgraphEdge)
+function add_edge(t::Taskgraph, edge::TaskgraphEdge)
     # Update the edge array
-    push!(tg.edges, edge)
+    push!(t.edges, edge)
     # Update the adjacency lists.
     for source in edge.sources
-        push!(tg.adjacency_out[source], edge)
+        push!(t.adjacency_out[source], edge)
     end
     for sink in edge.sinks
-        push!(tg.adjacency_in[sink], edge)
+        push!(t.adjacency_in[sink], edge)
     end
     return nothing
 end
@@ -263,18 +283,20 @@ in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
 # Checking methods
 hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
 
-# Methods for accessing metadata
-metadata(t::TaskgraphNode) = t.metadata
-metadata(t::TaskgraphEdge) = t.metadata
-
 # Methods for iterating through neighborhoods
-function out_nodes(tg::Taskgraph, node)
+"""
+    out_nodes(t::Taskgraph, node)
+
+Return a collection of nodes from `t` for which are the sink of an edge starting
+at `node`.
+"""
+function out_nodes(t::Taskgraph, node)
     # Sink node iterators
-    sink_name_iters = (e.sinks for e in out_edges(tg, node))
+    sink_name_iters = (e.sinks for e in out_edges(t, node))
     # Flatten the sink iterators and get the distinct results.
     distinct_sink_names = distinct(Base.Iterators.flatten(sink_name_iters))
     # Finally, pipe this into a generator to return the actual node object.
-    nodes = (getnode(tg, n) for n in distinct_sink_names)
+    nodes = (getnode(t, n) for n in distinct_sink_names)
     return nodes
 end
 

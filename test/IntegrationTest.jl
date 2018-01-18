@@ -4,7 +4,7 @@
     passed = true 
     try
         m = make_map()
-        m = place(m)
+        m = place(m, move_attempts = 5000)
         m = route(m)
     catch
         passed = false
