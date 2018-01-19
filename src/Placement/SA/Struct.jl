@@ -35,7 +35,14 @@ The placeholder is just this empty type.
 struct EmptyAddressData <: AbstractAddressData end
 
 """
-Paramters:
+    struct SAStruct{A,U,D,D2,D1,N,L,T}
+
+Data structure specialized for Simulated Annealing placement.
+
+# Constructor
+    SAStruct(Map::{A,D})
+
+# Paramters
 
 * `A` - The Architecture Type
 * `U` - Element type for the distance calculation LUT.
@@ -43,65 +50,51 @@ Paramters:
 * `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
                     with type parameters)
 * `D1` - `D + 1`.
-* `N` - Task node type.
-* `L` - Edge node type.
-* `T` - The AddressData type.
+* `N <: AbstractSANode` - Task node type.
+* `L <: AbstractSAEdge` - Edge node type.
+* `T <: AbstractAddressData`` - The AddressData type.
+
+# Fields
+* `nodes::Vector{N}` - Taskgraph Nodes specialized for placement.
+* `edges::Vector{L}` - Taskgraph Edges specialized for placement.
+* `nodeclass::Vector{Int64}` - Maps Taskgraph Nodes to their equivalence
+    classes for placement. Positive value indicates use of the standard move
+    generator while negative values indicate the special move generator.
+* `maptables::Vector{Array{Vector{UInt8},D}}}` - Indicates which primitive at
+    `address` a tasknode of equivalence class `i` can be mapped to.
+
+    Accessed using `maptables[i][address]`. Returned indicies are the indicies
+    or primitives that the task can be mapped to.
+* `special_maptables::Vector{Array{Vector{UInt8,D}}} - Same as `maptables` but
+    for special tasks.
+* `special_addresstables::Vector{Vector{Address{D}}}` - Used to determine the
+    addresses that a special tasknode of equivalence class `i` can occupy.
+
+    Accessed using `special_addresstables[i]`. The tasknode can be mapped to
+    at least one component at each address of the returned vector.
+* `distance::Array{U,D2}` - Distance look up table from address `a` to address
+    `b`. Precomputed using graph searches on the original architecture.
+* `grid::Array{Int64,D1}` - Mapping from address `a`, component `i` to the
+    tasknode index mapped to that location.
+
+    Accessed via `grid[i,a]`. Returns `0` is no task is mapped to the component.
+* `address_data::T` - Custom address specific datatype for implementing custom
+    objective functions.
+* `component_table::Array{Vector{ComponentPath},D}` - Mapping from the `SAStruct`
+    to the parent `Map` type.
+* `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
+    `Map` type.
 """
-mutable struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
+struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
                         T <: AbstractAddressData}
-    "Specialized node type."
     nodes::Vector{N}
-    "Specialized link type."
     edges::Vector{L}
-    """
-    The node class maps nodes in the `nodes` vector to their category. This is
-    used to reduce necessary size of the `maptable`.
-
-    - Node classes with a positive ID will be moved using the
-         standard move generator.
-    - Node classes with a negative ID will be moved using the special move
-        table where valid destinations are pre-calculated.
-    """
     nodeclass::Vector{Int64}
-    """
-    This is a look-up table to determine which mapable component at a given
-    address can support a certain taskclass.
-
-    The flow will look like this:
-
-    1. An index for a task will be chosen.
-    2. That index will be used to look up an integer nodeclass.
-    3. That node class will then be used to index into the maptables do
-        determine if a node can be mapped to that component.
-
-        The order of components at an address will be determined at structure
-        creation time.
-    """
     maptables::Vector{Array{Vector{UInt8},D}}
-    """
-    The special map tables where a set of valid destination addresses for a node
-    class are pre-computed and a valid destination address is chosen for move
-    generation.
-    """
     special_maptables::Vector{Array{Vector{UInt8}, D}}
     special_addresstables::Vector{Vector{Address{D}}}
-    """
-    Distance look-up table. This is twice the size of the the address dimension
-    to allow distances to be calculated from any source address to any
-    destination address.
-    """
     distance::Array{U,D2}
-    """
-    Lookup table to take a component index and address and get the node index
-    mapped to that location.
-
-    Access this as grid[component_index, address]. Component index comes first
-    because Julia column major.
-    """
     grid::Array{Int64, D1}
-    """
-    Address specific data used for custom objective functions.
-    """
     address_data::T
     #=
     Component tables for tracking local component references to the global
@@ -161,12 +154,6 @@ end
 # Constructor for the SA Structure
 ################################################################################
 
-"""
-    SAStruct(m::Map{A,D})
-
-Create a SAStruct from the provided map `m`. Returned structure does not
-have any kind of initial placement.
-"""
 function SAStruct(m::Map{A,D}) where {A,D}
     DEBUG && debug_print(:start, "Building Placement Structure\n")
 
@@ -253,7 +240,7 @@ cleargrid(sa::SAStruct) = sa.grid .= 0
 """
     preplace(m::Map, sa::SAStruct)
 
-Take the placement information 
+Take the placement information in `m` and apply it to `sa`.
 """
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
@@ -277,7 +264,7 @@ end
 """
     record(m::Map{A,D}, sa::SAStruct)
 
-Record the mapping from `sa` into the `mapping` field of `m`. Also confims the
+Record the mapping from `sa` into the `mapping` field of `m`. Also confirms the
 legality of the placement.
 """
 function record(m::Map{A,D}, sa::SAStruct) where {A,D}
@@ -331,7 +318,7 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
 end
 
 function record_edges!(nodes, edges)
-    # Reverse populate the the nodes so they track their edges.
+    # Reverse populate the nodes so they track their edges.
     for (i,edge) in enumerate(edges)
         for j in edge.sources
             push!(nodes[j].out_edges, i)
