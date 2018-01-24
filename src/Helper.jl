@@ -35,7 +35,7 @@ end
 
 Increment `d[k]` by `v`. If `d[k]` does not exist, initialize `d[k] = b`.
 """
-function add_to_dict(d::Dict{K}, k::K, v = 1; b = 1) where K
+function add_to_dict(d, k, v = 1; b = 1)
     haskey(d, k) ? d[k] += v : d[k] = b
 end
 

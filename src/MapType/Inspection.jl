@@ -34,15 +34,20 @@ end
 function global_link_histogram(m::Map{A,D}) where {A,D}
     histogram = SortedDict{Int64,Int64}()
     for edge in m.mapping.edges
-        link_count = 0
-        for node in edge.path
-            if isglobal(node)
-                link_count += 1
-            end
-        end
+        link_count = count_global_links(edge)
         add_to_dict(histogram, link_count)
     end
     return histogram
+end
+
+function count_global_links(edge::EdgeMap)
+    link_count = 0
+    for node in edge.path
+        if isglobal(node)
+            link_count += 1
+        end
+    end
+    return link_count
 end
 
 """

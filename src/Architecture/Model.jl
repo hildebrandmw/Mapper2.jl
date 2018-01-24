@@ -489,7 +489,7 @@ ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(
 Return an iterator for all the ports of the given component. Ports of children
 are not given. If `classes` are provided, only ports matching the specified
 classes will be returned.
-""" port
+""" ports
 #-------------------------------------------------------------------------------
 # TopLevel
 #-------------------------------------------------------------------------------

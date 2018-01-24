@@ -136,11 +136,14 @@ mutable struct Map{A,D}
     taskgraph   ::Taskgraph
     options     ::Dict{Symbol, Any}
     mapping     ::Mapping
+    metadata    ::Dict{String,Any}
 end
 
 function NewMap(architecture::TopLevel{A,D}, 
                 taskgraph   ::Taskgraph;
-                options = Dict{Symbol,Any}(),) where {A,D}
+                options = Dict{Symbol,Any}(),
+                metadata = Dict{String,Any}(),) where {A,D}
+
     # Create a new Mapping data type for the new map
     # Get the node names
     nodes = Dict(n => NodeMap{D}() for n in nodenames(taskgraph)) 
@@ -150,7 +153,8 @@ function NewMap(architecture::TopLevel{A,D},
         architecture,
         taskgraph,
         options,
-        mapping
+        mapping,
+        metadata,
       )
 end
 

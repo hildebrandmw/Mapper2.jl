@@ -131,6 +131,11 @@ function record(m::Map, rs::RoutingStruct)
     architecture = m.architecture
     # Run the verification routine.
     errors = verify_routing(m, rs)
+    if errors.num_errors > 0
+        m.metadata["routing_success"] = false
+    else
+        m.metadata["routing_success"] = true
+    end
     mapping = m.mapping
     # Run safe reverse on the port map since multiple port paths can point to
     # the same port.
