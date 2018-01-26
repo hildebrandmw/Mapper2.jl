@@ -6,6 +6,11 @@ struct RoutingTask <: AbstractRoutingTask
 end
 RoutingTask(start, stop, taskgraph_edge) = RoutingTask(start, stop)
 
+#=
+Fallback for choosing links to give priority to during routing.
+=#
+Base.isless(::AbstractRoutingTask, ::AbstractRoutingTask) = false
+
 
 struct RoutingTaskgraph{T <: AbstractRoutingTask}
     elements::Vector{T}

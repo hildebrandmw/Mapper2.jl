@@ -41,9 +41,9 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         links_to_route = 1:num_edges(m.taskgraph)
 
         #=
-        Runtime Structures 
+        Runtime Structures
 
-        Put in this structure to avoid reallocation for each invocation of the 
+        Put in this structure to avoid reallocation for each invocation of the
             Pathfinder Algorithm
         =#
 
@@ -74,17 +74,22 @@ getarchitecture(::Pathfinder{A,T,Q}) where {A,T,Q} = A
 """
     links_to_route(p::Pathfinder, routing_struct, iteration)
 
-Return an iterator of links to route given the `Pathfinder` state, the 
+Return an iterator of links to route given the `Pathfinder` state, the
 `RoutingStruct`, and the `iteration` number.
 """
-function links_to_route(p::Pathfinder, routing_struct, iteration)
+function links_to_route(p::Pathfinder, r, iteration)
     # Every so many iterations, reset the entire routing process to help
     # global convergence.
     if mod(iteration,50) == 1
-        return collect(p.links_to_route)
+        iter = collect(p.links_to_route)
     else
-        return [link for link in p.links_to_route if iscongested(routing_struct,link)]
+        iter = [link for link in p.links_to_route if iscongested(r,link)]
     end
+    # Sort according to relationship among routing taskgraph nodes.
+    lt = ((x,y) -> isless(get_taskgraph_node(r,x), get_taskgraph_node(r,y)))
+    sort!(iter, lt = lt)
+
+    return iter
 end
 
 """
@@ -94,7 +99,7 @@ Reset the run-time structures in `p`.
 """
 function soft_reset(p::Pathfinder)
     # Zero out the discovered vector.
-    p.discovered .= false 
+    p.discovered .= false
     # Empty out the priority queue.
     while !isempty(p.pq)
         pop!(p.pq)
@@ -109,7 +114,7 @@ Rip up all the routes.
 """
 function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
     for link in p.links_to_route
-        clear_route(rs, link) 
+        clear_route(rs, link)
     end
 end
 
@@ -173,7 +178,7 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
     while !isempty(pq)
         # Pop a node out of the priority queue
         v = pop!(pq)
-        # Check if this node is one of the stop nodes. If so - exit the loop. 
+        # Check if this node is one of the stop nodes. If so - exit the loop.
         if in(v.index, stopnodes)
             previous_index = v.index
             predecessor[v.index] = v.predecessor
@@ -200,7 +205,7 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
     # Raise an error if routing was not successful
     if !success
         empty!(debug)
-        push!(debug, p) 
+        push!(debug, p)
         push!(debug, rs)
         push!(debug, link)
         error("Shortest Path failed epicly on link: $link.")

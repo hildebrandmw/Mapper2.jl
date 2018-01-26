@@ -1,18 +1,24 @@
 #=
 Routines for saving and loading placements and routing.
 =#
-function save(m::Map, filename::String = "")
-    if isempty(filename)
-        error("Cannot auto-generate save names yet")
-    end
+function save(m::Map, filepath, compress = true)
     # Append .json.gz to the end of the file.
-    filename = split(filename, ".")[1] * ".json.gz"
+    dir, file = splitdir(filepath)
+
+    ending = compress ? ".json.gz" : ".json"
+    file = split(file, ".")[1] * ending
+
+    final_filepath = joinpath(dir, file)
     # Wrap this in one more dictionary
     jsn = Dict{String,Any}()
     jsn["nodes"] = create_node_dict(m.mapping)
     jsn["edges"] = create_edge_vec(m.mapping)
     # Open up the file to save
-    f = GZip.open(filename, "w")
+    if compress
+        f = GZip.open(final_filepath, "w")
+    else
+        f = open(final_filepath, "w")
+    end
     # Print to JSON with pretty printing.
     print(f, json(jsn, 2))
     close(f)
@@ -23,11 +29,14 @@ end
 NOTE: This function is still experimental and is by no means robust. Use
 at your own risk.
 =#
-function load(m::Map, filename)
-    filename = split(filename, ".")[1] * ".json.gz"
+function load(m::Map, filepath)
+    dir, file = splitdir(filepath)
+    file = split(file, ".")[1] * ".json.gz"
+
+    final_filepath = joinpath(dir, file)
 
     # Open the provided filename and
-    f = GZip.open(filename, "r")
+    f = GZip.open(final_filepath, "r")
     jsn = JSON.parse(f)
     close(f)
 

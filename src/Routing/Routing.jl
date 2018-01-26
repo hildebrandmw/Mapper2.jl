@@ -70,7 +70,7 @@ routing_link_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingLink
 routing_task_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingTask
 
 function annotate_port(::Type{A}, port) where {A <: AbstractArchitecture}
-    RoutingLink()
+    return RoutingLink()
 end
 
 function annotate_link(::Type{A}, link) where {A <: AbstractArchitecture}
