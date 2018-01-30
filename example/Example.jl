@@ -1,6 +1,7 @@
 module Example
 
 using Mapper2
+
 # Export many functions for testing
 export  build_input_primitive,
         build_output_primitive,

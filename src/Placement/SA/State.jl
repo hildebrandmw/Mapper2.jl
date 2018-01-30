@@ -79,7 +79,7 @@ function update!(state::SAState)
     # Compute number of moves per second.
     state.moves_per_second = state.successful_moves / (time() - state.start_time)
     # Update the exponential moving average of the objective function differnce.
-    alpha = 0.15
+    alpha = 0.2
     state.deviation = alpha * state.recent_deviation + 
                         (1.0 - alpha) * state.deviation
     # Determine whether or not to print out results
