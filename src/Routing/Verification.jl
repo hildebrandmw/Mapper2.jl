@@ -60,19 +60,18 @@ function check_resource_usage(m::Map{A,D},
 end
 
 function check_congestion(m::Map, rs::RoutingStruct, errors)
-    link_info = rs.link_info
     # Reverse the portmap and linkmap dictionaries for better error messages.
-    portmap_rev = rev_dict_safe(get_portmap(rs))
-    linkmap_rev = rev_dict_safe(get_linkmap(rs))
+    portmap_rev = rev_dict_safe(portmap(rs.graph))
+    linkmap_rev = rev_dict_safe(linkmap(rs.graph))
     # Enumerate through all links.
-    for (i,link) in enumerate(link_info)
+    for (i,link) in enumerate(alllinks(rs))
         # If a link is congested, register the error.
         if iscongested(link)
             routing_congested_link_error(errors, i, portmap_rev, linkmap_rev)
         end
     end
     # Enumerate through all paths.
-    for (i, path) in enumerate(getpaths(rs))
+    for (i, path) in enumerate(allpaths(rs))
         if iscongested(rs, path)
             routing_congested_path_error(errors, m.taskgraph, i) 
         end
@@ -83,11 +82,11 @@ function check_paths(m::Map{A,D}, rs::RoutingStruct, errors) where {A,D}
     # Unpack the structures.
     architecture    = m.architecture
     taskgraph       = m.taskgraph
-    resource_graph  = rs.resource_graph
-    paths           = getpaths(rs)
+    graph  = rs.graph
+    paths           = rs.paths
     # Reverse the portmap and linkmap dictionaries.
-    portmap_rev = rev_dict_safe(get_portmap(resource_graph))
-    linkmap_rev = rev_dict_safe(get_linkmap(resource_graph))
+    portmap_rev = rev_dict_safe(portmap(graph))
+    linkmap_rev = rev_dict_safe(linkmap(graph))
     # Check all the paths.
     for (taskedge_index,path) in enumerate(paths)
         taskedge = getedge(taskgraph, taskedge_index) 

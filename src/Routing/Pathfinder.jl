@@ -11,7 +11,6 @@ struct CostVertex
    predecessor ::Int64
 end
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
-#Base.==(a::CostVertex, b::CostVertex) = a.cost == b.cost
 
 mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     """
@@ -30,7 +29,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
 
     # Constructor
     function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
-        rg = rs.resource_graph
+        rg = rs.graph
         num_vertices = nv(rg.graph)
         # Initialize a vector with the number of vertices in the routing resouces
         # graph.
@@ -86,7 +85,7 @@ function links_to_route(p::Pathfinder, r, iteration)
         iter = [link for link in p.links_to_route if iscongested(r,link)]
     end
     # Sort according to relationship among routing taskgraph nodes.
-    lt = ((x,y) -> isless(get_taskgraph_node(r,x), get_taskgraph_node(r,y)))
+    lt = ((x,y) -> isless(getchannel(r,x), getchannel(r,y)))
     sort!(iter, lt = lt)
 
     return iter
@@ -120,25 +119,24 @@ end
 
 
 """
-    nodecost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
+    linkcost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
 
 Return the cost of a routing resource `node` for the current routing state.
 """
-function nodecost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
+function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     # Get the link info from the routing structure.
-    link = get_link_info(rs, node)
-    base_cost = getcost(link)
+    link = getlink(rs, index)
+    base_cost = cost(link)
     # Compute the penalty for present congestion
-    p = 1 + max(0, pf.current_cost_factor * (1 + getoccupancy(link) - getcapacity(link)))
-    h = pf.historical_cost[node]
-    cost = base_cost * p * h
-    return cost
+    p = 1 + max(0, pf.current_cost_factor * (1 + occupancy(link) - capacity(link)))
+    h = pf.historical_cost[index]
+    return base_cost * p * h
 end
 
 function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
     for i in eachindex(p.historical_cost)
-        link = get_link_info(rs, i)
-        overflow = p.historical_cost_factor * (getoccupancy(link) - getcapacity(link))
+        link = getlink(rs, i)
+        overflow = p.historical_cost_factor * (occupancy(link) - capacity(link))
         if overflow > 0
             p.historical_cost[i] += overflow
         end
@@ -149,29 +147,29 @@ end
 const debug = []
 
 """
-    shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
+    shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
 
 Run weighted shortest path routing computation on the routing structure given
 the current `Pathfinder` state.
 """
-function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
+function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
     A = getarchitecture(p)
     # Reset the runtime structures.
     soft_reset(p)
     # Unpack the certain variables.
-    graph       = rs.resource_graph.graph
+    graph       = r.graph.graph
     pq          = p.pq
     discovered  = p.discovered
     predecessor = p.predecessor
     # Add all the start nodes to the priority queue.
-    startnodes = shuffle(start_nodes(rs, link))
+    startnodes = shuffle(start(r, channel))
     for i in startnodes
         push!(pq, CostVertex(0.0, i, -1))
     end
-    # Get the stop nodes for this link
-    stopnodes = stop_nodes(rs, link)
+    # Get the stop nodes for this channel
+    stopnodes = stop(r, channel)
 
-    task = get_taskgraph_node(rs, link)
+    task = getchannel(r, channel)
 
     previous_index = 0
     success = false
@@ -193,11 +191,11 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         discovered[v.index] = true
         predecessor[v.index] = v.predecessor
         for u in out_neighbors(graph, v.index)
-            link_type = get_link_info(rs,u)
+            link_type = getlink(r,u)
             if !discovered[u] && canuse(A, link_type, task)
                 # Compute the cost of taking the new vertex and add it
                 # to the queue.
-                new_cost = v.cost + nodecost(p,rs,u)
+                new_cost = v.cost + linkcost(p,r,u)
                 push!(pq, CostVertex(new_cost,u,v.index))
             end
         end
@@ -206,9 +204,9 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
     if !success
         empty!(debug)
         push!(debug, p)
-        push!(debug, rs)
-        push!(debug, link)
-        error("Shortest Path failed epicly on link: $link.")
+        push!(debug, r)
+        push!(debug, channel)
+        error("Shortest Path failed epicly on link: $channel.")
     end
     # Do a back-trace from the last vertex to determine the path that
     # this connection took through the graph.
@@ -218,7 +216,7 @@ function shortest_path(p::Pathfinder, rs::RoutingStruct, link::Integer)
         unshift!(path, predecessor[first(path)])
     end
     # Wrap the path in an edge path and add it to the RoutingStruct.
-    set_route(rs, EdgePath(path), link)
+    set_route(r, ChannelPath(path), channel)
     return nothing
 end
 

@@ -12,12 +12,11 @@ export  route,
         RoutingStruct,
         AbstractRoutingLink,
         RoutingLink,
-        AbstractRoutingTask,
-        RoutingTask,
-        LinkAnnotator,
-        LinkState,
+        AbstractRoutingChannel,
+        RoutingChannel,
+        ChannelList,
         routing_link_type,
-        routing_task_type,
+        routing_channel_type,
         annotate_port,
         annotate_link,
         annotate_component,
@@ -33,11 +32,11 @@ abstract type AbstractRoutingAlgorithm end
 
 # This file converts the top level architecture to a simple graph plus
 # translation dictionaries.
-include("RoutingGraph.jl")
-include("LinkAnnotations.jl")
-include("RoutingTaskgraph.jl")
+include("Graph.jl")
+include("Links.jl")
+include("Channels.jl")
 # Encapsulation for the whole routing struct.
-include("RoutingStruct.jl")
+include("Struct.jl")
 
 # Algorithms
 include("Pathfinder.jl")
@@ -67,7 +66,7 @@ end
 ################################################################################
 
 routing_link_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingLink
-routing_task_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingTask
+routing_channel_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingChannel
 
 function annotate_port(::Type{A}, port) where {A <: AbstractArchitecture}
     return RoutingLink()
@@ -91,7 +90,7 @@ taskgraph link at `task_link`. Default implementation always returns true.
 
 Specialized implementations can allow for multiple, separate networks.
 """
-function canuse(::Type{A},link::AbstractRoutingLink,task::AbstractRoutingTask) where
+function canuse(::Type{A},link::AbstractRoutingLink,task::AbstractRoutingChannel) where
         A <: AbstractArchitecture
     return true
 end

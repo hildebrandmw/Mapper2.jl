@@ -1,40 +1,27 @@
-struct EdgePath{T}
-    path::Vector{T}
+struct ChannelPath
+    links::Vector{Int64}
 end
-EdgePath() = EdgePath(Int64[])
+ChannelPath() = ChannelPath(Int64[])
 
 # Simple redirection methods
 for fn in (:start, :length, :first, :last)
-    @eval (Base.$fn)(e::EdgePath) = ($fn)(e.path)
+    @eval (Base.$fn)(e::ChannelPath) = ($fn)(e.links)
 end
 for fn in (:next, :done, :getindex)
-    @eval (Base.$fn)(e::EdgePath, s) = ($fn)(e.path, s)
+    @eval (Base.$fn)(e::ChannelPath, s) = ($fn)(e.links, s)
 end
 
-
-struct PathTracker
-    edges::Vector{EdgePath{Int64}}
-end
-PathTracker(n::Integer) = PathTracker([EdgePath() for i = 1:n])
-
-Base.getindex(pt::PathTracker, i::Integer) = pt.edges[i]
-Base.setindex!(pt::PathTracker, e::EdgePath, i::Integer) = setindex!(pt.edges,e,i)
-Base.length(pt::PathTracker) = length(pt.edges)
-total_links(pt::PathTracker) = sum(length(e) for e in pt.edges)
-#- Iterator Interface
-Base.start(e::PathTracker)      = start(e.edges)
-Base.next(e::PathTracker, s)    = next(e.edges, s)
-Base.done(e::PathTracker, s)    = done(e.edges, s)
-
-struct RoutingStruct{RG <: RoutingGraph, T}
+struct RoutingStruct{RG <: RoutingGraph, 
+                     L <: AbstractRoutingLink, 
+                     C <: AbstractRoutingChannel}
     "Routing Resources Graph"
-    resource_graph      ::RG
-    "Annotations for the graph"
-    link_info           ::LinkAnnotator
+    graph   ::RG
+    "Annotaions for the graph"
+    links   ::Vector{L}
     "Paths for links in the taskgraph"
-    paths               ::PathTracker
+    paths   ::Vector{ChannelPath}
     "Start and stop nodes for each connection to be routed."
-    routing_taskgraph   ::RoutingTaskgraph{T}
+    channels::Vector{C}
 end
 
 function RoutingStruct(m::Map{A,D}) where {A,D}
@@ -42,81 +29,78 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     architecture = m.architecture
     taskgraph    = m.taskgraph
     # Create the routing resources graph from the architecture.
-    resource_graph = routing_graph(architecture)
+    graph = routing_graph(architecture)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
-    link_info = annotate(architecture, resource_graph)
+    links = annotate(architecture, graph)
     # Initialize the paths variable.
-    paths = PathTracker(num_edges(taskgraph))
+    paths = [ChannelPath() for i in 1:num_edges(taskgraph)]
     # Get start and stop nodes for each taskgraph.
-    routing_taskgraph = build_routing_taskgraph(m, resource_graph)
+    channels = build_routing_taskgraph(m, graph)
 
     return RoutingStruct(
-        resource_graph,
-        link_info,
+        graph,
+        links,
         paths,
-        routing_taskgraph,
+        channels,
     )
 end
 #-- Accessors
-getpaths(rs::RoutingStruct) = rs.paths
+allpaths(rs::RoutingStruct) = rs.paths
 MapType.getpath(rs::RoutingStruct, i::Integer) = rs.paths[i]
-setpath(rs::RoutingStruct, path::EdgePath, i::Integer) = rs.paths[i] = path
+setpath(rs::RoutingStruct, path::ChannelPath, i::Integer) = rs.paths[i] = path
 
-get_link_info(rs::RoutingStruct) = rs.link_info
-get_link_info(rs::RoutingStruct, i::Integer) = rs.link_info[i]
+alllinks(rs::RoutingStruct) = rs.links
+getlink(rs::RoutingStruct, i::Integer) = rs.links[i]
 
-start_nodes(rs::RoutingStruct, i::Integer) = start_nodes(rs.routing_taskgraph, i)
-stop_nodes(rs::RoutingStruct, i::Integer) = stop_nodes(rs.routing_taskgraph, i)
+Base.start(rs::RoutingStruct, i::Integer) = start(rs.channels[i])
+stop(rs::RoutingStruct, i::Integer) = stop(rs.channels[i])
 
-get_taskgraph_node(rs::RoutingStruct, i::Integer) = rs.routing_taskgraph[i]
+getchannel(rs::RoutingStruct, i::Integer) = rs.channels[i]
 
-nodecost(rs::RoutingStruct, i::Integer) = nodecost(rs.link_info, i)
-
-get_portmap(rs::RoutingStruct) = get_portmap(rs.resource_graph)
-get_linkmap(rs::RoutingStruct) = get_linkmap(rs.resource_graph)
+portmap(rs::RoutingStruct) = portmap(rs.graph)
+linkmap(rs::RoutingStruct) = linkmap(rs.graph)
 
 #---------#
 # Methods #
 #---------#
-iscongested(rs::RoutingStruct) = iscongested(rs.link_info)
+iscongested(rs::RoutingStruct) = iscongested(rs.links)
 iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getpath(rs, path))
-total_links(rs::RoutingStruct) = total_links(rs.paths)
 
-function iscongested(rs::RoutingStruct, path::EdgePath)
+function iscongested(rs::RoutingStruct, path::ChannelPath)
     for i in path
-        iscongested(get_link_info(rs, i)) && return true
+        iscongested(getlink(rs, i)) && return true
     end
     return false
 end
 """
-    remove_route(rs::RoutingStruct, index::Integer)
+    clear_route(rs::RoutingStruct, index::Integer)
 
 Rip up the current routing for the given link.
 """
-function clear_route(rs::RoutingStruct, index::Integer)
+function clear_route(rs::RoutingStruct, channel::Integer)
     #=
     1. Get the path for the link.
     2. Step through each architecture link on that path, remove the link index
         from that link info.
     3. Set the path to an empty set.
     =#
-    path = getpath(rs, index)
-    for node in path
-        remlink(get_link_info(rs, node), index)
+    path = getpath(rs, channel)
+    for link in path
+        remchannel(getlink(rs, link), channel)
     end
     # Clear the path variable
-    setpath(rs, EdgePath(), index)
+    setpath(rs, ChannelPath(), channel)
     return nothing
 end
 
-function set_route(rs::RoutingStruct, path::EdgePath, index::Integer)
+function set_route(rs::RoutingStruct, path::ChannelPath, channel::Integer)
     # This should always be the case - this assertion is to catch bugs.
-    @assert length(getpath(rs, index)) == 0
-    for node in path
-        addlink(get_link_info(rs, node), index)
+    @assert length(getpath(rs, channel)) == 0
+    for link in path
+        addchannel(getlink(rs, link), channel)
     end
-    setpath(rs, path, index)
+    setpath(rs, path, channel)
 end
 
 
@@ -139,12 +123,12 @@ function record(m::Map, rs::RoutingStruct)
     mapping = m.mapping
     # Run safe reverse on the port map since multiple port paths can point to
     # the same port.
-    portmap_rev = rev_dict_safe(get_portmap(rs))
+    portmap_rev = rev_dict_safe(portmap(rs))
     # Run normal reverse on the link map since all links should only have
     # a single instance.
-    linkmap_rev = rev_dict(get_linkmap(rs))
+    linkmap_rev = rev_dict(linkmap(rs))
     # For now - just dump everything.
-    for (i,path) in enumerate(getpaths(rs))
+    for (i,path) in enumerate(allpaths(rs))
         routing_path = get_routing_path(architecture, path, portmap_rev, linkmap_rev)
         # Extract the sources and destinations for this edges of the taskgraph.
         taskgraph_edge = getedge(m.taskgraph, i)

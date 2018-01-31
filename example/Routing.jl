@@ -2,7 +2,7 @@
 Overwrite routing link type to allow classification of routing links by class.
 """
 struct TypedRoutingLink <: AbstractRoutingLink
-    state   ::LinkState
+    channels::ChannelList
     cost    ::Float64
     capacity::Int64
     class   ::String
@@ -12,7 +12,7 @@ end
 Provide constructor.
 """
 function TypedRoutingLink(cost, capacity, class)
-    return TypedRoutingLink(LinkState(), cost, capacity, class)
+    return TypedRoutingLink(ChannelList(), cost, capacity, class)
 end
 
 """
@@ -23,11 +23,11 @@ Mapper2.routing_link_type(::Type{A}) where {A <: TestArchitecture} = TypedRoutin
 """
 New RoutingTask type to allow classification of tasks by a class.
 """
-struct TypedRoutingTask <: AbstractRoutingTask
+struct TypedRoutingChannel <: AbstractRoutingChannel
     start::Vector{Int64}
     stop::Vector{Int64}
     class::String
-    function TypedRoutingTask(start, stop, edge)
+    function TypedRoutingChannel(start, stop, edge)
         class = get(edge.metadata, "class", "all")
         return new(start, stop, class)
     end
@@ -36,7 +36,7 @@ end
 """
 Routing Task dispatch mechanism.
 """
-Mapper2.routing_task_type(::Type{A}) where {A <: TestArchitecture} = TypedRoutingTask
+Mapper2.routing_channel_type(::Type{A}) where {A <: TestArchitecture} = TypedRoutingChannel
 
 # Provide custom annotation methods.
 function Mapper2.annotate_port(::Type{A},port) where {A <: TestArchitecture}
@@ -76,7 +76,7 @@ function Mapper2.canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) 
         A <: TestArchitecture
     return check_class(item, edge)
 end
-function Mapper2.canuse(::Type{A}, item::TypedRoutingLink, edge::AbstractRoutingTask) where
+function Mapper2.canuse(::Type{A}, item::TypedRoutingLink, edge::TypedRoutingChannel) where
         A <: TestArchitecture
     return check_class(item.class, edge.class)
 end

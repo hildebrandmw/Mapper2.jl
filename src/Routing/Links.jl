@@ -4,16 +4,25 @@
 
 # Struct for recording which paths in the taskgraph are currently using the
 # given resource.
-struct LinkState
-    values::Vector{Int64}
+
+"""
+    struct ChannelList
+
+Data structure for recording the task indices that are using the given link.
+"""
+struct ChannelList
+    channels::Vector{Int64}
 end
-LinkState() = LinkState(Int64[])
+ChannelList() = ChannelList(Int64[])
 
-Base.values(ls::LinkState) = ls.values
-Base.push!(ls::LinkState, value...) = push!(ls.values, value...)
-Base.delete!(ls::LinkState, value) = deleteat!(ls.values,findfirst(x -> x == value, ls.values))
+Base.values(c::ChannelList) = c.channels
+Base.push!(c::ChannelList, value...) = push!(c.channels, value...)
 
-getoccupancy(ls::LinkState) = length(ls.values)
+function Base.delete!(c::ChannelList, value) 
+    deleteat!(c.channels,findfirst(x -> x == value, c.channels))
+end
+
+Base.length(c::ChannelList) = length(c.channels)
 
 ################################################################################
 # ROUTING LINKS
@@ -21,48 +30,33 @@ getoccupancy(ls::LinkState) = length(ls.values)
 
 # Default link for recording the information about routing links.
 struct RoutingLink <: AbstractRoutingLink
-    state   ::LinkState
+    channels::ChannelList
     cost    ::Float64
     capacity::Int64
 end
-RoutingLink(;cost = 1.0, capacity = 1) = RoutingLink(LinkState(), cost, capacity)
+
+RoutingLink(;cost = 1.0, capacity = 1) = RoutingLink(ChannelList(), cost, capacity)
 
 # Accessor functions
-getstate(arl::ARL)      = arl.state
-getcost(arl::ARL)       = arl.cost
-getcapacity(arl::ARL)   = arl.capacity
-getoccupancy(arl::ARL)  = getoccupancy(getstate(arl))
+channels(a::ARL)   = a.channels
+cost(a::ARL)       = a.cost
+capacity(a::ARL)   = a.capacity
+occupancy(a::ARL)  = length(a.channels)
 
 # Methods
-iscongested(arl::ARL) = getoccupancy(getstate(arl)) > getcapacity(arl)
-addlink(arl::ARL, link_index) = push!(getstate(arl), link_index)
-remlink(arl::ARL, link_index) = delete!(getstate(arl), link_index)
+iscongested(a::ARL) = occupancy(a) > capacity(a)
+addchannel(a::ARL, channel) = push!(channels(a),   channel)
+remchannel(a::ARL, channel) = delete!(channels(a), channel)
 
 ################################################################################
 # LINK ANNOTATOR.
 ################################################################################
-struct LinkAnnotator{T <: AbstractRoutingLink}
-    links::Vector{T} 
-end
-
-const LA = LinkAnnotator
-
-
-Base.setindex!(a::LA, l::AbstractRoutingLink, i::Integer) = a.links[i] = l
-Base.getindex(a::LA, i::Integer) = a.links[i]
-getlinks(a::LA) = a.links
-nodecost(a::LA, i::Integer) = getcost(a[i])
-
-function iscongested(a::LA)
-    for link in getlinks(a)
+function iscongested(a::Vector{L}) where L <: AbstractRoutingLink
+    for link in a
         iscongested(link) && return true
     end
     return false
 end
-#-- iterator interface.
-Base.start(a::LA)   = start(a.links)
-Base.next(a::LA, s) = next(a.links, s)
-Base.done(a::LA, s) = done(a.links, s)
 
 ################################################################################
 # DEFAULT CONSTRUCTORS FOR ABSTRACT ARCHITECTURES
@@ -108,5 +102,5 @@ function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchit
         new_link = annotate_link(A, first(links))
         routing_links[index] = new_link
     end
-    return LinkAnnotator(routing_links)
+    return routing_links
 end

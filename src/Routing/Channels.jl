@@ -1,24 +1,18 @@
-abstract type AbstractRoutingTask end
+abstract type AbstractRoutingChannel end
 
-struct RoutingTask <: AbstractRoutingTask
+struct RoutingChannel <: AbstractRoutingChannel
     start::Vector{Int64}
     stop::Vector{Int64}
 end
-RoutingTask(start, stop, taskgraph_edge) = RoutingTask(start, stop)
+RoutingChannel(start, stop, taskgraph_edge) = RoutingChannel(start, stop)
+
+Base.start(r::AbstractRoutingChannel)   = r.start
+stop(r::AbstractRoutingChannel)         = r.stop
 
 #=
 Fallback for choosing links to give priority to during routing.
 =#
-Base.isless(::AbstractRoutingTask, ::AbstractRoutingTask) = false
-
-
-struct RoutingTaskgraph{T <: AbstractRoutingTask}
-    elements::Vector{T}
-end
-
-start_nodes(t::RoutingTaskgraph, i::Integer) = t.elements[i].start
-stop_nodes(t::RoutingTaskgraph, i::Integer) = t.elements[i].stop
-Base.getindex(t::RoutingTaskgraph, i::Integer) = t.elements[i]
+Base.isless(::AbstractRoutingChannel, ::AbstractRoutingChannel) = false
 
 function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: AbstractArchitecture}
     # Debug printing
@@ -27,10 +21,10 @@ function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: Abstra
     taskgraph       = m.taskgraph
     architecture    = m.architecture
     # Decode the routing task type for this architecture
-    task_type = routing_task_type(A)
+    task_type = routing_channel_type(A)
     # Allocate a StartStopNodes vector with an index for each edge in the
     # base taskgraph.
-    start_stop = Vector{task_type}(num_edges(taskgraph))
+    channels = Vector{task_type}(num_edges(taskgraph))
     # Iterate through all edges in the taskgraph
     for (i,edge) in enumerate(getedges(taskgraph))
         # Get the source nodes names
@@ -39,9 +33,9 @@ function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: Abstra
         # Collect the nodes in the routing graph for these ports.
         start = collect_nodes(architecture, rg, edge, sources, :source)
         stop  = collect_nodes(architecture, rg, edge, sinks, :sink)
-        start_stop[i] = task_type(start,stop,edge)
+        channels[i] = task_type(start,stop,edge)
     end
-    return RoutingTaskgraph(start_stop)
+    return channels
 end
 
 function collect_nodes(arch::TopLevel{A,D},
