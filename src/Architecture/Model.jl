@@ -174,11 +174,21 @@ Return `false` if the given port path belongs to a subcomponent of a certain
 component.
      """ istop
 
+
+"""
+    isglobal(path::AbstractPath)
+
+Return `true` if the provided path is a global routing link.
+"""
+isgloballink(path::LinkPath) = isempty(path.path.address)
+isgloballink(path::AbstractPath) = false
+
+
 ##########
 # LENGTH #
 ##########
 Base.length(c::ComponentPath) = length(c.path)
-Base.length(ap::AddressPath)  = 1 + length(ap.path)
+Base.length(a::AddressPath)  = 1 + length(a.path)
 
 ############
 # EQUALITY #
@@ -379,7 +389,7 @@ isaddresslink(::Link{AddressPath{D}}) where {D} = true
 isaddresslink(::Link{ComponentPath}) = false
 
 @doc """
-    isaddresslink(l::Link)    
+    isaddresslink(l::Link)
 
 Return `true` if `l` contains an `Address`. Otherwise, return `false`.
 """ isaddresslink

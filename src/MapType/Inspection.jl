@@ -43,21 +43,9 @@ end
 function count_global_links(edge::EdgeMap)
     link_count = 0
     for node in edge.path
-        if isglobal(node)
+        if isgloballink(node)
             link_count += 1
         end
     end
     return link_count
-end
-
-"""
-    isglobal(path::AbstractPath)
-
-Return `true` if the provided path is a global routing link.
-"""
-function isglobal(path::AbstractPath)
-    if typeof(path) <: LinkPath && isempty(path.path.address)
-        return true
-    end
-    return false
 end

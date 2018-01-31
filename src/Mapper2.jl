@@ -90,8 +90,8 @@ include("Taskgraphs.jl")
 include("Architecture/Architecture.jl")
 include("MapType/MapType.jl")
 
-include("Placement/Place.jl")
-include("Routing/Routing.jl")
+include("Place/Place.jl")
+include("Route/Route.jl")
 
 # Use submodules to make exports visible.
 using .Debug
