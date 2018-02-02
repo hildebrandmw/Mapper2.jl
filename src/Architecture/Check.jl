@@ -1,3 +1,11 @@
+"""
+    check(c::AbstractComponent)
+
+Check all the ports of `c` and the children of `c`. Print a warning if any of
+these ports is not connected to a link in `c`.
+
+No warning is generated if `c` has no children.
+"""
 function check(c::AbstractComponent)
     # If there are no children, don't check for unconnected ports.
     if length(c.children) == 0
@@ -48,3 +56,10 @@ function get_visible_ports(t::TopLevel)
     end
     return portlist
 end
+
+@doc """
+    get_visible_ports(a::AbstractComponent)
+
+Return a vector of `PortPath` to the ports `a` and the ports of the children
+of `a`.
+""" get_visible_ports

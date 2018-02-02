@@ -162,7 +162,7 @@ be stored in the `metadatea` field.
 
 Arguments `source` and `sink` may either be of type `String` or `Vector{String}`.
 """
-mutable struct TaskgraphEdge
+struct TaskgraphEdge
     sources ::Vector{String}
     sinks   ::Vector{String}
     metadata::Dict{String,Any}
@@ -174,17 +174,36 @@ mutable struct TaskgraphEdge
     end
 end
 
-"Return the sources of a `TaskgraphEdge`."
+"Return the names of sources of a `TaskgraphEdge`."
 getsources(t::TaskgraphEdge) = t.sources
-"Return the sinks of a `TaskgraphEdge`."
+"Return the names of sinks of a `TaskgraphEdge`."
 getsinks(t::TaskgraphEdge)   = t.sinks
 
 """
-    mutable struct Taskgraph
+    struct Taskgraph
 
+Data structure encoding tasks and their relationships.
 
+# Fields
+* `name::String` - The name of the taskgraph.
+* `nodes::Dict{String, TaskgraphNode}` - Tasks within the taskgraph. Keys are
+    the instance names of the node, value is the data structure.
+* `edges::Vector{TaskgraphEdge}` - Collection of edges between `TaskgraphNode`s.
+* `adjacency_out::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
+    Given a task name, returns a collection of `TaskgraphEdge` that have the
+    corresponding task as a source.
+* `adjacency_in::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
+    Given a task name, returns a collection of `TaskgraphEdge` that have the
+    corresponding task as a sink.
+
+# Constructor
+    Taskgraph(name, node_container, edge_container)
+
+Return a `TaskGraph` with the given name, nodes, and edges. Arguments
+`node_container` and `edge_container` must have elements of type
+`TaskgraphEdge` and `TaskgraphNode` respectively.
 """
-mutable struct Taskgraph
+struct Taskgraph
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
     edges           ::Vector{TaskgraphEdge}
@@ -192,6 +211,12 @@ mutable struct Taskgraph
     adjacency_in    ::Dict{String, Vector{TaskgraphEdge}}
 
     function Taskgraph(name, node_container, edge_container)
+        if eltype(node_container) != TaskgraphNode
+            error("Nodes must be of type TaskgraphNode")
+        end
+        if eltype(edge_container) != TaskgraphEdge
+            error("Nodes must be of type TaskgraphEdge")
+        end
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.
         nodes = Dict(n.name => n for n in node_container)
@@ -231,9 +256,9 @@ getnode(tg::Taskgraph, node::String) = tg.nodes[node]
 getedge(tg::Taskgraph, i::Integer) = tg.edges[i]
 
 # -- helpful query methods.
-nodenames(tg::Taskgraph) = keys(tg.nodes)
-num_nodes(tg::Taskgraph) = length(getnodes(tg))
-num_edges(tg::Taskgraph) = length(getedges(tg))
+nodenames(t::Taskgraph) = keys(t.nodes)
+num_nodes(t::Taskgraph) = length(getnodes(t))
+num_edges(t::Taskgraph) = length(getedges(t))
 
 """
     add_node(t::Taskgraph, task::TaskgraphNode)
@@ -270,17 +295,31 @@ function add_edge(t::Taskgraph, edge::TaskgraphEdge)
 end
 
 
-# Methods for accessing the adjancy lists
-"Return the edges for which the task is a source."
+# Methods for accessing the adjacency lists
 out_edges(tg::Taskgraph, task::String) = tg.adjacency_out[task]
-"Return the edges for which the task is a source."
 out_edges(tg::Taskgraph, task::TaskgraphNode) = out_edges(tg, task.name)
-"Return the edges for which the task is a sink."
+
+@doc """
+    out_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
+
+Return `Vector{TaskgraphEdge}` for which `task` is a source."
+""" out_edges
+
 in_edges(tg::Taskgraph, task::String) = tg.adjacency_in[task]
-"Return the edges for which the task is a sink."
 in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
 
+@doc """
+    in_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
+
+Return `Vector{TaskgraphEdge}` for which `task` is a sink.
+"""
+
 # Checking methods
+"""
+    hasnode(t::Taskgraph, node::String)
+
+Return `true` if `t` has a task named `node`.
+"""
 hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
 
 # Methods for iterating through neighborhoods

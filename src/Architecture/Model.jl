@@ -176,12 +176,15 @@ component.
 
 
 """
-    isglobal(path::AbstractPath)
+    isgloballink(p::AbstractPath)
 
 Return `true` if the provided path is a global routing link.
 """
-isgloballink(path::LinkPath) = isempty(path.path.address)
-isgloballink(path::AbstractPath) = false
+isgloballink(l::LinkPath) = isempty(l.path.address)
+isgloballink(::AbstractPath) = false
+
+isglobalport(p::PortPath) = length(p.path) == 1
+isglobalport(::AbstractPath) = false
 
 
 ##########

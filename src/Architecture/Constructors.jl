@@ -33,17 +33,16 @@ function add_port(c::Component, name, class, number = 0;
         for i in 1:number
             # Make a new port with this number
             port_name = name * "[" * string(i-1) * "]"
-            add_port(c, Port(port_name, class, metadata))
+            if typeof(metadata) <: Array
+                add_port(c, Port(port_name, class, metadata[i]))
+            else
+                add_port(c, Port(port_name, class, metadata))
+            end 
         end
     end
     return nothing
 end
 
-"""
-    add_port(c::Component, port::Port)
-
-Add ports to a component.
-"""
 function add_port(c::Component, port::Port)
     # If the port already exists, throw an error
     if haskey(c.ports, port.name)
