@@ -38,15 +38,15 @@ end
 RoutingLink(;cost = 1.0, capacity = 1) = RoutingLink(ChannelList(), cost, capacity)
 
 # Accessor functions
-channels(a::ARL)   = a.channels
-cost(a::ARL)       = a.cost
-capacity(a::ARL)   = a.capacity
-occupancy(a::ARL)  = length(a.channels)
+channels(a::AbstractRoutingLink)   = a.channels
+cost(a::AbstractRoutingLink)       = a.cost
+capacity(a::AbstractRoutingLink)   = a.capacity
+occupancy(a::AbstractRoutingLink)  = length(a.channels)
 
 # Methods
-iscongested(a::ARL) = occupancy(a) > capacity(a)
-addchannel(a::ARL, channel) = push!(channels(a),   channel)
-remchannel(a::ARL, channel) = delete!(channels(a), channel)
+iscongested(a::AbstractRoutingLink) = occupancy(a) > capacity(a)
+addchannel(a::AbstractRoutingLink, channel) = push!(channels(a),   channel)
+remchannel(a::AbstractRoutingLink, channel) = delete!(channels(a), channel)
 
 ################################################################################
 # LINK ANNOTATOR.

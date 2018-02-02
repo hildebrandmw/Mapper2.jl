@@ -25,9 +25,9 @@ export  route,
         isvalid_sink_port
 
 abstract type AbstractRoutingLink end
-const ARL = AbstractRoutingLink
-
+abstract type AbstractRoutingChannel end
 abstract type AbstractRoutingAlgorithm end
+
 
 
 # This file converts the top level architecture to a simple graph plus

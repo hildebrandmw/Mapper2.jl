@@ -132,7 +132,7 @@ it is means to work on a `TopLevel` or `Component`.
 julia> LinkPath("a.b.c.link")
 Port a.b.c.link
 
-julia PortPath("a.b.c.linkj", Address(0,0))
+julia PortPath("a.b.c.link", Address(0,0))
 Port Address(0, 0).a.b.c.link
 ```
 """
@@ -149,7 +149,7 @@ function LinkPath(link::String)
     LinkPath(String(parts[end]), ComponentPath(parts[1:end-1]))
 end
 
-function LinkPath(link::String, address)
+function LinkPath(link::String, address::Address{D}) where {D}
     parts = split(link, ".")
     LinkPath(String(parts[end]), AddressPath(address, ComponentPath(parts[1:end-1])))
 end
@@ -491,7 +491,10 @@ end
 # METHODS
 
 ports(c::Component) = values(c.ports)
+portnames(c::Component) = keys(c.ports)
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
+
+connected_ports(a::AbstractComponent) = keys(a.port_link)
 
 @doc """
     ports(c::Component, [classes])

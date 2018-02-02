@@ -152,6 +152,8 @@ export  AbstractArchitecture,
         check_connectivity,
         get_connected_port,
         isfree,
+        isgloballink,
+        isglobalport,
         # Asserts
         assert_no_children,
         assert_no_intrarouting,
@@ -163,11 +165,13 @@ export  AbstractArchitecture,
         add_child,
         connect_ports,
         connection_rule,
-        build_mux
+        build_mux,
+        check
 
 # File containing architecture model definitions
 include("Model.jl")
 # File containing constructor functions for the TopLevel
 include("Constructors.jl")
+include("Check.jl")
 
 end # module Architecture

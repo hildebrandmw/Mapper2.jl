@@ -49,12 +49,14 @@ creating.
 Determine how to reports errors during placement and routing that are 
 transparent to programs using this package.
 
-### Code
-*   (M) Provide some analysis routines for architecture to detect unconnected 
-    ports and such. Would help with architecture modeling.
+### TODO (B = Basic, M = Medium, H = Hard)
+*   Code Coverage Tests:
+    - More thoroughly test bipartite matching algorithm.
+    - Include tests that exercise various error checking routines in the routing
+    verification process.
 
 *   (M) May be some changes to make to routing. Perhaps an equivalence class
     trick like is used in placement to classify what architecture links can be 
     used by a given taskgraph link.
 
-*   (B) Add placement and routing support for fanout networks.
+*   (H) Add placement and routing support for fanout networks.

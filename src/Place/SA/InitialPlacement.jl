@@ -113,12 +113,6 @@ function build_graph(sa::SAStruct)
     return graph, node_dict, component_dict
 end
 
-
-"""
-    do_assignment(placement_struct, graph, node_dict, component_dict)
-
-
-"""
 function do_assignment(placement_struct, graph, node_dict, component_dict)
     # Reverse the node and component dictionaries.
     node_dict_rev       = rev_dict(node_dict)
@@ -135,14 +129,7 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
             # component dictionary.
             (address, component) = component_dict_rev[b]
             node = node_dict_rev[i]
-            #= DEBUG for FFT not placing correctly
-            if node == 836 || node == 20
-                println(node, ", ", i)
-                println(address, ", ", component)
-            end
-            =#
             assign(placement_struct, node, component, address)
-
         end
     end
     return nothing

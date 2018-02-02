@@ -15,9 +15,12 @@ function build_general_primitive()
     # Instantiate two output and two input ports.
     # Make the metadata for the two input ports slightly different to test routing
     add_port(component, "in", "input", 2, metadata = Dict("capacity" => 1))
-    add_port(component, "out[0]", "output",metadata = Dict("class" => "A", "capacity" => 1))
-    add_port(component, "out[1]", "output",metadata = Dict("class" => "B", "capacity" => 1))
-
+    add_port(component, "out[0]", "output",
+             metadata = Dict("class" => "A", "capacity" => 1))
+    add_port(component, "out[1]", "output",
+             metadata = Dict("class" => "B", "capacity" => 1))
+    
+    check(component)
     return component
 end
 
@@ -25,6 +28,7 @@ function build_input_primitive()
     metadata = Dict("task" => "input")
     component = Component("input_primitive", metadata = metadata)
     add_port(component, "out", "output", metadata = Dict("capacity" => 1))
+    check(component)
     return component
 end
 
@@ -32,6 +36,7 @@ function build_output_primitive()
     metadata = Dict("task" => "output")
     component = Component("output_primitive", metadata = metadata)
     add_port(component, "in", "input", metadata = Dict("capacity" => 1))
+    check(component)
     return component
 end
 
@@ -60,6 +65,7 @@ function build_io_tile()
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
         connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
+    check(tile)
     return tile
 end
 
@@ -86,6 +92,7 @@ function build_general_tile()
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
         connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
+    check(tile)
     return tile
 end
 
@@ -116,6 +123,7 @@ function build_super_tile()
         connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
         connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
+    check(tile)
     return tile
 end
 
@@ -131,6 +139,7 @@ function build_double_general_tile()
         connect_ports(tile, "general.$(dir)_out", "$(dir)_out", metadata)
         connect_ports(tile, "$(dir)_in", "general.$(dir)_in", metadata)
     end
+    check(tile)
     return tile 
 end
 
@@ -162,6 +171,7 @@ function build_routing_tile()
 
         connect_ports(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata)
     end
+    check(tile)
     return tile
 end
 
@@ -217,6 +227,7 @@ function build_test_arch()
     metadata = Dict{String,Any}("capacity"  => 5)
     # Launch the function call!
     connection_rule(arch, offset_rules, src_rule, dst_rule, metadata = metadata)
+    check(arch)
     return arch
 end
 

@@ -10,4 +10,7 @@
         passed = false
     end
     @test passed
+
+    # Get statistics from the map
+    MapType.report_routing_stats(m)
 end

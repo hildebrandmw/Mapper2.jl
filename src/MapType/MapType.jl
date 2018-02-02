@@ -11,7 +11,6 @@ export  Map,
         NewMap,
         NodeMap,
         EdgeMap,
-        getpath,
         save,
         load
 
