@@ -36,12 +36,21 @@ mutable struct SAState
     "Running Time - only an approximate measure"
     run_time::Float64
     #= Methods for dealing with the updates =#
+    display_updates::Bool
     "Time of the last update"
     last_update_time::Float64
     "Update Interval"
     dt::Float64
 
     function SAState(temperature, distance_limit, objective)
+        # This is a hack to "cleanly" determine if we should display updates
+        # or not.
+        display_updates = false
+        @info begin
+            display_updates = true
+            "Initializing SA State"
+        end
+
         SAStateUpdateInterval = 10
         return new(
             # Most recent run
@@ -65,6 +74,7 @@ mutable struct SAState
             time(), # runtime
 
             # Update parameters
+            display_updates,
             time(),                     # Time of creation
             SAStateUpdateInterval,      # Default update interval
          )
@@ -83,14 +93,12 @@ function update!(state::SAState)
     state.deviation = alpha * state.recent_deviation + 
                         (1.0 - alpha) * state.deviation
     # Determine whether or not to print out results
-    if DEBUG
-        current_time = time()
-        state.run_time = current_time - state.start_time
-        if current_time > state.last_update_time + state.dt
-            show_stats(state)
-            state.last_update_time = time()
-            return true
-        end
+    current_time = time()
+    state.run_time = current_time - state.start_time
+    if current_time > state.last_update_time + state.dt
+        show_stats(state)
+        state.last_update_time = time()
+        return true
     end
     return false
 end
@@ -106,6 +114,7 @@ Print out stats about the SAState object in columns. If `first = true`, will
 print a header outlining the contents of eath column.
 """
 function show_stats(state::SAState, first = false)
+     state.display_updates || return nothing
      #=
      Fields of the SAState will be printed to the console in the order the
      order they show up here.
@@ -128,7 +137,6 @@ function show_stats(state::SAState, first = false)
         :moves_per_second,
         :deviation,
         :run_time,
-#        :distance_limit,
     )
 
     #=

@@ -221,33 +221,26 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
 end
 
 function route(p::Pathfinder, rs::RoutingStruct)
-    DEBUG && print_with_color(:cyan, "Running Pathfinder Routing Algorithm.\n")
+    @info "Running Pathfinder Routing Algorithm"
     for i in 1:p.iteration_limit
         for link in links_to_route(p,rs,i)
             clear_route(rs, link)
             shortest_path(p, rs, link)
         end
         update_historical_congestion(p, rs)
-        # Debug Update
-        if DEBUG
-            debug_print(:info,"On iteration: ")
-            debug_print(:none, i)
-            debug_print(:info, " of ")
-            debug_print(:none, p.iteration_limit, "\n")
-            # Print out the number of congested paths
-            congested_links = Int64[]
-            for i in p.links_to_route
-                if iscongested(rs, i)
-                    push!(congested_links, i)
-                end
-            end
-            if length(congested_links) > 0
-                debug_print(:warning, "Number of Congested Links: ")
-                debug_print(:none,length(congested_links), "\n")
+        ncongested = 0
+        # Count the number of congested links.
+        for i in p.links_to_route
+            if iscongested(rs, i)
+                ncongested += 1
             end
         end
-
-        iscongested(rs) || break
+        # Debug update
+        @debug """
+            On iteration $i of $(p.iteration_limit).
+            Number of congested links: $ncongested.
+            """
+        ncongested == 0 && break
     end
     return nothing
 end

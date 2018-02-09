@@ -60,3 +60,11 @@ transparent to programs using this package.
     used by a given taskgraph link.
 
 *   (H) Add placement and routing support for fanout networks.
+
+*   (B) Replace debug statements with a Base.logging or some logging package.
+    Reason: Reduce code bloat, probably faster. Offload worrying about different
+    priority levels to another piece of code.
+
+*   (B) Redo plotting - either by wrapping Plot statements inside a macro to
+    diable them or by providing some kind of callback functionality to get all
+    kinds of plotting outside of the base mapper.

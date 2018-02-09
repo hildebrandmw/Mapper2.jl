@@ -72,7 +72,7 @@ end
 ################################################################################
 # TODO: add the actual ports and links to the function calls for annotation.
 function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-    DEBUG && print_with_color(:cyan, "Annotating Graph Links.\n")
+    @info "Annotating Graph Links"
     # Construct an empty annotator supplied by the framework declaring the
     # architecture A
     routing_links = Vector{routing_link_type(A)}(nv(rg.graph))

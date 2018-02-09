@@ -14,7 +14,7 @@ Base.isless(::AbstractRoutingChannel, ::AbstractRoutingChannel) = false
 
 function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: AbstractArchitecture}
     # Debug printing
-    DEBUG && print_with_color(:cyan, "Building Default Routing Taskgraph.\n")
+    @info "Building Default Routing Taskgraph"
     # Unpack map
     taskgraph       = m.taskgraph
     architecture    = m.architecture

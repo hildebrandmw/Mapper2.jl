@@ -75,9 +75,10 @@ end
 
 function place(
         sa::SAStruct;
-        supplied_state = nothing,
         # Number of moves before doing a parameter update.
-        move_attempts = 20_000,
+        move_attempts       = 20_000,
+        initial_temperature = 1.0,
+        supplied_state      = nothing,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
         cooler ::AbstractSACool  = DefaultSACool(0.997),
@@ -114,7 +115,7 @@ function place(
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
     if supplied_state == nothing
-        state = SAState(1.0, Float64(largest_address), cost)
+        state = SAState(initial_temperature, Float64(largest_address), cost)
     else
         state = supplied_state
     end
@@ -160,8 +161,16 @@ function place(
         ###########################
         # Update cost for numerical stability reasons
         state.objective = map_cost(A, sa)
-        #@assert objective == state.objective
-        # Update some statistice in the state variable
+        # Sanity Check
+        if objective != state.objective
+            @warn """
+            Objective mismatch. 
+            actual: $(state.objective). 
+            calculated: $objective.
+            """
+        end
+
+        # Update some statistics in the state variable
         state.recent_move_attempts      = move_attempts
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
@@ -172,9 +181,8 @@ function place(
         # Adjust distance limit
         limit(limiter, state)
         # State updates
-        #update!(state)
-        if update!(state) && USEPLOTS
-            if isready(plot_channel)
+        if update!(state) 
+            if USEPLOTS && isready(plot_channel)
                 take!(plot_channel)
                 @async put!(plot_channel, remotecall_fetch(plot, 
                                                            plot_proc,
@@ -339,7 +347,7 @@ function standard_move(::Type{A}, sa::SAStruct, address, class, limit, ub) where
     # Generate a new address based on the distance limit
     move_ub = min.(address.addr .+ limit, ub)
     move_lb = max.(address.addr .- limit, 1)
-    new_address = rand_address(move_lb, move_ub)
+    new_address = Addresses.rand_address(move_lb, move_ub)
     return new_address
 end
 
