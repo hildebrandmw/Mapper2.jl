@@ -49,6 +49,12 @@ struct DefaultSACool <: AbstractSACool
     alpha::Float64
 end
 
+mutable struct AcceleratingSACool <: AbstractSACool
+    α::Float64
+    β::Float64
+    thresh::Float64
+end
+
 # Distance limit updates
 abstract type AbstractSALimit end
 """
@@ -220,6 +226,15 @@ end
 warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
+@inline function cool(c::AcceleratingSACool, state::SAState)
+    state.temperature *= c.α
+    # Update alpha
+    if c.α > c.thresh
+        c.α -= c.β
+    elseif c.α < c.thresh
+        c.α = c.thresh
+    end
+end
 
 @inline function done(d::DefaultSADone, state::SAState) 
     return state.deviation < d.atol
@@ -239,12 +254,13 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
+isnormal(class::Int64) = class > 0
 function isvalid(sa::SAStruct, node::Int64, address::Address, component)
     # Get the class associated with this node.
     class = sa.nodeclass[node]
     # Get the map tables for the node. Check if the component is in the 
     # maptable.
-    maptable = class > 0 ? sa.maptables[class] : sa.special_maptables[-class]
+    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
     return component in maptable[address]
 end
 
@@ -323,7 +339,7 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
     class = sa.nodeclass[node]
     # Get the address and component to move this node to
     local address::Address{dimension(sa)}
-    if class > 0
+    if isnormal(class)
         address = standard_move(
             A, sa, old_address, class, distance_limit, max_addresses
          )
