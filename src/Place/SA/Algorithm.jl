@@ -49,12 +49,6 @@ struct DefaultSACool <: AbstractSACool
     alpha::Float64
 end
 
-mutable struct AcceleratingSACool <: AbstractSACool
-    α::Float64
-    β::Float64
-    thresh::Float64
-end
-
 # Distance limit updates
 abstract type AbstractSALimit end
 """
@@ -226,15 +220,6 @@ end
 warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
-@inline function cool(c::AcceleratingSACool, state::SAState)
-    state.temperature *= c.α
-    # Update alpha
-    if c.α > c.thresh
-        c.α -= c.β
-    elseif c.α < c.thresh
-        c.α = c.thresh
-    end
-end
 
 @inline function done(d::DefaultSADone, state::SAState) 
     return state.deviation < d.atol

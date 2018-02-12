@@ -298,30 +298,29 @@ end
 out_edges(tg::Taskgraph, task::String) = tg.adjacency_out[task]
 out_edges(tg::Taskgraph, task::TaskgraphNode) = out_edges(tg, task.name)
 
+in_edges(tg::Taskgraph, task::String) = tg.adjacency_in[task]
+in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
+
+hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
+
 @doc """
     out_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
 
 Return `Vector{TaskgraphEdge}` for which `task` is a source."
 """ out_edges
 
-in_edges(tg::Taskgraph, task::String) = tg.adjacency_in[task]
-in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
-
 @doc """
     in_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
 
 Return `Vector{TaskgraphEdge}` for which `task` is a sink.
-"""
+""" in_edges
 
-# Checking methods
-"""
+@doc """
     hasnode(t::Taskgraph, node::String)
 
 Return `true` if `t` has a task named `node`.
-"""
-hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
+""" hasnode
 
-# Methods for iterating through neighborhoods
 """
     out_nodes(t::Taskgraph, node)
 

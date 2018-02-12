@@ -1,38 +1,39 @@
-# Work out a way of doing "representatives" for each
-
-#=
-The structure that will be used for placement in the new taskgraph.
-
-Will take a Map structure and spawn off its own specialized structure.
-=#
-"""
-Fields required by specialized SANode types:
-* address   ::Address{D} where D is the dimension of the architecture.
-* component_index <: Integer
-* out_links ::Vector{Int64}
-* in_links  ::Vector{Int64}
-"""
+################################################################################
+# Abstract Types for Placement
+################################################################################
 abstract type AbstractSANode end
-
-"""
-Fields required by specialized SANode types:
-* sources   ::Vector{Int64}
-* sinks     ::Vector{Int64}
-"""
 abstract type AbstractSAEdge end
-
-"""
-Container allowing specific data to be associated with addresses in the 
-SAStruct. Useful for processor specific mappings such as core frequency or
-leakage.
-"""
 abstract type AbstractAddressData end
 
-"""
+
+@doc """
+Fields required by specialized SANode types:
+* `address::Address{D}` where `D` is the dimension of the architecture.
+* `component_index<:Integer`
+* `out_links::Vector{Int64}`
+* `in_links::Vector{Int64}`
+""" AbstractSANode
+
+@doc """
+Fields required by specialized SANode types:
+* `sources::Vector{Int64}`
+* `sinks::Vector{Int64}`
+""" AbstractSAEdge
+
+@doc """
+Container allowing specific data to be associated with addresses in the
+SAStruct. Useful for processor specific mappings such as core frequency or
+leakage.
+""" AbstractAddressData
+
+@doc """
 Default mapping doesn't use address specific data for its mapping objective.
 The placeholder is just this empty type.
-"""
-struct EmptyAddressData <: AbstractAddressData end
+""" EmptyAddressData
+
+################################################################################
+# SA Struct
+################################################################################
 
 """
     struct SAStruct{A,U,D,D2,D1,N,L,T}
@@ -107,28 +108,45 @@ end
 
 
 # Convenience decoding methods - this is kinda gross.
-dimension(::SAStruct{A,U,D,D2,D1,N,L,T})      where {A,U,D,D2,D1,N,L,T} = D
-architecture(::SAStruct{A,U,D,D2,D1,N,L,T})   where {A,U,D,D2,D1,N,L,T} = A
-nodetype(::SAStruct{A,U,D,D2,D1,N,L,T})       where {A,U,D,D2,D1,N,L,T} = N
-edgetype(::Type{SAStruct{A,U,D,D2,D1,N,L,T}}) where {A,U,D,D2,D1,N,L,T} = L
-distancetype(::SAStruct{A,U,D,D2,D1,N,L,T})   where {A,U,D,D2,D1,N,L,T} = U
+dimension(::SAStruct{A,U,D})  where {A,U,D} = D
+architecture(::SAStruct{A})   where {A} = A
+nodetype(s::SAStruct) = typeof(s.nodes)
+edgetype(s::SAStruct) = typeof(s.edges)
+distancetype(::SAStruct{A,U}) where {A,U} = U
 
 ################################################################################
-# Templates for the basic task and link types
+# Basis SA Node
 ################################################################################
 
-# TODO: Think about how this has to get dispatched depending on taskgraphs AND
-# architectures.
 mutable struct BasicSANode{D} <: AbstractSANode
-    address         ::Address{D}
-    component       ::Int64
-    out_edges       ::Vector{Int64}
-    in_edges        ::Vector{Int64}
+    address  ::Address{D}
+    component::Int64
+    out_edges::Vector{Int64}
+    in_edges ::Vector{Int64}
 end
-# Fallback constructor for task nodes.
+
 function build_sa_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
     return BasicSANode(Address{D}(), 0, Int64[], Int64[])
 end
+
+@doc """
+    build_sa_node(::Type{A}, n::TaskgraphNode, D::Integer)
+
+Construct an `AbstractSANode` for the given taskgraph node and architecture `A`
+with dimension `D`.
+
+Must initialize the required fields to their default values:
+- `address = Address{D}()`
+- `component = 0`
+- `out_edges = Int[]`
+- `in_edges  = Int[]`
+
+Other additional fields left for your to implement as needed.
+""" build_sa_node
+
+################################################################################
+# Basis SA Edge
+################################################################################
 
 struct BasicSAEdge <: AbstractSAEdge
     sources::Vector{Int64}
@@ -144,8 +162,28 @@ function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: Ab
     return BasicSAEdge(sources, sinks)
 end
 
-function build_address_data(::Type{T}, 
-                            architecture, 
+@doc """
+    build_sa_edge(::Type{A}, edge::TaskgrpahEdge, node_dict)
+
+Return a concrete subtype of `AbstractSAEdge` for the `edge` and architecture
+`A`. Argument `node_dict` is a dictionary mapping taskgraph string names to
+integers.
+
+Must initialize the required fields to their default values:
+- `sources = [node_dict[s] for s in edge.sources]`
+- `sinks = [node_dict[s] for s in edge.sinks]`
+
+Other additional fields left for you to implement as needed.
+""" build_sa_edge
+
+################################################################################
+# Address Data
+################################################################################
+
+struct EmptyAddressData <: AbstractAddressData end
+
+function build_address_data(::Type{T},
+                            architecture,
                             taskgraph) where {T <: AbstractArchitecture}
     return EmptyAddressData()
 end
@@ -164,40 +202,31 @@ function SAStruct(m::Map{A,D}) where {A,D}
 
     # Next step, build the SA Taskgraph
     node_iterator = getnodes(taskgraph)
-    sa_nodes    = [build_sa_node(A, n, D) for n in node_iterator]
+    nodes    = [build_sa_node(A, n, D) for n in node_iterator]
     task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
     # Build dictionary to map node names to indices
     node_dict = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
     # Build the basic links
-    sa_edges = [build_sa_edge(A, n, node_dict) for n in getedges(taskgraph)]
-    # Reverse populate the nodes so they track their edges.
-    record_edges!(sa_nodes, sa_edges)
+    edges = [build_sa_edge(A, n, node_dict) for n in getedges(taskgraph)]
 
-    #=
-    Need to do the following:
+    # Assign adjacency information to nodes.
+    record_edges!(nodes, edges)
 
-    1. Get node equivalence classes
-    2. Get get component equivalence classes
-    3. Profit
-    =#
-    nodeclass, normal_node_reps, special_node_reps = get_node_equivalence_classes(
-            A,
-            taskgraph
-        )
+    classes, normal, special = equivalence_classes(A, taskgraph)
     # Build the map table based on the normal node equivalence classes.
     # Behold the beautiful diagonal structure
-    maptables = build_maptables(architecture, normal_node_reps, component_table)
+    maptables = build_maptables(architecture, normal, component_table)
 
-    s_maptables = build_maptables(architecture, special_node_reps, component_table)
+    s_maptables = build_maptables(architecture, special, component_table)
 
     s_addresstables = build_addresstables(architecture,
-                                                special_node_reps,
+                                                special,
                                                 component_table)
 
     arraysize = size(component_table)
     distance = build_distance_table(architecture)
     # Find the maximum number of components in any address.
-    max_num_components = maximum(map(x -> length(x), component_table))
+    max_num_components = maximum(map(length, component_table))
     grid = zeros(Int64, max_num_components, size(component_table)...)
     address_data = build_address_data(A, architecture, taskgraph)
 
@@ -206,13 +235,13 @@ function SAStruct(m::Map{A,D}) where {A,D}
                   D,                # Dimensionality of the Architecture
                   2*D,              # 2x Architecture Dimensionality
                   D+1,              # Architecture Dimensionality + 1
-                  eltype(sa_nodes), # Type of the taskgraph nodes
-                  eltype(sa_edges), # Type of the taskgraph edges
+                  eltype(nodes), # Type of the taskgraph nodes
+                  eltype(edges), # Type of the taskgraph edges
                   typeof(address_data)  # Type of address data
                  }(
-        sa_nodes,
-        sa_edges,
-        nodeclass,
+        nodes,
+        edges,
+        classes,
         maptables,
         s_maptables,
         s_addresstables,
@@ -331,7 +360,7 @@ function record_edges!(nodes, edges)
 end
 
 """
-    get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+    equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
 
 Separate the nodes in the taskgraph into equivalence classes based on the rules
 defined by the architecture. Expects the architecture to have defined the
@@ -353,7 +382,7 @@ Returns a tuple of 3 elements:
     Take the negative of the index to get the number for the equivalence class.
 
 """
-function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+function equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
     @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
@@ -407,8 +436,8 @@ function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: Abstrac
 end
 
 
-function build_maptables(architecture::TopLevel{A,D}, 
-                         nodes, 
+function build_maptables(architecture::TopLevel{A,D},
+                         nodes,
                          component_table) where {A,D}
     maptype = UInt8
     # Preallocate map table
@@ -562,8 +591,8 @@ end
 
 function check_grid_population(sa::SAStruct)
     # Iterate through all entries in the grid. Record the indices encountered
-    # along the way. When an index is discovered, mark it as discovered. 
-    # 
+    # along the way. When an index is discovered, mark it as discovered.
+    #
     # If an index is found twice - this is a problem. Print an error and mark
     # the test as failed.
     #
@@ -602,7 +631,7 @@ function check_consistency(sa::SAStruct)
                 push!(bad_nodes, node_assigned)
                 @warn """
                     Data structure inconsistency for node $index.
-                    Node assigned to location: $(node.address), 
+                    Node assigned to location: $(node.address),
                     $(node.component). Node assigned in the grid at this
                     location: $node_assigned.
                     """

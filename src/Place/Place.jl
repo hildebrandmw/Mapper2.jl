@@ -17,10 +17,13 @@ using MicroLogging
 
 const USEPLOTS = false
 
-export  place,
+export  Placement,
+        place,
         SAStruct,
         AbstractSANode,
+        build_sa_node,
         AbstractSAEdge,
+        build_sa_edge,
         AbstractAddressData,
         BasicSANode,
         BasicSAEdge,
@@ -29,7 +32,6 @@ export  place,
         isequivalent,
         canmap,
         placement_algorithm
-
 
 # Simulated Annealing Placement - Default option.
 include("SA/SA.jl")

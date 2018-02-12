@@ -9,19 +9,22 @@ makedocs(
         "Home" => "index.md",
         "Manual" => Any[
             "man/placeholder.md",
+            "man/placement.md",
+            "man/sa.md",
             ],
         "Developer" => Any[
             "dev/overview.md",
-            "dev/architecture.md",
-            "dev/constructor.md",
-            "Simulated Annealing" => Any[
-                   "dev/sa/struct.md",
-                   "dev/sa/algorithm.md",
-                ],
-            "Pathfinder Routing" => Any[
-                    "dev/routing/struct.md", 
-                    "dev/routing/algorithm.md",
-                ],
+            #"dev/architecture.md",
+            #"dev/constructor.md",
+            #"Placement" => Any[
+            #       "dev/placement/placement.md"
+            #       "dev/placement/struct.md",
+            #       "dev/placement/algorithm.md",
+            #    ],
+            #"Pathfinder Routing" => Any[
+            #        "dev/routing/struct.md", 
+            #        "dev/routing/algorithm.md",
+            #    ],
             ],
         "Internal Documentation" => Any[
                 "lib/internal.md",
