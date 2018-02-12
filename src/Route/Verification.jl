@@ -30,7 +30,7 @@ architecture. The following steps need to happen:
 =#
 ################################################################################
 function verify_routing(m::Map{A,D}, rs::RoutingStruct) where {A,D}
-    DEBUG && debug_print(:start, "Verifying Routing\n")
+    @info "Verifying Routing"
     # Create a new error tracker.
     errors = RoutingErrors()
     # Check routing Resources
@@ -39,12 +39,12 @@ function verify_routing(m::Map{A,D}, rs::RoutingStruct) where {A,D}
     check_paths(m, rs, errors)
     # Check for errors.
     if errors.num_errors > 0
-        debug_print(:error, "Verification Failed!\n")
+        @warn "Verification Failed!"
         for entry in errors.logs
             println(entry.key)
         end
     else
-        debug_print(:success, "Verification Passed\n")
+        @info "Verification Passed"
     end
     return errors
 end
@@ -194,7 +194,7 @@ Increment the number of errors found.
 """
 function increment(errors::RoutingErrors)
     errors.num_errors += 1
-    DEBUG && print_with_color(:red, "Errors Found: ", errors.num_errors,"\n")
+    @warn "Errors Found: $(errors.num_errors)"
     return nothing
 end
 

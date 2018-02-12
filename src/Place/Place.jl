@@ -4,7 +4,7 @@ Collection of placement algorithms.
 
 module Place
 
-using ..Mapper2: Addresses, Helper, Architecture, Taskgraphs, MapType, Debug
+using ..Mapper2: Addresses, Helper, Architecture, Taskgraphs, MapType
 
 # Use Progress Meter for displaying information about construction of
 # placement types.
@@ -13,6 +13,7 @@ using ProgressMeter
 using LightGraphs
 using DataStructures
 using Formatting
+using MicroLogging
 
 const USEPLOTS = false
 
@@ -27,7 +28,7 @@ export  place,
         isspecial,
         isequivalent,
         canmap,
-        get_placement_struct
+        placement_algorithm
 
 
 # Simulated Annealing Placement - Default option.

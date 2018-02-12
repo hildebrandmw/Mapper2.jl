@@ -29,9 +29,9 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     architecture = m.architecture
     taskgraph    = m.taskgraph
     # Create the routing resources graph from the architecture.
-    DEBUG && debug_print(:start, "Building Resource Graph\n")
+    @info "Building Resource Graph"
     graph = routing_graph(architecture)
-    DEBUG && routing_graph_info(graph)
+    @debug routing_graph_info(graph)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
     links = annotate(architecture, graph)

@@ -4,7 +4,7 @@ using GZip
 using JSON
 using DataStructures
 
-using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture, Debug
+using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture
 
 export  Map,
         Mapping,

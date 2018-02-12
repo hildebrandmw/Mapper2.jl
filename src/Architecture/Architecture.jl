@@ -110,8 +110,9 @@ ComponentPath or an AddressPath.
 
 module Architecture
 
-using ..Mapper2: Addresses, Helper, Debug
+using ..Mapper2: Addresses, Helper
 using IterTools
+using MicroLogging
 
 export  AbstractArchitecture,
         # Path Types

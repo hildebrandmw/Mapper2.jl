@@ -155,7 +155,7 @@ end
 ################################################################################
 
 function SAStruct(m::Map{A,D}) where {A,D}
-    DEBUG && debug_print(:start, "Building Placement Structure\n")
+    @info "Building Placement Structure\n"
 
     architecture = m.architecture
     taskgraph    = m.taskgraph
@@ -296,7 +296,7 @@ end
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
-    table_dims = address_max(addresses(tl))
+    table_dims = Addresses.dim_max(addresses(tl))
     component_table = fill(ComponentPath[], table_dims...)
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
@@ -354,7 +354,7 @@ Returns a tuple of 3 elements:
 
 """
 function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
-    DEBUG && debug_print(:start, "Classifying Taskgraph Nodes\n")
+    @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
     nodeclasses = Vector{Int64}(length(getnodes(taskgraph)))
@@ -389,26 +389,27 @@ function get_node_equivalence_classes(A::Type{T}, taskgraph) where {T <: Abstrac
         end
     end
 
-    ##################################################
-    # Print out statistics if DEBUG mode is turned on.
-    ##################################################
-    if DEBUG
-        debug_print(:info, "Number of Normal Representatives: ")
-        debug_print(:none, length(normal_node_reps), "\n")
-        for node in normal_node_reps
-            debug_print(:none, node.name, "\n")
-        end
-        debug_print(:info, "Number of Special Representatives: ")
-        debug_print(:none, length(special_node_reps), "\n")
-        for node in special_node_reps
-            debug_print(:none, node.name, "\n")
-        end
+    # Debug printing.
+    @debug begin
+        # Get the names of normal nodes
+        normal_nodes = join([n.name for n in normal_node_reps], "\n")
+        # Get the names of special nodes
+        special_nodes = join([n.name for n in special_node_reps], "\n")
+        # Build print string
+        """
+        Number of Normal Representatives: $(length(normal_node_reps))
+        $normal_nodes
+        Number of Special Node Reps: $(length(special_node_reps))
+        $special_node_reps
+        """
     end
     return nodeclasses, normal_node_reps, special_node_reps
 end
 
 
-function build_maptables(architecture::TopLevel{A,D}, nodes, component_table) where {A,D}
+function build_maptables(architecture::TopLevel{A,D}, 
+                         nodes, 
+                         component_table) where {A,D}
     maptype = UInt8
     # Preallocate map table
     maptable = Vector{Array{Vector{maptype},D}}(length(nodes))
@@ -440,6 +441,7 @@ function build_addresstables(architecture::TopLevel{A,D},
                              component_table) where {A,D}
 
     # Pre-allocate the table.
+
     addresstables = Vector{Vector{Address{D}}}(length(nodes))
     # Iterate through each node - then through each address.
     for (index,node) in enumerate(nodes)
@@ -463,13 +465,13 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # The data type for the LUT
     dtype = UInt8
     # Pre-allocate a table of the right dimensions.
-    dims = address_max(addresses(architecture))
+    dims = Addresses.dim_max(addresses(architecture))
     # Replicate the dimensions once to get a 2D sized LUT.
     distance = Array{dtype}(dims..., dims...)
     # Get the neighbor table for finding adjacent components in the top level.
     neighbor_table = build_neighbor_table(architecture)
 
-    DEBUG && debug_print(:start, "Building Distance Table\n")
+    @debug "Building Distance Table"
     # Run a BFS for each starting address
     @showprogress 1 for address in addresses(architecture)
         bfs!(distance, architecture, address, neighbor_table)
@@ -511,8 +513,8 @@ function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
 end
 
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    dims = Int64.(address_max(addresses(architecture)))
-    DEBUG && debug_print(:start, "Building Neighbor Table\n")
+    dims = Int64.(Addresses.dim_max(addresses(architecture)))
+    @debug "Building Neighbor Table"
     # Get the connected component dictionary
     cc = Architecture.connected_components(architecture)
     # Create a big list of lists
@@ -529,7 +531,7 @@ end
 function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
     # Assert that the SAStruct belongs to the same architecture
     @assert A == architecture(sa)
-    DEBUG && debug_print(:substart, "Verifying Placement\n")
+    @debug "Verifying Placement"
 
     bad_nodes = check_grid_population(sa)
     append!(bad_nodes, check_consistency(sa))
@@ -538,25 +540,21 @@ function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
     bad_nodes = sort(unique(bad_nodes))
     # Routine passes check if length of bad_nodes is 0
     passed = length(bad_nodes) == 0
-    if DEBUG
-        if passed
-            debug_print(:success, "Placement verified :)\n")
-        else
-            debug_print(:error, "Placement failed :(\n")
-            debug_print(:error, "\nOffending Node Names:\n")
-            #=
-            Convert the bad indices to the names of the offending nodes
-            by iterating through the names in the taskgraph nodes. If there's
-            a match with one of the offending indices, print both the index
-            and the node name to the console.
-            =#
+    if passed
+        @info "Placement Verified"
+    else
+        @error begin
             bad_dict = Dict{Int64, String}()
             for (i, name) in enumerate(keys(m.taskgraph.nodes))
                 if i in bad_nodes
                     bad_dict[i] = name
                 end
             end
-            display(bad_dict)
+            """
+            Placement Failed.
+            Offending Node Names:
+            $bad_dict
+            """
         end
     end
     return passed
@@ -577,7 +575,7 @@ function check_grid_population(sa::SAStruct)
     for g in sa.grid
         g == 0 && continue
         if found[g]
-            debug_print(:error, "Found node ", g, " more than once\n")
+            @warn "Found node $g more than once"
             push!(bad_indices, g)
         else
             found[g] = true
@@ -586,7 +584,7 @@ function check_grid_population(sa::SAStruct)
     # Make sure all nodes have been found
     for i in 1:length(found)
         if found[i] == false
-            debug_print(:error, "Node ", i, " not placed.\n")
+            @warn "Node $i not placed."
             push!(bad_nodes, i)
         end
     end
@@ -602,14 +600,15 @@ function check_consistency(sa::SAStruct)
             if index != node_assigned
                 push!(bad_nodes, index)
                 push!(bad_nodes, node_assigned)
-                debug_print(:error, 
-                     "Data structure inconsistency for node ", 
-                     index, ". Nodes assigned location: ", node.address,
-                     ", ", node.component, ". Node assigned in the grid",
-                     " at this location: ", node_assigned, ".\n")
+                @warn """
+                    Data structure inconsistency for node $index.
+                    Node assigned to location: $(node.address), 
+                    $(node.component). Node assigned in the grid at this
+                    location: $node_assigned.
+                    """
             end
         catch
-            debug_print(:error, "Something wrong with node: $index\n")
+            @warn "Something wrong with node: $index"
             push!(bad_nodes, index)
         end
     end
@@ -637,12 +636,13 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
             component = architecture[path]
             if !canmap(A, m_node, component)
                 push!(bad_nodes, index)
-                debug_print(:error, "Node index ", index, 
-                                 " incorrectly assigned to architecture node ",
-                                 m_node_name, ".\n")
+                @warn """
+                    Node index $index incorrectly assigned to architecture
+                    node $m_node.name.
+                    """
             end
         catch
-            debug_print(:error, "Something wrong with node index: $index\n")
+            @warn "Something wrong with node index: $index"
             push!(bad_nodes, index)
         end
     end

@@ -308,10 +308,7 @@ function connection_rule(tl::TopLevel,
             end
         end
     end
-    if DEBUG
-        debug_print(:info, "Connections made: ")
-        debug_print(:none, count, "\n")
-    end
+    @debug "Connections made: $count"
     return nothing
 end
 

@@ -249,12 +249,10 @@ memoize!(::Component, md::Dict, key, value) = (md[key] = value)
 memoize!(::TopLevel, md::Dict, key, value)  = nothing
 
 function routing_graph_info(g)
-    debug_print(:info, "Number of Vertices: ")
-    println(nv(g.graph))
-    debug_print(:info, "Number of Edges: ")
-    println(ne(g.graph))
-    debug_print(:info, "Entries in PortMap Dictionary: ")
-    println(length(g.portmap))
-    debug_print(:info, "Entries in LinkMap Dictionary: ")
-    println(length(g.linkmap))
+    """
+    Number of Vertices: $(nv(g.graph))
+    Number of Edges: $(ne(g.graph))
+    Entries in PortMap Dictionary: $(length(g.portmap))
+    Entries in LinkMap Dictionary: $(length(g.linkmap))
+    """
 end

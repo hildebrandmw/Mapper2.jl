@@ -27,6 +27,7 @@ function report_routing_stats(m::Map{A,D}) where {A,D}
     # Display the link histogram
     print_with_color(:yellow, "Link Histogram: \n")
     display(histogram)
+    println()
 
     return histogram
 end

@@ -23,10 +23,10 @@ function check(c::AbstractComponent)
     unused_ports = setdiff(all_ports, used_ports)
     # Check if there are unused ports and 
     if length(unused_ports) > 0
-        debug_print(:warning, 
-            "Component $(c.name) has $(length(unused_ports)) unused ports.\n")
+        n_unused = length(unused_ports)
+        @info "Component $(c.name) has $(n_unused) unused ports."
         for port in unused_ports
-            debug_print(:none, port, "\n")
+            @debug "Unconnected: $port"
         end
     end
 end

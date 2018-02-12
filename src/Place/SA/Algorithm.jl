@@ -49,6 +49,12 @@ struct DefaultSACool <: AbstractSACool
     alpha::Float64
 end
 
+mutable struct AcceleratingSACool <: AbstractSACool
+    α::Float64
+    β::Float64
+    thresh::Float64
+end
+
 # Distance limit updates
 abstract type AbstractSALimit end
 """
@@ -75,9 +81,10 @@ end
 
 function place(
         sa::SAStruct;
-        supplied_state = nothing,
         # Number of moves before doing a parameter update.
-        move_attempts = 20_000,
+        move_attempts       = 20_000,
+        initial_temperature = 1.0,
+        supplied_state      = nothing,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
         cooler ::AbstractSACool  = DefaultSACool(0.997),
@@ -114,7 +121,7 @@ function place(
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
     if supplied_state == nothing
-        state = SAState(1.0, Float64(largest_address), cost)
+        state = SAState(initial_temperature, Float64(largest_address), cost)
     else
         state = supplied_state
     end
@@ -160,8 +167,16 @@ function place(
         ###########################
         # Update cost for numerical stability reasons
         state.objective = map_cost(A, sa)
-        #@assert objective == state.objective
-        # Update some statistice in the state variable
+        # Sanity Check
+        if objective != state.objective
+            @warn """
+            Objective mismatch. 
+            actual: $(state.objective). 
+            calculated: $objective.
+            """
+        end
+
+        # Update some statistics in the state variable
         state.recent_move_attempts      = move_attempts
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
@@ -172,9 +187,8 @@ function place(
         # Adjust distance limit
         limit(limiter, state)
         # State updates
-        #update!(state)
-        if update!(state) && USEPLOTS
-            if isready(plot_channel)
+        if update!(state) 
+            if USEPLOTS && isready(plot_channel)
                 take!(plot_channel)
                 @async put!(plot_channel, remotecall_fetch(plot, 
                                                            plot_proc,
@@ -212,6 +226,15 @@ end
 warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
+@inline function cool(c::AcceleratingSACool, state::SAState)
+    state.temperature *= c.α
+    # Update alpha
+    if c.α > c.thresh
+        c.α -= c.β
+    elseif c.α < c.thresh
+        c.α = c.thresh
+    end
+end
 
 @inline function done(d::DefaultSADone, state::SAState) 
     return state.deviation < d.atol
@@ -231,12 +254,13 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
+isnormal(class::Int64) = class > 0
 function isvalid(sa::SAStruct, node::Int64, address::Address, component)
     # Get the class associated with this node.
     class = sa.nodeclass[node]
     # Get the map tables for the node. Check if the component is in the 
     # maptable.
-    maptable = class > 0 ? sa.maptables[class] : sa.special_maptables[-class]
+    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
     return component in maptable[address]
 end
 
@@ -315,7 +339,7 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
     class = sa.nodeclass[node]
     # Get the address and component to move this node to
     local address::Address{dimension(sa)}
-    if class > 0
+    if isnormal(class)
         address = standard_move(
             A, sa, old_address, class, distance_limit, max_addresses
          )
@@ -339,7 +363,7 @@ function standard_move(::Type{A}, sa::SAStruct, address, class, limit, ub) where
     # Generate a new address based on the distance limit
     move_ub = min.(address.addr .+ limit, ub)
     move_lb = max.(address.addr .- limit, 1)
-    new_address = rand_address(move_lb, move_ub)
+    new_address = Addresses.rand_address(move_lb, move_ub)
     return new_address
 end
 
