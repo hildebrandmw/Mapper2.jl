@@ -149,41 +149,27 @@ end
 ################################################################################
 # Lookup Table Access Methods
 ################################################################################
-function Base.setindex!(A::AbstractArray{T,N}, v::T, a::Address{N}) where {T,N}
+function Base.setindex!(A::AbstractArray{T}, v::T, a::Address{N}) where {T,N}
     A[a.addr...] = v
 end
 
-function Base.getindex(A::AbstractArray{T,N}, a::Address{N})::T where {T,N}
+function Base.getindex(A::AbstractArray{T}, a::Address{N}) where {T,N}
     A[a.addr...]
 end
 
-function Base.setindex!(A::AbstractArray{T,K}, 
-                        v::T, 
-                        a::Address{N}, 
-                        b::Address{N}) where {T,K,N}
-
+function Base.setindex!(A::AbstractArray{T}, v::T, a::Address{N}, b::Address{N}) where {T,N}
     A[a.addr..., b.addr...] = v
 end
 
-function Base.getindex(A::AbstractArray{T,K}, 
-                       a::Address{N},
-                       b::Address{N}) where {T,K,N}
-
+function Base.getindex(A::AbstractArray{T}, a::Address{N}, b::Address{N}) where {T,N}
     A[a.addr..., b.addr...]
 end
 
-function Base.setindex!(A::AbstractArray{T,K}, 
-                        v::T, 
-                        i::Integer, 
-                        a::Address{N}) where {T,K,N}
-
+function Base.setindex!(A::AbstractArray{T}, v::T, i::Integer, a::Address{N}) where {T,N}
     A[i, a.addr...] = v
 end
 
-function Base.getindex(A::AbstractArray{T,K}, 
-                       i::Integer, 
-                       a::Address{N}) where {T,K,N}
-
+function Base.getindex(A::AbstractArray{T}, i::Integer, a::Address{N}) where {T,N}
     A[i, a.addr...]
 end
 
