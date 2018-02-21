@@ -88,21 +88,21 @@ Data structure specialized for Simulated Annealing placement.
 """
 struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
                         T <: AbstractAddressData}
-    nodes::Vector{N}
-    edges::Vector{L}
-    nodeclass::Vector{Int64}
-    maptables::Vector{Array{Vector{UInt8},D}}
-    special_maptables::Vector{Array{Vector{UInt8}, D}}
-    special_addresstables::Vector{Vector{Address{D}}}
-    distance::Array{U,D2}
-    grid::Array{Int64, D1}
-    address_data::T
+    nodes                   ::Vector{N}
+    edges                   ::Vector{L}
+    nodeclass               ::Vector{Int64}
+    maptables               ::Vector{Array{Vector{UInt8},D}}
+    special_maptables       ::Vector{Array{Vector{UInt8}, D}}
+    special_addresstables   ::Vector{Vector{Address{D}}}
+    distance                ::Array{U,D2}
+    grid                    ::Array{Int64, D1}
+    address_data            ::T
     #=
     Component tables for tracking local component references to the global
     reference in the Map data type
     =#
-    component_table::Array{Vector{ComponentPath}, D}
-    task_table::Dict{String,Int64}
+    component_table ::Array{Vector{ComponentPath}, D}
+    task_table      ::Dict{String,Int64}
 end
 
 
@@ -149,16 +149,24 @@ Other additional fields left for your to implement as needed.
 ################################################################################
 
 struct BasicSAEdge <: AbstractSAEdge
-    sources::Vector{Int64}
-    sinks  ::Vector{Int64}
+    sources::Int64
+    sinks  ::Int64
 end
 
 function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
     # Build up adjacency lists.
-    # Sources in the task-graphs are strings so we can just use the
+    # Sources in the task-graphs are strings so we need to use the
     # node-dictionary to convert them into integers.
-    sources = [node_dict[s] for s in edge.sources]
-    sinks   = [node_dict[s] for s in edge.sinks]
+    if length(edge.sources) > 1
+        error("Multi source nets are not implemented yet")
+    end
+    if length(edge.sinks) > 1
+        error("Multi sink nets are not implemented yet")
+    end
+    sources  = node_dict[first(edge.sources)]
+    sinks    = node_dict[first(edge.sinks)]
+    #sources = [node_dict[s] for s in edge.sources]
+    #sinks   = [node_dict[s] for s in edge.sinks]
     return BasicSAEdge(sources, sinks)
 end
 

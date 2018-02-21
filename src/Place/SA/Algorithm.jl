@@ -103,15 +103,6 @@ function place(
     # Main Simulated Annealing Loop
     loop = true
 
-    # TODO: Make plotting options more seamless.
-    if USEPLOTS
-        # Use the last worker as the worker that will generate all of the
-        # plots.
-        plot_proc = workers()[end]
-        plot_channel = Channel{Any}(1)
-        @async put!(plot_channel, remotecall_fetch(plot, plot_proc, deepcopy(sa)))
-    end
-
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
     if supplied_state == nothing
@@ -181,14 +172,7 @@ function place(
         # Adjust distance limit
         limit(limiter, state)
         # State updates
-        if update!(state) 
-            if USEPLOTS && isready(plot_channel)
-                take!(plot_channel)
-                @async put!(plot_channel, remotecall_fetch(plot, 
-                                                           plot_proc,
-                                                           sa))
-            end
-        end
+        update!(state) 
         # Exit Condition
         loop = !done(doner, state)
     end

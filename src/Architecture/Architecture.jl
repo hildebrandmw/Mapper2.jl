@@ -126,7 +126,7 @@ export  AbstractArchitecture,
         istop,
         prefix,
         push,
-        unshift,
+        pushfirst,
         typestring,
         # Architecture stuff
         AbstractPort,

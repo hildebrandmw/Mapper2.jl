@@ -20,8 +20,8 @@ end
 function build_graph(sa::SAStruct)
     #=
     Build translation tables.
-    - Tasks will be mapped to verticies with an index number 2 higher than their
-    index in the SAstruct. (Verticies 1 and 2 are reserved for source and sink)
+    - Tasks will be mapped to vertices with an index number 2 higher than their
+    index in the SAstruct. (vertices 1 and 2 are reserved for source and sink)
     - Will need to build a dictionary mapping tuples (Address, component_id) to
     an integer to keep track of architecture components.
     =#
@@ -134,8 +134,6 @@ end
 
 """
 bipartite_match!(g::AbstractGraph)
-
-Implementation of Ford-Fulkerson algorithm for maximum bipartite matching
 """
 function bipartite_match!(g::AbstractGraph)
     ####################

@@ -228,16 +228,16 @@ push(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
 #####################
 # UNSHIFT operators #
 #####################
-unshift(a::ComponentPath, b::AbstractString)= ComponentPath(vcat(b, a.path))
-unshift(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
-unshift(a::ComponentPath, b::Address)       = AddressPath(b, a)
-unshift(a::ComponentPath, b::AddressPath)   = AddressPath(b.address, unshift(a, b.path))
+pushfirst(a::ComponentPath, b::AbstractString)= ComponentPath(vcat(b, a.path))
+pushfirst(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
+pushfirst(a::ComponentPath, b::Address)       = AddressPath(b, a)
+pushfirst(a::ComponentPath, b::AddressPath)   = AddressPath(b.address, pushfirst(a, b.path))
 
-unshift(a::PortPath, b)   = PortPath(a.name, unshift(a.path, b))
-unshift(a::LinkPath, b)   = LinkPath(a.name, unshift(a.path, b))
+pushfirst(a::PortPath, b)   = PortPath(a.name, pushfirst(a.path, b))
+pushfirst(a::LinkPath, b)   = LinkPath(a.name, pushfirst(a.path, b))
 
 @doc """
-    unshift(a::AbstractPath, b)
+    pushfirst(a::AbstractPath, b)
 
 Append `b` to the front of path `a`. Return types are defined when
 `typeof(a) == ComponentPath` as follows:
@@ -250,8 +250,8 @@ Append `b` to the front of path `a`. Return types are defined when
 | `AddressPath{D}`  | `AddressPath{D}`  |
 
 When `a <: PortPath` or `a <: LinkPath`, return type is determined automatically
-by calling `unshift` on the path portion of `a`.
-""" unshift
+by calling `pushfirst` on the path portion of `a`.
+""" pushfirst
 
 ########
 # HASH #
@@ -740,7 +740,7 @@ function check_connectivity(architecture,
     else
         # Append the prefix of the linkpath to the all the port paths
         link_prefix = prefix(linkpath)
-        portpaths = unshift.(portpaths_short, link_prefix)
+        portpaths = pushfirst.(portpaths_short, link_prefix)
         # Return true if the port path is in the collection.
         return in(portpath, portpaths)
     end

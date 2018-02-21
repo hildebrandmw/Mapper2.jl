@@ -37,7 +37,7 @@ function get_visible_ports(c::Component)
     # Iterate through all children, add their ports to this collection.
     for (name,child) in c.children
         # Get the port strings from the child
-        child_ports = unshift.(PortPath.(collect(portnames(child))), name)
+        child_ports = pushfirst.(PortPath.(collect(portnames(child))), name)
         append!(portlist, child_ports)
     end
     return portlist

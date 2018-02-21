@@ -158,12 +158,8 @@ function NewMap(architecture::TopLevel{A,D},
       )
 end
 
-getarchitecture(m::Map) = m.architecture
-gettaskgraph(m::Map)    = m.taskgraph
-
 ################################################################################
 # Methods for interacting with the Map.
 ################################################################################
-getmapping(m::Map) = m.mapping
 getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
 getpath(m::Map, i::Integer) = getpath(m.mapping, i)
