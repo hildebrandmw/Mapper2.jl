@@ -126,7 +126,6 @@ function read_edge_vec(m::Mapping, path_vec)
             push!(path,x) # build the path
         end
         edge_number = edge["edge_number"]
-        println(edge["metadata"])
         edgemap = EdgeMap(path, metadata = edge["metadata"])
         push!(edgemap_vec, edgemap)
     end
