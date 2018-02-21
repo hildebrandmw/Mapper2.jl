@@ -29,18 +29,27 @@ end
 NOTE: This function is still experimental and is by no means robust. Use
 at your own risk.
 =#
-function load(m::Map, filepath)
-    dir, file = splitdir(filepath)
-    file = split(file, ".")[1] * ".json.gz"
+function load(m::Map, filepath, compress = true)
 
+    dir, file = splitdir(filepath)
+
+    ending = compress ? ".json.gz" : ".json"
+    file = split(file, ".")[1] * ending
     final_filepath = joinpath(dir, file)
 
     # Open the provided filename and
-    f = GZip.open(final_filepath, "r")
+    if compress
+        f = GZip.open(final_filepath, "r")
+    else
+        f = open(final_filepath, "r")
+    end
+
     jsn = JSON.parse(f)
     close(f)
 
     read_node_dict(m.mapping, jsn["nodes"])
+    read_edge_vec(m.mapping, jsn["edges"])
+
     return nothing
 end
 
@@ -96,3 +105,33 @@ function create_edge_vec(m::Mapping)
     return path_vec
 end
 
+function read_edge_vec(m::Mapping, path_vec)
+
+    edgemap_vec = Any[]
+
+    for edge in path_vec
+        path = Any[]
+        for p in edge["path"]
+            row = split(split(split(p["path"],".")[1],",")[1],"(")[2]
+            col = split(split(split(p["path"],".")[1],",")[2],")")[1]
+            row = parse(Int64,row)
+            col = parse(Int64,col)
+            addrpath = AddressPath{2}(Address(row,col),
+                                ComponentPath(split(p["path"],".")[2:end-1]))
+            if(p["type"] == "Port")
+                x = PortPath(String(split(p["path"],".")[end]),addrpath)
+            elseif(p["type"] == "Link")
+                x = LinkPath(String(split(p["path"],".")[end]),addrpath)
+            end
+            push!(path,x) # build the path
+        end
+        edge_number = edge["edge_number"]
+        println(edge["metadata"])
+        edgemap = EdgeMap(path, metadata = edge["metadata"])
+        push!(edgemap_vec, edgemap)
+    end
+
+    m.edges = edgemap_vec
+
+    return nothing
+end
