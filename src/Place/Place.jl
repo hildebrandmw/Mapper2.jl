@@ -23,7 +23,7 @@ Return a `Map` with the placement recorded.
 """
 function place(m::Map{A,D}; kwargs...) where {A <: AA, D}
     f = placement_routine(A)
-    return f(m, kwargs...)
+    return f(m; kwargs...)
 end
 
 # Default insertion methods

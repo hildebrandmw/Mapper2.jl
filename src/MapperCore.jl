@@ -8,8 +8,8 @@ using JSON
 using DataStructures
 using MicroLogging
 
-include("Addresses.jl")
-@reexport using .Addresses
+#include("Addresses.jl")
+#@reexport using .Addresses
 
 include("Taskgraphs.jl")
 include("Architecture/Architecture.jl")

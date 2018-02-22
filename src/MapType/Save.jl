@@ -62,7 +62,7 @@ function create_node_dict(m::Mapping)
     for (name, nodemap) in m.nodes
         # Create the dictionary for this node.
         dict = Dict{String,Any}()
-        dict["address"]     = nodemap.path.address.addr
+        dict["address"]     = nodemap.path.address.I
         dict["component"]   = join(nodemap.path.path.path, ".")
         dict["metadata"]    = nodemap.metadata
         node_dict[name] = dict
@@ -75,7 +75,7 @@ function read_node_dict(m::Mapping, d)
         # Get the nodemap for this node name
         nodemap = m.nodes[name]
         # Create the address data type
-        address = Address(Tuple(value["address"]))
+        address = CartesianIndex(Tuple(value["address"]))
         component = ComponentPath(value["component"])
         metadata::Dict{String,Any} = value["metadata"]
 

@@ -24,7 +24,7 @@ end
 
 Move `node` to the given `component` and `address`.
 """
-function move(sa::SAStruct, node, component::Integer, address::Address)
+function move(sa::SAStruct, node, component::Integer, address::CartesianIndex)
     # Clear out the present location of the node.
     sa.grid[sa.nodes[node].component, sa.nodes[node].address] = 0
     # Assign it a new location.
@@ -55,13 +55,18 @@ end
 ################################################################################
 function edge_cost(::Type{A}, sa::SAStruct, edge) where {A <: AbstractArchitecture}
     cost = 0
-    for src in sa.edges[edge].sources, snk in sa.edges[edge].sinks
-        # Get the source and sink addresses
-        src_address = sa.nodes[src].address
-        snk_address = sa.nodes[snk].address
-        cost += Int64(sa.distance[src_address, snk_address])
-    end
-    return cost
+    x = sa.edges[edge]
+    
+    a = sa.nodes[x.source].address
+    b = sa.nodes[x.sink].address
+    return Int64(sa.distance[a,b])
+    #for src in sa.edges[edge].sources, snk in sa.edges[edge].sinks
+    #    # Get the source and sink addresses
+    #    src_address = sa.nodes[src].address
+    #    snk_address = sa.nodes[snk].address
+    #    cost += Int64(sa.distance[src_address, snk_address])
+    #end
+    #return cost
 end
 
 #=
