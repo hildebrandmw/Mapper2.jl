@@ -108,11 +108,12 @@ These types are pamaterized by whether this underlying component path is a
 ComponentPath or an AddressPath.
 =#
 
-module Architecture
+#module Architecture
 
-using ..Mapper2: Addresses, Helper
-using IterTools
-using MicroLogging
+#using ..Mapper2: Addresses, Helper
+#using .Addresses
+#using IterTools
+#using MicroLogging
 
 export  AbstractArchitecture,
         # Path Types
@@ -169,10 +170,11 @@ export  AbstractArchitecture,
         build_mux,
         check
 
+using .Addresses
 # File containing architecture model definitions
 include("Model.jl")
 # File containing constructor functions for the TopLevel
 include("Constructors.jl")
 include("Check.jl")
 
-end # module Architecture
+#end # module Architecture

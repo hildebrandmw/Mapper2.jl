@@ -23,23 +23,30 @@ export oneofin, push_to_dict
 ###############################
 # Common types and operations #
 ###############################
-include("Addresses.jl")
 include("Helper.jl")
-
-include("Taskgraphs.jl")
-include("Architecture/Architecture.jl")
-include("MapType/MapType.jl")
+include("MapperCore.jl")
 
 include("Place/Place.jl")
+include("Place/SA/SA.jl")
 include("Route/Route.jl")
 
 # Use submodules to make exports visible.
-using .Helper
-@reexport using .Addresses
-@reexport using .Taskgraphs
-@reexport using .Architecture
-@reexport using .MapType
+@reexport using .MapperCore
+
+#############
+# PLACEMENT #
+#############
 @reexport using .Place
+# Placement Algorithms
+@reexport using .SA
+
+# Default Placement Algorithm
+Place.placement_routine(::Type{A}) where {A <: AbstractArchitecture} = SA.place
+
+###########
+# ROUTING #
+###########
 @reexport using .Routing
+
 
 end #module Mapper2

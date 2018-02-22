@@ -1,9 +1,9 @@
 ################################################################################
 # Abstract Types for Placement
 ################################################################################
-abstract type AbstractSANode end
-abstract type AbstractSAEdge end
-abstract type AbstractAddressData end
+abstract type PlacementNode end
+abstract type PlacementChannel end
+abstract type PlacementAddressData end
 
 
 @doc """
@@ -12,19 +12,19 @@ Fields required by specialized SANode types:
 * `component_index<:Integer`
 * `out_links::Vector{Int64}`
 * `in_links::Vector{Int64}`
-""" AbstractSANode
+""" PlacementNode
 
 @doc """
 Fields required by specialized SANode types:
 * `sources::Vector{Int64}`
 * `sinks::Vector{Int64}`
-""" AbstractSAEdge
+""" PlacementChannel
 
 @doc """
 Container allowing specific data to be associated with addresses in the
 SAStruct. Useful for processor specific mappings such as core frequency or
 leakage.
-""" AbstractAddressData
+""" PlacementAddressData
 
 @doc """
 Default mapping doesn't use address specific data for its mapping objective.
@@ -35,6 +35,8 @@ The placeholder is just this empty type.
 # SA Struct
 ################################################################################
 
+
+const Maptable{D} = Vector{Array{Vector{UInt8},D}}
 """
     struct SAStruct{A,U,D,D2,D1,N,L,T}
 
@@ -51,9 +53,9 @@ Data structure specialized for Simulated Annealing placement.
 * `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
                     with type parameters)
 * `D1` - `D + 1`.
-* `N <: AbstractSANode` - Task node type.
-* `L <: AbstractSAEdge` - Edge node type.
-* `T <: AbstractAddressData`` - The AddressData type.
+* `N <: PlacementNode` - Task node type.
+* `L <: PlacementChannel` - Edge node type.
+* `T <: PlacementAddressData`` - The AddressData type.
 
 # Fields
 * `nodes::Vector{N}` - Taskgraph Nodes specialized for placement.
@@ -86,13 +88,13 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
-                        T <: AbstractAddressData}
+struct SAStruct{A,U,D,D2,D1,N <: PlacementNode,L <: PlacementChannel,
+                        T <: PlacementAddressData}
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
     nodeclass               ::Vector{Int64}
-    maptables               ::Vector{Array{Vector{UInt8},D}}
-    special_maptables       ::Vector{Array{Vector{UInt8}, D}}
+    maptables               ::Maptable{D}
+    special_maptables       ::Maptable{D}
     special_addresstables   ::Vector{Vector{Address{D}}}
     distance                ::Array{U,D2}
     grid                    ::Array{Int64, D1}
@@ -105,8 +107,6 @@ struct SAStruct{A,U,D,D2,D1,N <: AbstractSANode,L <: AbstractSAEdge,
     task_table      ::Dict{String,Int64}
 end
 
-
-
 # Convenience decoding methods - this is kinda gross.
 dimension(::SAStruct{A,U,D})  where {A,U,D} = D
 architecture(::SAStruct{A})   where {A} = A
@@ -118,21 +118,21 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 # Basis SA Node
 ################################################################################
 
-mutable struct BasicSANode{D} <: AbstractSANode
+mutable struct BasicPlaceNode{D} <: PlacementNode
     address  ::Address{D}
     component::Int64
     out_edges::Vector{Int64}
     in_edges ::Vector{Int64}
 end
 
-function build_sa_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
-    return BasicSANode(Address{D}(), 0, Int64[], Int64[])
+function build_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
+    return BasicPlaceNode(Address{D}(), 0, Int64[], Int64[])
 end
 
 @doc """
-    build_sa_node(::Type{A}, n::TaskgraphNode, D::Integer)
+    build_node(::Type{A}, n::TaskgraphNode, D::Integer)
 
-Construct an `AbstractSANode` for the given taskgraph node and architecture `A`
+Construct an `PlacementNode` for the given taskgraph node and architecture `A`
 with dimension `D`.
 
 Must initialize the required fields to their default values:
@@ -142,18 +142,18 @@ Must initialize the required fields to their default values:
 - `in_edges  = Int[]`
 
 Other additional fields left for your to implement as needed.
-""" build_sa_node
+""" build_node
 
 ################################################################################
 # Basis SA Edge
 ################################################################################
 
-struct BasicSAEdge <: AbstractSAEdge
+struct BasicPlaceChannel <: PlacementChannel
     sources::Int64
     sinks  ::Int64
 end
 
-function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
+function build_channel(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
     # Build up adjacency lists.
     # Sources in the task-graphs are strings so we need to use the
     # node-dictionary to convert them into integers.
@@ -167,13 +167,13 @@ function build_sa_edge(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: Ab
     sinks    = node_dict[first(edge.sinks)]
     #sources = [node_dict[s] for s in edge.sources]
     #sinks   = [node_dict[s] for s in edge.sinks]
-    return BasicSAEdge(sources, sinks)
+    return BasicPlaceChannel(sources, sinks)
 end
 
 @doc """
-    build_sa_edge(::Type{A}, edge::TaskgrpahEdge, node_dict)
+    build_channel(::Type{A}, edge::TaskgrpahEdge, node_dict)
 
-Return a concrete subtype of `AbstractSAEdge` for the `edge` and architecture
+Return a concrete subtype of `PlacementChannel` for the `edge` and architecture
 `A`. Argument `node_dict` is a dictionary mapping taskgraph string names to
 integers.
 
@@ -182,13 +182,13 @@ Must initialize the required fields to their default values:
 - `sinks = [node_dict[s] for s in edge.sinks]`
 
 Other additional fields left for you to implement as needed.
-""" build_sa_edge
+""" build_channel
 
 ################################################################################
 # Address Data
 ################################################################################
 
-struct EmptyAddressData <: AbstractAddressData end
+struct EmptyAddressData <: PlacementAddressData end
 
 function build_address_data(::Type{T},
                             architecture,
@@ -210,12 +210,12 @@ function SAStruct(m::Map{A,D}) where {A,D}
 
     # Next step, build the SA Taskgraph
     node_iterator = getnodes(taskgraph)
-    nodes    = [build_sa_node(A, n, D) for n in node_iterator]
+    nodes    = [build_node(A, n, D) for n in node_iterator]
     task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
     # Build dictionary to map node names to indices
     node_dict = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
     # Build the basic links
-    edges = [build_sa_edge(A, n, node_dict) for n in getedges(taskgraph)]
+    edges = [build_channel(A, n, node_dict) for n in getedges(taskgraph)]
 
     # Assign adjacency information to nodes.
     record_edges!(nodes, edges)
@@ -553,7 +553,7 @@ function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
     dims = Int64.(Addresses.dim_max(addresses(architecture)))
     @debug "Building Neighbor Table"
     # Get the connected component dictionary
-    cc = Architecture.connected_components(architecture)
+    cc = MapperCore.connected_components(architecture)
     # Create a big list of lists
     neighbor_table = Array{Vector{Address{D}}}(dims)
     for (address, set) in cc
