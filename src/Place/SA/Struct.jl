@@ -8,7 +8,7 @@ abstract type PlacementAddressData end
 
 @doc """
 Fields required by specialized SANode types:
-* `address::Address{D}` where `D` is the dimension of the architecture.
+* `address::CartesianIndex{D}` where `D` is the dimension of the architecture.
 * `component_index<:Integer`
 * `out_links::Vector{Int64}`
 * `in_links::Vector{Int64}`
@@ -70,7 +70,7 @@ Data structure specialized for Simulated Annealing placement.
     or primitives that the task can be mapped to.
 * `special_maptables::Vector{Array{Vector{UInt8,D}}} - Same as `maptables` but
     for special tasks.
-* `special_addresstables::Vector{Vector{Address{D}}}` - Used to determine the
+* `special_addresstables::Vector{Vector{CartesianIndex{D}}}` - Used to determine the
     addresses that a special tasknode of equivalence class `i` can occupy.
 
     Accessed using `special_addresstables[i]`. The tasknode can be mapped to
@@ -95,7 +95,7 @@ struct SAStruct{A,U,D,D2,D1,N <: PlacementNode,L <: PlacementChannel,
     nodeclass               ::Vector{Int64}
     maptables               ::Maptable{D}
     special_maptables       ::Maptable{D}
-    special_addresstables   ::Vector{Vector{Address{D}}}
+    special_addresstables   ::Vector{Vector{CartesianIndex{D}}}
     distance                ::Array{U,D2}
     grid                    ::Array{Int64, D1}
     address_data            ::T
@@ -119,14 +119,14 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 ################################################################################
 
 mutable struct BasicPlaceNode{D} <: PlacementNode
-    address  ::Address{D}
+    address  ::CartesianIndex{D}
     component::Int64
     out_edges::Vector{Int64}
     in_edges ::Vector{Int64}
 end
 
 function build_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
-    return BasicPlaceNode(Address{D}(), 0, Int64[], Int64[])
+    return BasicPlaceNode(CartesianIndex{D}(), 0, Int64[], Int64[])
 end
 
 @doc """
@@ -136,7 +136,7 @@ Construct an `PlacementNode` for the given taskgraph node and architecture `A`
 with dimension `D`.
 
 Must initialize the required fields to their default values:
-- `address = Address{D}()`
+- `address = CartesianIndex{D}()`
 - `component = 0`
 - `out_edges = Int[]`
 - `in_edges  = Int[]`
@@ -149,8 +149,8 @@ Other additional fields left for your to implement as needed.
 ################################################################################
 
 struct BasicPlaceChannel <: PlacementChannel
-    sources::Int64
-    sinks  ::Int64
+    source::Int64
+    sink  ::Int64
 end
 
 function build_channel(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
@@ -333,7 +333,7 @@ end
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
-    table_dims = Addresses.dim_max(addresses(tl))
+    table_dims = dim_max(addresses(tl))
     component_table = fill(ComponentPath[], table_dims...)
     # Start iterating through all components at each address. Call is "ismappable"
     # function on each. If the component is mappable, add it's name to the
@@ -357,12 +357,14 @@ end
 function record_edges!(nodes, edges)
     # Reverse populate the nodes so they track their edges.
     for (i,edge) in enumerate(edges)
-        for j in edge.sources
-            push!(nodes[j].out_edges, i)
-        end
-        for j in edge.sinks
-            push!(nodes[j].in_edges, i)
-        end
+        push!(nodes[edge.source].out_edges, i)
+        push!(nodes[edge.sink].in_edges, i)
+        #for j in edge.sources
+        #    push!(nodes[j].out_edges, i)
+        #end
+        #for j in edge.sinks
+        #    push!(nodes[j].in_edges, i)
+        #end
     end
     return nothing
 end
@@ -479,10 +481,10 @@ function build_addresstables(architecture::TopLevel{A,D},
 
     # Pre-allocate the table.
 
-    addresstables = Vector{Vector{Address{D}}}(length(nodes))
+    addresstables = Vector{Vector{CartesianIndex{D}}}(length(nodes))
     # Iterate through each node - then through each address.
     for (index,node) in enumerate(nodes)
-        this_table = Address{D}[]
+        this_table = CartesianIndex{D}[]
         for (address, component) in architecture.children
             mappables = component_table[address]
             for (i,path) in enumerate(mappables)
@@ -502,7 +504,7 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # The data type for the LUT
     dtype = UInt8
     # Pre-allocate a table of the right dimensions.
-    dims = Addresses.dim_max(addresses(architecture))
+    dims = dim_max(addresses(architecture))
     # Replicate the dimensions once to get a 2D sized LUT.
     distance = Array{dtype}(dims..., dims...)
     # Get the neighbor table for finding adjacent components in the top level.
@@ -522,18 +524,18 @@ Gets put the the queue for the BFS.
 =#
 struct CostAddress{U,D}
     cost::U
-    address::Address{D}
+    address::CartesianIndex{D}
 end
 
 function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
-              source::Address{D}, neighbor_table) where {U,N,A,D}
+              source::CartesianIndex{D}, neighbor_table) where {U,N,A,D}
     # Create a queue for visiting addresses.
     q = Queue(CostAddress{U,D})
     # Add the source addresses to the queue
     enqueue!(q, CostAddress(zero(U), source))
 
     # Create a set of visited items and add the source to that set.
-    queued_addresses = Set{Address{D}}()
+    queued_addresses = Set{CartesianIndex{D}}()
     push!(queued_addresses, source)
     # Begin BFS - iterate until the queue is empty.
     while !isempty(q)
@@ -550,12 +552,12 @@ function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
 end
 
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    dims = Int64.(Addresses.dim_max(addresses(architecture)))
+    dims = Int64.(dim_max(addresses(architecture)))
     @debug "Building Neighbor Table"
     # Get the connected component dictionary
     cc = MapperCore.connected_components(architecture)
     # Create a big list of lists
-    neighbor_table = Array{Vector{Address{D}}}(dims)
+    neighbor_table = Array{Vector{CartesianIndex{D}}}(dims)
     for (address, set) in cc
         neighbor_table[address] = collect(set)
     end

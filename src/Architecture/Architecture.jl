@@ -170,7 +170,6 @@ export  AbstractArchitecture,
         build_mux,
         check
 
-using .Addresses
 # File containing architecture model definitions
 include("Model.jl")
 # File containing constructor functions for the TopLevel

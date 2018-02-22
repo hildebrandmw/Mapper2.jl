@@ -183,27 +183,27 @@ function build_test_arch()
     arch = TopLevel{TestArchitecture,2}("test_arch")
     # Add IO Tiles
     io_tile = build_io_tile()
-    for address in (Address(1,1), Address(3,3))
+    for address in (CartesianIndex(1,1), CartesianIndex(3,3))
         add_child(arch, io_tile, address)
     end
     # Add general tiles
     gen_tile = build_general_tile()
-    for address in (Address(1,2), Address(3,2))
+    for address in (CartesianIndex(1,2), CartesianIndex(3,2))
         add_child(arch, gen_tile, address)
     end
     # Add super tiles
     sup_tile = build_super_tile()
-    for address in (Address(2,1), Address(2,3))
+    for address in (CartesianIndex(2,1), CartesianIndex(2,3))
         add_child(arch, sup_tile, address)
     end
     # Add double general tiles
     double_tile = build_double_general_tile()
-    for address in (Address(1,3), Address(3,1))
+    for address in (CartesianIndex(1,3), CartesianIndex(3,1))
         add_child(arch, double_tile, address)
     end
     # Add the routing tile
     routing_tile = build_routing_tile()
-    add_child(arch, routing_tile, Address(2,2))
+    add_child(arch, routing_tile, CartesianIndex(2,2))
 
     # Connect all ports together
     key = ""
@@ -212,7 +212,7 @@ function build_test_arch()
     src_rule = PortRule(key, val, fn)
     dst_rule = PortRule(key, val, fn)
 
-    offsets = (Address(-1,0), Address(1,0), Address(0,1), Address(0,-1))
+    offsets = (CartesianIndex(-1,0), CartesianIndex(1,0), CartesianIndex(0,1), CartesianIndex(0,-1))
     src_dirs = ("north", "south", "east", "west")
     dst_dirs = ("south", "north", "west", "east")
     offset_rules = OffsetRule[]

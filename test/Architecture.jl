@@ -1,5 +1,5 @@
 @testset "Testing Path Types" begin
-    using Mapper2.Architecture
+    using Mapper2.MapperCore
     # Test Component Path Constructors
     let
         # Test some empty constructor notations
@@ -18,8 +18,8 @@
 
         @test PortPath("a.b.c.name") == PortPath(name, c)
 
-        a = AddressPath(Address(1,1,1), c)
-        @test PortPath("a.b.c.name", Address(1,1,1)) == PortPath(name, a)
+        a = AddressPath(CartesianIndex(1,1,1), c)
+        @test PortPath("a.b.c.name", CartesianIndex(1,1,1)) == PortPath(name, a)
     end
     # Test Link Paths
 end
