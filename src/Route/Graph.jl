@@ -179,7 +179,7 @@ function add_subgraphs!(top::RoutingGraph, prefixes, subgraphs::Vector{<:Routing
 end
 
 make_link_path(::AbstractComponent, str) = LinkPath(str)
-make_link_path(::TopLevel{A,D}, str) where {A,D} = LinkPath(str, Address{D}())
+make_link_path(::TopLevel{A,D}, str) where {A,D} = LinkPath(str, zero(CartesianIndex{D}))
 
 function add_links!(top, c::AbstractComponent)
     # Iterate through all links for the component.

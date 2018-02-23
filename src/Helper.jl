@@ -5,7 +5,11 @@ export  oneofin,
         add_to_dict,
         rev_dict,
         rev_dict_safe,
-        intern
+        intern,
+        rand_cartesian,
+        dim_max,
+        dim_min,
+        max_entry
 
 """
     oneofin(a, b)
@@ -76,5 +80,46 @@ function intern(x)
     end
     return nothing
 end
+
+################################################################################
+# Cartesian Index Schenanigans
+################################################################################
+function _rand_cart(lb::Type{T}, ub::Type{T}) where T <: NTuple{N,Any} where N
+    # Chain together a bunch of calls to rand
+    ex = [:(rand(lb[$i]:ub[$i])) for i in 1:N]
+    # Construct the address type
+    return :(CartesianIndex{N}($(ex...)))
+end
+
+@generated function rand_cartesian(lb::NTuple{N}, ub::NTuple{N}) where {N}
+    return _rand_cart(lb,ub)
+end
+
+max_entry(c::CartesianIndex) = maximum(c.I)
+
+for (name, op) in zip((:dim_max, :dim_min), (:max, :min))
+    eval(quote
+        function ($name)(indices)
+            # Copy the first element of the address iterator.
+            ex = first(indices).I
+            for index in indices
+                ex = ($op).(ex, index.I)
+            end
+            return ex
+        end
+    end)
+end
+
+# Documentation for the max and min functions generated above.
+@doc """
+    `dim_max(indices)` returns tuple of the minimum componentwise values 
+    from a collection of CartesianIndices.
+    """ dim_max
+
+@doc """
+    `dim_min(indices)` returns tuple of the minimum componentwise values 
+    from a collection of CartesianIndices.
+    """ dim_min
+
 
 end # module Helper

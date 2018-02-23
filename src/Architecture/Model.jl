@@ -56,23 +56,23 @@ top-most data type is a `TopLevel`.
 See also: `ComponentPath`.
 
 # Fields
-* `address::Address{D}` - The address in the `TopLevel` of the first component
+* `address::CartesianIndex{D}` - The address in the `TopLevel` of the first component
     in the path.
 * `path::ComponentPath` - The path to the final component after the component
     at `address` has been retrieved.
 
 # Constructors
 ```julia
-julia> AddressPath{D}() == AddressPath{D}(Address{D}(), ComponentPath())
+julia> AddressPath{D}() == AddressPath{D}(zero(CartesianIndex{D}), ComponentPath())
 true
 ```
 """
 struct AddressPath{D} <: AbstractComponentPath
-    address ::Address{D}
+    address ::CartesianIndex{D}
     path    ::ComponentPath
 end
 #-- Constructors
-AddressPath{D}() where D = AddressPath{D}(Address{D}(), ComponentPath())
+AddressPath{D}() where D = AddressPath{D}(zero(CartesianIndex{D}), ComponentPath())
 
 #-------------------------------------------------------------------------------
 # PortPath
@@ -92,8 +92,8 @@ it is means to work on a `TopLevel` or `Component`.
 julia> PortPath("a.b.c.port")
 Port a.b.c.port
 
-julia PortPath("a.b.c.port", Address(0,0))
-Port Address(0, 0).a.b.c.port
+julia PortPath("a.b.c.port", CartesianIndex(0,0))
+Port CartesianIndex(0, 0).a.b.c.port
 ```
 """
 struct PortPath{P <: AbstractComponentPath} <: AbstractPath
@@ -108,7 +108,7 @@ function PortPath(port::AbstractString)
     return PortPath(String(parts[end]), ComponentPath(parts[1:end-1]))
 end
 
-function PortPath(port::AbstractString, address::Address)
+function PortPath(port::AbstractString, address::CartesianIndex)
     parts = split(port, ".")
     return PortPath(String(parts[end]),
                     AddressPath(address, ComponentPath(parts[1:end-1])))
@@ -132,8 +132,8 @@ it is means to work on a `TopLevel` or `Component`.
 julia> LinkPath("a.b.c.link")
 Port a.b.c.link
 
-julia PortPath("a.b.c.link", Address(0,0))
-Port Address(0, 0).a.b.c.link
+julia PortPath("a.b.c.link", CartesianIndex(0,0))
+Port CartesianIndex(0, 0).a.b.c.link
 ```
 """
 struct LinkPath{P <: AbstractComponentPath} <: AbstractPath
@@ -149,7 +149,7 @@ function LinkPath(link::String)
     LinkPath(String(parts[end]), ComponentPath(parts[1:end-1]))
 end
 
-function LinkPath(link::String, address::Address{D}) where {D}
+function LinkPath(link::String, address::CartesianIndex{D}) where {D}
     parts = split(link, ".")
     LinkPath(String(parts[end]), AddressPath(address, ComponentPath(parts[1:end-1])))
 end
@@ -180,7 +180,7 @@ component.
 
 Return `true` if the provided path is a global routing link.
 """
-isgloballink(l::LinkPath) = isempty(l.path.address)
+isgloballink(l::LinkPath) = iszero(l.path.address)
 isgloballink(::AbstractPath) = false
 
 isglobalport(p::PortPath) = length(p.path) == 1
@@ -230,7 +230,7 @@ push(c::ComponentPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
 #####################
 pushfirst(a::ComponentPath, b::AbstractString)= ComponentPath(vcat(b, a.path))
 pushfirst(a::ComponentPath, b::ComponentPath) = ComponentPath(vcat(b.path, a.path))
-pushfirst(a::ComponentPath, b::Address)       = AddressPath(b, a)
+pushfirst(a::ComponentPath, b::CartesianIndex)= AddressPath(b, a)
 pushfirst(a::ComponentPath, b::AddressPath)   = AddressPath(b.address, pushfirst(a, b.path))
 
 pushfirst(a::PortPath, b)   = PortPath(a.name, pushfirst(a.path, b))
@@ -242,12 +242,12 @@ pushfirst(a::LinkPath, b)   = LinkPath(a.name, pushfirst(a.path, b))
 Append `b` to the front of path `a`. Return types are defined when
 `typeof(a) == ComponentPath` as follows:
 
-| `typeof(b)`       | Return Type       |
-|------------------ | ----------------- |
-| `String`          | `ComponentPath`   |
-| `ComponentPath`   | `ComponentPath`   |
-| `Address{D}`      | `AddressPath{D}`  |
-| `AddressPath{D}`  | `AddressPath{D}`  |
+| `typeof(b)`         | Return Type       |
+|------------------   | ----------------- |
+| `String`            | `ComponentPath`   |
+| `ComponentPath`     | `ComponentPath`   |
+| `CartesianIndex{D}` | `AddressPath{D}`  |
+| `AddressPath{D}`    | `AddressPath{D}`  |
 
 When `a <: PortPath` or `a <: LinkPath`, return type is determined automatically
 by calling `pushfirst` on the path portion of `a`.
@@ -543,7 +543,7 @@ Return a `TopLevel` with the given name and `metadata`.
 """
 mutable struct TopLevel{A <: AbstractArchitecture,D} <: AbstractComponent
     name        ::String
-    children    ::Dict{Address{D}, Component}
+    children    ::Dict{CartesianIndex{D}, Component}
     links       ::Dict{String, Link{AddressPath{D}}}
     port_link   ::Dict{PortPath{AddressPath{D}}, String}
     metadata    ::Dict{String, Any}
@@ -552,7 +552,7 @@ mutable struct TopLevel{A <: AbstractArchitecture,D} <: AbstractComponent
     function TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A,D}
         links       = Dict{String, Link}()
         port_link   = Dict{PortPath{AddressPath{D}}, String}()
-        children    = Dict{Address{D}, Component}()
+        children    = Dict{CartesianIndex{D}, Component}()
         return new{A,D}(
             name,
             children,
@@ -610,8 +610,10 @@ function Base.getindex(c::Component, p::LinkPath)
 end
 
 function Base.getindex(tl::TopLevel, p::AddressPath)
+    # If the address is all zeros, we mean to get the TopLevel architecture.
+    iszero(p.address) && return tl
+
     # Get the component at the address
-    haskey(tl.children, p.address) || return tl
     c = tl.children[p.address]
     return c[p.path]
 end
@@ -656,13 +658,13 @@ end
 """
     connected_components(tl::TopLevel{A,D})
 
-Return `d = Dict{Address{D},Set{Address{D}}` where key `k` is a valid address of
+Return `d = Dict{CartesianIndex{D},Set{CartesianIndex{D}}` where key `k` is a valid address of
 `tl` and where `d[k]` is the set of valid addresses of `tl` whose components
 are the destinations of links originating at address `k`.
 """
 function connected_components(tl::TopLevel{A,D}) where A where D
     # Construct the associative for the connected components.
-    cc = Dict{Address{D}, Set{Address{D}}}()
+    cc = Dict{CartesianIndex{D}, Set{CartesianIndex{D}}}()
     # Iterate through all links - record adjacency information
     for link in links(tl)
         for source_port_path in link.sources, sink_port_path in link.sinks
@@ -675,7 +677,7 @@ function connected_components(tl::TopLevel{A,D}) where A where D
     # Default unseen addresses to an empty set of addresses.
     for address in addresses(tl)
         if !haskey(cc, address)
-            cc[address] = Set{Address{D}}()
+            cc[address] = Set{CartesianIndex{D}}()
         end
     end
     return cc

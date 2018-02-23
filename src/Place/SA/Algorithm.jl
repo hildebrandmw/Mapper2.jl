@@ -11,11 +11,16 @@ mutable struct MoveCookie{T,D} <: AbstractCookie
    index_of_moved_node     ::Int64
    move_was_swap           ::Bool
    index_of_other_node     ::Int64
-   old_address             ::Address{D}
+   old_address             ::CartesianIndex{D}
    old_component           ::Int64
 end
 
-MoveCookie{T,D}() where {T,D} = MoveCookie{T,D}(zero(T), 0, false, 0, Address{D}(), 0)
+MoveCookie{T,D}() where {T,D} = MoveCookie{T,D}(zero(T), 
+                                                0, 
+                                                false, 
+                                                0, 
+                                                zero(CartesianIndex{D}), 
+                                                0)
 
 ################################################################################
 # Types that control various parameters of the placement.
@@ -224,7 +229,7 @@ end
 # Movement related functions
 ################################################################################
 isnormal(class::Int64) = class > 0
-function isvalid(sa::SAStruct, node::Int64, address::Address, component)
+function isvalid(sa::SAStruct, node::Int64, address::CartesianIndex, component)
     # Get the class associated with this node.
     class = sa.nodeclass[node]
     # Get the map tables for the node. Check if the component is in the 
@@ -307,7 +312,7 @@ function generate_move(::Type{A}, sa::SAStruct, undo_cookie,
     # Get the equivalent class of the node
     class = sa.nodeclass[node]
     # Get the address and component to move this node to
-    local address::Address{dimension(sa)}
+    local address::CartesianIndex{dimension(sa)}
     if isnormal(class)
         address = standard_move(
             A, sa, old_address, class, distance_limit, max_addresses
@@ -330,9 +335,9 @@ end
 function standard_move(::Type{A}, sa::SAStruct, address, class, limit, ub) where {
                                                       A <: AbstractArchitecture}
     # Generate a new address based on the distance limit
-    move_ub = min.(address.addr .+ limit, ub)
-    move_lb = max.(address.addr .- limit, 1)
-    new_address = Addresses.rand_address(move_lb, move_ub)
+    move_ub = min.(address.I .+ limit, ub)
+    move_lb = max.(address.I .- limit, 1)
+    new_address = rand_cartesian(move_lb, move_ub)
     return new_address
 end
 

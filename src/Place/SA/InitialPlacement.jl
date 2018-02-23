@@ -34,7 +34,7 @@ function build_graph(sa::SAStruct)
     node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
     # Start enumerating all the mapable components and building a translation
     # dictionary.
-    keytype = Tuple{Address{dimension(sa)},Int64}
+    keytype = Tuple{CartesianIndex{dimension(sa)},Int64}
     component_dict = Dict{keytype, Int64}()
     # Variable for keeping track of the current vertex number.
     vertex_number = sourcesink_offset + length(node_dict)
@@ -45,7 +45,7 @@ function build_graph(sa::SAStruct)
         # Convert the index into subscripts
         subscripts = ind2sub(component_table, index)
         # Create an address
-        address = Address(subscripts)
+        address = CartesianIndex(subscripts)
         # Iterate through all indices at this location.
         for i in 1:length(component_table[index])
             # Increment vertex cound
@@ -71,7 +71,7 @@ function build_graph(sa::SAStruct)
             # be mapped to.
             length(maptable[index]) == 0 && continue
             # Get the address
-            address = Address(ind2sub(maptable, index))
+            address = CartesianIndex(ind2sub(maptable, index))
             # Iterate through all components this node class can be mapped
             # to at this address
             for i in 1:length(maptable[index])

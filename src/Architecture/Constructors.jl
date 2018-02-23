@@ -197,9 +197,9 @@ and port pair, a connection will be established.
 """
 struct OffsetRule
     """
-    Address offset from source to destination.
+    Offset from source to destination.
     """
-    offsets   ::Vector{Address}
+    offsets   ::Vector{CartesianIndex}
     """
     Source ports to try for the collection of offsets.
     """
@@ -240,7 +240,7 @@ function connection_rule(tl::TopLevel,
                          dst_rule      ::PortRule;
                          metadata = Dict{String,Any}(),
                          valid_addresses = keys(tl.children),
-                         invalid_addresses = Address[],
+                         invalid_addresses = CartesianIndex[],
                         )
     # Count variable for verification - reports the number of links created.
     count = 0

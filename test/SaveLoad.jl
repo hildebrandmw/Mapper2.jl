@@ -2,15 +2,15 @@
 This file tests the save and load feature of the Mapper.
 =#
 @testset "Testing Save/Load" begin
-    using Example
+    using Example1
     # Create two maps that are the same
     m = place(make_map(), move_attempts = 5000)
     sm = Mapper2.SAStruct(m)
 
     # Place struct sm
-    Mapper2.place(sm, move_attempts = 5000)
+    Mapper2.SA.place(sm, move_attempts = 5000)
     # Record the placed sm into map m
-    Mapper2.Place.record(m, sm)
+    Mapper2.SA.record(m, sm)
     # Save the placement
     save(m, "tests")
 
@@ -23,9 +23,9 @@ This file tests the save and load feature of the Mapper.
     # Create a SA struct for the new map.
     sn = Mapper2.SAStruct(n)
     # Preplace "n" into "sn" 
-    Mapper2.Place.preplace(n, sn)
+    Mapper2.SA.preplace(n, sn)
     # Assert the two costs are the same.
-    @test Mapper2.Place.map_cost(sn) == Mapper2.Place.map_cost(sm)
+    @test Mapper2.SA.map_cost(sn) == Mapper2.SA.map_cost(sm)
 
     rm("tests.json.gz")
 

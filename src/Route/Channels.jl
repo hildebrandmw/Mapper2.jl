@@ -26,8 +26,8 @@ function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: Abstra
     # Iterate through all edges in the taskgraph
     for (i,edge) in enumerate(getedges(taskgraph))
         # Get the source nodes names
-        sources = MapType.getpath.(m, getsources(edge))
-        sinks   = MapType.getpath.(m, getsinks(edge))
+        sources = MapperCore.getpath.(m, getsources(edge))
+        sinks   = MapperCore.getpath.(m, getsinks(edge))
         # Collect the nodes in the routing graph for these ports.
         start = collect_nodes(architecture, rg, edge, sources, :source)
         stop  = collect_nodes(architecture, rg, edge, sinks, :sink)

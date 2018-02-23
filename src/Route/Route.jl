@@ -4,7 +4,8 @@ Root file for the routing related files.
 
 module Routing
 
-using ..Mapper2: Addresses, Helper, Taskgraphs, Architecture, MapType
+using ..Mapper2.Helper
+using ..Mapper2.MapperCore
 using DataStructures
 using LightGraphs
 using MicroLogging

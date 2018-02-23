@@ -6,7 +6,6 @@ for i in 1:2
     push!(LOAD_PATH, joinpath(Mapper2.PKGDIR, "example", "ex$i"))
 end
 
-include("Address.jl")
 include("Architecture.jl")
 include("IntegrationTest.jl")
 include("SaveLoad.jl")
