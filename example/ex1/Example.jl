@@ -1,4 +1,4 @@
-module Example
+module Example1
 
 using Mapper2
 

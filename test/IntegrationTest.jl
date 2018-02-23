@@ -1,5 +1,5 @@
-@testset "Testing Whole Flow" begin
-    using Example
+@testset "Testing Example 1" begin
+    using Example1
     local m
     passed = true 
     try

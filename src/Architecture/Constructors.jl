@@ -80,7 +80,7 @@ function add_child(c::AbstractComponent, child::AbstractComponent, name, number 
 end
 
 #=
-The connect_ports function is meant for connecting directed links from a source
+The add_link function is meant for connecting directed links from a source
 to a set of destinations. Thus, there is only one source and multiple destinations.
 
 If we need bidirectional support in the future, I'll have to add another function
@@ -89,7 +89,7 @@ concreteness.
 
 OPTIONS
 
-1. Can incorporate this into the connect_ports function silently using a keyword
+1. Can incorporate this into the add_link function silently using a keyword
     or by leaving some array empty.
 
     This reduces the number of functions but can get potentially confusing and
@@ -105,22 +105,22 @@ For now, go with option 2. Don't really need bidirectional connections for
 KiloCore architectures, and making the want of bidirectional components more
 explicit is probably better.
 =#
-function connect_ports(c   ::AbstractComponent,
+function add_link(c   ::AbstractComponent,
                         src ::String,
                         dest::Array{String,1},
                         metadata = Dict{String,Any}())
-    connect_ports(c, PortPath(src), PortPath.(dest), metadata)
+    add_link(c, PortPath(src), PortPath.(dest), metadata)
 end
 
-function connect_ports(c   ::AbstractComponent,
+function add_link(c   ::AbstractComponent,
                         src ::String,
                         dest::String,
                         metadata = Dict{String,Any}())
-    connect_ports(c, PortPath(src), [PortPath(dest)], metadata)
+    add_link(c, PortPath(src), [PortPath(dest)], metadata)
 end
 
 # TODO - clean up this function --- make it more compact.
-function connect_ports(c   ::AbstractComponent,
+function add_link(c   ::AbstractComponent,
                         src ::PortPath{P},
                         dest::Array{PortPath{P},1},
                         metadata = Dict{String,Any}(),
@@ -301,7 +301,7 @@ function connection_rule(tl::TopLevel,
                     dst_port_path = PortPath(dst_port, dst_address)
                     if isfree(tl, src_port_path) && isfree(tl, dst_port_path)
                         # level ports container. If not, initialize them.
-                        connect_ports(tl, src_port_path, [dst_port_path])
+                        add_link(tl, src_port_path, [dst_port_path])
                         count += 1
                     end
                 end

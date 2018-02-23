@@ -58,12 +58,12 @@ function build_io_tile()
     # Instantiate a mux for routing. Needs 5 inputs and 5 outptus
     add_child(tile, build_mux(5,5), "routing_mux")
     # Create Links
-    connect_ports(tile, "input.out", "routing_mux.in[0]")
-    connect_ports(tile, "routing_mux.out[0]", "output.in")
+    add_link(tile, "input.out", "routing_mux.in[0]")
+    add_link(tile, "routing_mux.out[0]", "output.in")
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
-        connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     check(tile)
     return tile
@@ -83,14 +83,14 @@ function build_general_tile()
     # Instantiate a mux for routing. Needs 5 inputs and 5 outptus
     add_child(tile, build_mux(6,6), "routing_mux")
     # Create Links
-    connect_ports(tile, "general.out[0]", "routing_mux.in[0]")
-    connect_ports(tile, "general.out[1]", "routing_mux.in[5]")
-    connect_ports(tile, "routing_mux.out[0]", "general.in[0]")
-    connect_ports(tile, "routing_mux.out[5]", "general.in[1]")
+    add_link(tile, "general.out[0]", "routing_mux.in[0]")
+    add_link(tile, "general.out[1]", "routing_mux.in[5]")
+    add_link(tile, "routing_mux.out[0]", "general.in[0]")
+    add_link(tile, "routing_mux.out[5]", "general.in[1]")
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
-        connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     check(tile)
     return tile
@@ -110,18 +110,18 @@ function build_super_tile()
     # Instantiate a mux for routing. Needs 5 inputs and 5 outptus
     add_child(tile, build_mux(8,8), "routing_mux")
     # Create Links
-    connect_ports(tile, "general[0].out[0]", "routing_mux.in[0]")
-    connect_ports(tile, "general[0].out[1]", "routing_mux.in[5]")
-    connect_ports(tile, "general[1].out[0]", "routing_mux.in[6]")
-    connect_ports(tile, "general[1].out[1]", "routing_mux.in[7]")
-    connect_ports(tile, "routing_mux.out[0]", "general[0].in[0]")
-    connect_ports(tile, "routing_mux.out[5]", "general[0].in[1]")
-    connect_ports(tile, "routing_mux.out[6]", "general[1].in[0]")
-    connect_ports(tile, "routing_mux.out[7]", "general[1].in[1]")
+    add_link(tile, "general[0].out[0]", "routing_mux.in[0]")
+    add_link(tile, "general[0].out[1]", "routing_mux.in[5]")
+    add_link(tile, "general[1].out[0]", "routing_mux.in[6]")
+    add_link(tile, "general[1].out[1]", "routing_mux.in[7]")
+    add_link(tile, "routing_mux.out[0]", "general[0].in[0]")
+    add_link(tile, "routing_mux.out[5]", "general[0].in[1]")
+    add_link(tile, "routing_mux.out[6]", "general[1].in[0]")
+    add_link(tile, "routing_mux.out[7]", "general[1].in[1]")
     metadata = Dict{String,Any}("capacity" => 6)
     for (count, dir) in enumerate(dir_tuple)
-        connect_ports(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        connect_ports(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
     end
     check(tile)
     return tile
@@ -136,8 +136,8 @@ function build_double_general_tile()
     for dir in dir_tuple
         add_port(tile, "$(dir)_in", "input")
         add_port(tile, "$(dir)_out", "output")
-        connect_ports(tile, "general.$(dir)_out", "$(dir)_out", metadata)
-        connect_ports(tile, "$(dir)_in", "general.$(dir)_in", metadata)
+        add_link(tile, "general.$(dir)_out", "$(dir)_out", metadata)
+        add_link(tile, "$(dir)_in", "general.$(dir)_in", metadata)
     end
     check(tile)
     return tile 
@@ -159,17 +159,17 @@ function build_routing_tile()
         add_port(tile, "$(dir)_out", "output")
         add_child(tile, build_mux(1,1), "mux_$(dir)", 2)
 
-        connect_ports(tile,
+        add_link(tile,
                       "$(dir)_in",
                       ["mux_$(dir)[0].in[0]", "mux_$(dir)[1].in[0]"],
                       metadata)
 
-        connect_ports(tile,"mux_$dir[0].out[0]", "routing_mux.in[$(2*(i-1))]", 
+        add_link(tile,"mux_$dir[0].out[0]", "routing_mux.in[$(2*(i-1))]", 
                       a_metadata)
-        connect_ports(tile,"mux_$dir[1].out[0]", "routing_mux.in[$(2*(i-1)+1)]", 
+        add_link(tile,"mux_$dir[1].out[0]", "routing_mux.in[$(2*(i-1)+1)]", 
                       b_metadata)
 
-        connect_ports(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata)
+        add_link(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata)
     end
     check(tile)
     return tile
