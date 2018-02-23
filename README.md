@@ -51,9 +51,6 @@ Then, navigate into *docs/build* and open `index.html`.
 ### Tests
 Improve Coverage.
 
-Determine how to reports errors during placement and routing that are
-transparent to programs using this package.
-
 ### TODO (B = Basic, M = Medium, H = Hard)
 *   Code Coverage Tests:
     - More thoroughly test bipartite matching algorithm.
@@ -69,3 +66,4 @@ transparent to programs using this package.
 *   (B) Redo plotting - either by wrapping Plot statements inside a macro to
     diable them or by providing some kind of callback functionality to get all
     kinds of plotting outside of the base mapper.
+

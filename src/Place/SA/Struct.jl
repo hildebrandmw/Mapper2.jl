@@ -615,7 +615,7 @@ function check_grid_population(sa::SAStruct)
         g == 0 && continue
         if found[g]
             @warn "Found node $g more than once"
-            push!(bad_indices, g)
+            push!(bad_nodes, g)
         else
             found[g] = true
         end
@@ -641,9 +641,9 @@ function check_consistency(sa::SAStruct)
                 push!(bad_nodes, node_assigned)
                 @warn """
                     Data structure inconsistency for node $index.
-                    Node assigned to location: $(node.address),
-                    $(node.component). Node assigned in the grid at this
-                    location: $node_assigned.
+                    Node assigned to location: $(node.address), $(node.component). 
+                    
+                    Node assigned in the grid at this location: $node_assigned.
                     """
             end
         catch
@@ -676,8 +676,7 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
             if !canmap(A, m_node, component)
                 push!(bad_nodes, index)
                 @warn """
-                    Node index $index incorrectly assigned to architecture
-                    node $m_node.name.
+                    Node index $index incorrectly assigned to architecture node $(m_node.name).
                     """
             end
         catch
@@ -686,4 +685,4 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
         end
     end
     return bad_nodes
-end
+    end

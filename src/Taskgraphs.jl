@@ -110,10 +110,22 @@ struct Taskgraph
 
     function Taskgraph(name, node_container, edge_container)
         if eltype(node_container) != TaskgraphNode
-            error("Nodes must be of type TaskgraphNode")
+            typer = TypeError(
+                  :Taskgraph,
+                  "Incorrect Node Element Type",
+                  TaskgraphNode,
+                  eltype(node_container))
+
+            throw(typer)
         end
         if eltype(edge_container) != TaskgraphEdge
-            error("Nodes must be of type TaskgraphEdge")
+            typer = TypeError(
+                  :Taskgraph,
+                  "Incorrect Edge Element Type",
+                  TaskgraphEdge,
+                  eltype(edge_container))
+
+            throw(typer)
         end
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.
@@ -165,7 +177,7 @@ Add a new node to `t`. Error if node already exists.
 """
 function add_node(t::Taskgraph, task::TaskgraphNode)
     if haskey(t.nodes, task.name)
-        error("Task ", task.name, " already exists in taskgraph.")
+        error("Task $(task.name) already exists in taskgraph.")
     end
     t.nodes[task.name] = task
     # Create adjacency list entries for the new nodes
@@ -227,6 +239,11 @@ Return a collection of nodes from `t` for which are the sink of an edge starting
 at `node`.
 """
 function out_nodes(t::Taskgraph, node)
+    # Check for empty adjacency lists
+    if length(out_edges(t, node)) == 0
+        return TaskgraphNode[]
+    end
+
     # Sink node iterators
     sink_name_iters = (e.sinks for e in out_edges(t, node))
     # Flatten the sink iterators and get the distinct results.

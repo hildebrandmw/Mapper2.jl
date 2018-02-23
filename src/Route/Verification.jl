@@ -34,30 +34,18 @@ function verify_routing(m::Map{A,D}, rs::RoutingStruct) where {A,D}
     # Create a new error tracker.
     errors = RoutingErrors()
     # Check routing Resources
-    check_resource_usage(m, rs, errors)
+    check_congestion(m, rs, errors)
     # Check paths
     check_paths(m, rs, errors)
     # Check for errors.
     if errors.num_errors > 0
         @warn "Verification Failed!"
-        for entry in errors.logs
-            println(entry.key)
-        end
     else
         @info "Verification Passed"
     end
     return errors
 end
 
-
-function check_resource_usage(m::Map{A,D},
-                              rs::RoutingStruct,
-                              errors) where {A,D}
-    # Verify the specified capacity requirements are satisfied.
-    check_congestion(m, rs, errors)
-    # TODO - check if the architecture is OKAY with the connections using
-    # each link.
-end
 
 function check_congestion(m::Map, rs::RoutingStruct, errors)
     # Reverse the portmap and linkmap dictionaries for better error messages.
@@ -82,7 +70,7 @@ function check_paths(m::Map{A,D}, rs::RoutingStruct, errors) where {A,D}
     # Unpack the structures.
     architecture    = m.architecture
     taskgraph       = m.taskgraph
-    graph  = rs.graph
+    graph           = rs.graph
     paths           = rs.paths
     # Reverse the portmap and linkmap dictionaries.
     portmap_rev = rev_dict_safe(portmap(graph))
@@ -169,118 +157,73 @@ function walkpath(architecture::TopLevel{A,D},
     end
 end
 
-
-
-################################################################################
-# Routing Error Log Entries.
-################################################################################
-abstract type RoutingException <: Exception end
-
 mutable struct RoutingErrors
     num_errors::Int64
-    logs::Vector{Any}
-    function RoutingErrors()
-        return new(
-            0,       # num_errors
-            Any[],   # logs
-        )
-    end
+    RoutingErrors() =new(0)
 end
 
-"""
-    increment(errors::RoutingErrors)
-
-Increment the number of errors found.
-"""
-function increment(errors::RoutingErrors)
-    errors.num_errors += 1
-    @warn "Errors Found: $(errors.num_errors)"
-    return nothing
-end
-
-struct RoutingOrderError;           key::Any; end
-struct RoutingLengthError;          key::Any; end
-struct RoutingCongestedLinkError;   key::Any; end
-struct RoutingCongestedPathError;   key::Any; end
-struct RoutingInvalidPort;          key::Any; end
-struct RoutingInvalidConnection;    key::Any; end
-struct RoutingInvalidResource;      key::Any; end
+increment(errors::RoutingErrors) = (errors.num_errors += 1)
 
 function routing_order_error(errors, path, index, expected, recieved)
     increment(errors)
-    log_entry = RoutingOrderError("""
-    Expected path variable to be $expected. Got $recieved.
-    Path: $(path)
+    @warn """
+        Expected path variable to be $expected. Got $recieved.
+        Path: $(path)
 
-    Offending Paths:
-    $(path[index])
-    $(path[index+1])
-    """)
-    push!(error.logs, log_entry)
+        Offending Paths:
+        $(path[index])
+        $(path[index+1])
+        """
 end
+
 function routing_length_error(errors, path, index, expected)
     increment(errors)
-    log_entry = RoutingLengthError("""
-    LinkPath collections should only have length of $expected.
-    Path: $(path)
+    @warn """
+        LinkPath collections should only have length of $expected.
+        Path: $(path)
 
-    Offending Paths:
-    $(path[index+1])
-    """)
-    push!(errors.logs, log_entry)
-    return nothing
+        Offending Paths:
+        $(path[index+1])
+        """
 end
 function routing_congested_link_error(errors, index, portmap_rev, linkmap_rev)
     increment(errors)
     # Get the path for the link from the reversed dictionaries.
     link_path = reverse_lookup(index, portmap_rev, linkmap_rev) 
-    log_entry = RoutingCongestedLinkError(
-    """
-    Link index $index is congested. Name of this link $(link_path).
-    """
-     )
-    push!(errors.logs, log_entry)
+    @warn """
+        Link index $index is congested. 
+        
+        Name of this link $(link_path).
+        """
 end
 function routing_congested_path_error(errors, taskgraph::Taskgraph, i)
     increment(errors)
     # Get the sources and sinks for the congested path.
     sources = getsources(getedge(taskgraph, i)) 
     sinks   = getsinks(getedge(taskgraph, i))
-    entry = RoutingCongestedPathError(
-        """
+    @warn """
         Path number $i is congested.
         Sources: $sources.
         Sinks: $sinks.
         """
-     )
-    push!(errors.logs, entry)
 end
 function routing_invalid_port(errors, port, taskedge, direction)
     increment(errors)
-    log = RoutingInvalidPort(
-    """
-    Port $port is an invalid $direction port for task edge with:
-    Sources: $(taskedge.sources)
-    Sinks: $(taskedge.sinks)
-    """
-    )
-    push!(errors.logs, entry)
+    @warn """
+        Port $port is an invalid $direction port for task edge with:
+        Sources: $(taskedge.sources)
+        Sinks: $(taskedge.sinks)
+        """
 end
 function routing_invalid_connection(errors, this, that)
     increment(errors)
-    log = RoutingInvalidConnection(
-        """
+    @warn """
         Invalid connection from $this to $that.
         """
-    )
-    push!(errors.logs, log)
 end
 function routing_invalid_resource(errors)
     increment(errors)
-    log = RoutingInvalidResource(
-        """
+    @warn """
         Invalid Resource!!
         """
-    )
-    push!(errors.logs, log)
 end

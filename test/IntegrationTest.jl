@@ -7,7 +7,7 @@
     routing     = true
     # Try making a map
     try
-        m = make_map()
+        m = Example1.make_map()
     catch
         makemap = false
     end
@@ -15,7 +15,7 @@
 
     # Try placement
     try
-        m = place(m, move_attempts = 5000)
+        m = Example1.place(m, move_attempts = 5000)
     catch
         placement = false
     end
@@ -23,7 +23,7 @@
 
     # Try routing
     try
-        m = route(m)
+        m = Example1.route(m)
     catch
         routing = false
     end
@@ -40,4 +40,39 @@
         found_links += k*v
     end
     @test found_links == expected_links 
+end
+
+@testset "Testing Example 2" begin
+    using Example2
+
+    local m
+    makemap     = true 
+    placement   = true
+    routing     = true
+    # Try making a map
+    try
+        m = Example2.make_map()
+    catch
+        makemap = false
+    end
+    @test makemap
+
+    # Try placement
+    try
+        m = Example2.place(m)
+    catch
+        placement = false
+    end
+    @test placement
+
+    # Try routing
+    try
+        m = Example2.route(m)
+    catch
+        routing = false
+    end
+    @test routing
+
+    # Get statistics from the map
+    MapperCore.report_routing_stats(m)
 end

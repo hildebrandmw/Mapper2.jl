@@ -1,4 +1,3 @@
-struct E3Architecture end
 
 function build_primitive()
     # Build a simple metadata.
@@ -49,6 +48,40 @@ function build_tile()
 end
 
 function build_arch()
-    a = TopLevel{2,E3Architecture}("arch_3d")
+    a = TopLevel{Test3d,3}("arch_3d")
     tile = build_tile()
+
+    # Instantiate tiles
+    for (i,j,k) in Iterators.product(1:3, 1:3, 1:3)
+        add_child(a, tile, CartesianIndex(i,j,k))
+    end
+
+    # Connect all ports together
+    key = ""
+    val = ""
+    fn = x -> true
+    src_rule = PortRule(key, val, fn)
+    dst_rule = PortRule(key, val, fn)
+
+    offsets = [CartesianIndex(-1, 0, 0),
+               CartesianIndex( 1, 0, 0), 
+               CartesianIndex( 0, 1, 0), 
+               CartesianIndex( 0,-1, 0),
+               CartesianIndex( 0, 0, 1), 
+               CartesianIndex( 0, 0,-1)]
+
+    src_dirs = ("north", "south", "east", "west", "up",   "down")
+    dst_dirs = ("south", "north", "west", "east", "down", "up"  )
+    offset_rules = OffsetRule[]
+    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
+        src_ports = ["$(src)_out"]
+        dst_ports = ["$(dst)_in"]
+        # Create the offset rule and add it to the collection
+        new_rule = OffsetRule([offset], src_ports, dst_ports)
+        push!(offset_rules, new_rule)
+    end
+
+    connection_rule(a, offset_rules, src_rule, dst_rule)
+    check(a)
+    return a
 end

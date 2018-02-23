@@ -32,7 +32,7 @@ function add_port(c::Component, name, class, number = 0;
     else
         for i in 1:number
             # Make a new port with this number
-            port_name = name * "[" * string(i-1) * "]"
+            port_name = "$name[$(i-1)]"
             if typeof(metadata) <: Array
                 add_port(c, Port(port_name, class, metadata[i]))
             else
@@ -46,7 +46,7 @@ end
 function add_port(c::Component, port::Port)
     # If the port already exists, throw an error
     if haskey(c.ports, port.name)
-        error("Port: ", port.name, " already exists in component ", c.name)
+        error("Port: $(port.name) already exists in component $(c.name)")
     else
         c.ports[port.name] = port
     end
@@ -62,15 +62,15 @@ vectorize instantiation names.
 function add_child(c::AbstractComponent, child::AbstractComponent, name, number = 1)
     if number == 1
         if haskey(c.children, name)
-            error("Component ", c.name, " already has a child named ", name)
+            error("Component $(c.name) already has a child named $name")
         else
             c.children[name] = child
         end
     else
         for i in 0:number-1
-            subname = name * "[" * string(i) * "]"
+            subname = "$name[$i]"
             if haskey(c.children, subname)
-                error("Component ", c.name, " already has a child named ", subname)
+                error("Component $(c.name) already has a child named $subname")
             else
                 c.children[subname] = child
             end
