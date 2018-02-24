@@ -11,6 +11,7 @@ This file tests the save and load feature of the Mapper.
     Mapper2.SA.place(sm, move_attempts = 5000)
     # Record the placed sm into map m
     Mapper2.SA.record(m, sm)
+    m = route(m)
     # Save the placement
     save(m, "tests")
 
@@ -26,6 +27,10 @@ This file tests the save and load feature of the Mapper.
     Mapper2.SA.preplace(n, sn)
     # Assert the two costs are the same.
     @test Mapper2.SA.map_cost(sn) == Mapper2.SA.map_cost(sm)
+    # Get the link histograms for the two maps. Make sure they match
+    lm = MapperCore.global_link_histogram(m)
+    ln = MapperCore.global_link_histogram(n)
+    @test lm == ln
 
     rm("tests.json.gz")
 end

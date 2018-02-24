@@ -102,17 +102,21 @@ struct PortPath{P <: AbstractComponentPath} <: AbstractPath
 end
 #-- Constructors
 PortPath() = PortPath("", ComponentPath())
-function PortPath(port::AbstractString)
-    # Split the path into components based on the "." notation.
-    parts = split(port, ".")
-    return PortPath(String(parts[end]), ComponentPath(parts[1:end-1]))
+
+function PortPath(port::Vector{<:AbstractString})
+    name = String(port[end])
+    path = ComponentPath(port[1:end-1])
+    return PortPath(name, path)
 end
 
-function PortPath(port::AbstractString, address::CartesianIndex)
-    parts = split(port, ".")
-    return PortPath(String(parts[end]),
-                    AddressPath(address, ComponentPath(parts[1:end-1])))
+function PortPath(port::Vector{<:AbstractString}, address::CartesianIndex)
+    name = String(port[end])
+    path = AddressPath(address, ComponentPath(port[1:end-1]))
+    return PortPath(name, path)
 end
+
+PortPath(port::String) = PortPath(split(port, "."))
+PortPath(port::String, address::CartesianIndex) = PortPath(split(port, "."), address)
 
 #-------------------------------------------------------------------------------
 # LinkPath
@@ -144,15 +148,22 @@ end
 #-- Constructors
 # Empty Link Path
 LinkPath() = LinkPath("", ComponentPath())
-function LinkPath(link::String)
-    parts = split(link, ".")
-    LinkPath(String(parts[end]), ComponentPath(parts[1:end-1]))
+
+function LinkPath(link::Vector{<:AbstractString}) 
+    linkname = String(link[end])
+    path = ComponentPath(link[1:end-1])
+    return LinkPath(linkname, path)
+    #LinkPath(String(link[end]), ComponentPath(link[1:end-1]))
+end
+function LinkPath(link::Vector{<:AbstractString}, address::CartesianIndex)
+    linkname = String(link[end])
+    path = AddressPath(address, ComponentPath(link[1:end-1]))
+    return LinkPath(linkname, path)
+    #return LinkPath(String(link[end]), AddressPath(address, ComponentPath(link[1:end-1])))
 end
 
-function LinkPath(link::String, address::CartesianIndex{D}) where {D}
-    parts = split(link, ".")
-    LinkPath(String(parts[end]), AddressPath(address, ComponentPath(parts[1:end-1])))
-end
+LinkPath(link::String) = LinkPath(split(link, "."))
+LinkPath(link::String, address::CartesianIndex) = LinkPath(split(link, "."), address)
 
 #-------------------------------------------------------------------------------
 # ALIASES
@@ -316,7 +327,7 @@ end
 function Port(name::String, class::String, metadata = Dict{String,Any}())
     # Make sure this is a valid port class.
     if !in(class, PORT_CLASSES)
-        error("Port Class \'", class, "\' is not recognized.")
+        error("Port Class '$class' is not recognized.")
     end
     # Create an empty link assignment.
     link = LinkPath()
@@ -573,16 +584,6 @@ Return an iterator of all addresses with subcomponents of `t`.
 """
 addresses(t::TopLevel) = keys(t.children)
 
-pathtype(::Component) = ComponentPath
-pathtype(t::TopLevel{A,D}) where {A,D} = AddressPath{D}
-
-@doc """
-    pathtype(a::AbstractComponent)
-
-Return the subtype of `AbstractPath` used to get subcomponents from this
-component.
-""" pathtype
-
 
 #-------------------------------------------------------------------------------
 # Various overloadings of the method "getindex"
@@ -769,11 +770,14 @@ end
 Throw error if component `c` has any children.
 """
 function assert_no_children(c::AbstractComponent)
+    passed = true
     if length(c.children) != 0
-        display(c)
-        error("Component ", c.name, " is not expected to have any children.")
+        passed = false
+        @error """
+            Cmponent $(c.name) is not expected to have any children.
+            """
     end
-    return nothing
+    return passed
 end
 
 """
@@ -784,13 +788,18 @@ Throw error if component `c` has any intra-component routing.
 function assert_no_intrarouting(c::AbstractComponent)
     # Iterate through all ports. Ensure that the neighbor lists for each
     # port is empty.
+    passed = true
     for port in values(c.ports)
         if port.link.name != ""
-            error("Component ", c.name, " is not expected to have any intra-",
-                  "component routing.")
+            passed = false
+            @error """
+                Component $(c.name) is not expected to have any intra-component 
+                routing.
+                """
+            break
         end
     end
-    return nothing
+    return passed
 end
 
 # Various convenience methods for ports.

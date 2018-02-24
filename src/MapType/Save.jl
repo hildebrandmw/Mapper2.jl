@@ -112,16 +112,30 @@ function read_edge_vec(m::Mapping, path_vec)
     for edge in path_vec
         path = Any[]
         for p in edge["path"]
-            row = split(split(split(p["path"],".")[1],",")[1],"(")[2]
-            col = split(split(split(p["path"],".")[1],",")[2],")")[1]
-            row = parse(Int64,row)
-            col = parse(Int64,col)
-            addrpath = AddressPath{2}(Address(row,col),
-                                ComponentPath(split(p["path"],".")[2:end-1]))
+            # split up the string on dots
+            split_str = split(p["path"], ".")
+            cartesian = first(split_str)
+
+            # Get the coordinates of the cartesian item
+            coord_strings = matchall(r"(\d+)(?=[,\)])", cartesian)
+            # Build the CartesianIndex
+            address = CartesianIndex(parse.(Int64, coord_strings)...)
+
+            # Build component path out of the last parts of the split sttring
+            # The first entry has the coordinates
+            # Get the cartesian coordinates of the tile
+            #row = split(split(split(p["path"],".")[1],",")[1],"(")[2]
+            #col = split(split(split(p["path"],".")[1],",")[2],")")[1]
+            #row = parse(Int64,row)
+            #col = parse(Int64,col)
+            #addrpath = AddressPath{2}(Address(row,col),
+            #                    ComponentPath(split(p["path"],".")[2:end-1]))
             if(p["type"] == "Port")
-                x = PortPath(String(split(p["path"],".")[end]),addrpath)
+                x = PortPath(split_str[2:end], address)
+                #x = PortPath(String(split(p["path"],".")[end]),addrpath)
             elseif(p["type"] == "Link")
-                x = LinkPath(String(split(p["path"],".")[end]),addrpath)
+                x = LinkPath(split_str[2:end], address)
+                #x = LinkPath(String(split(p["path"],".")[end]),addrpath)
             end
             push!(path,x) # build the path
         end
