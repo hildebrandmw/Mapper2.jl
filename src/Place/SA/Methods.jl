@@ -68,19 +68,18 @@ function edge_cost(::Type{A}, sa::SAStruct, i::Int) where {A <: AbstractArchitec
 end
 
 function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::TwoChannel)
-    cost = 0
     a = sa.nodes[edge.source].address
     b = sa.nodes[edge.sink].address
-    return Int64(sa.distance[a,b])
+    return Float64(sa.distance[a,b])
 end
 
 function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChannel)
-    cost = 0
+    cost = 0.0
     for src in edge.sources, snk in edge.sinks
         # Get the source and sink addresses
         a = sa.nodes[src].address
         b = sa.nodes[snk].address
-        cost += Int64(sa.distance[a,b])
+        cost += sa.distance[a,b]
     end
     return cost
 end
@@ -95,32 +94,59 @@ TODO: Think of a better way to make this code generic.
 
 map_cost(sa::SAStruct) = map_cost(architecture(sa), sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
-    cost = sum(edge_cost(A, sa, i) for i in eachindex(sa.edges))
+    cost = 0.0
+    for i in eachindex(sa.edges)
+        cost += edge_cost(A, sa, i)
+    end
+    for n in sa.nodes
+        cost += address_cost(n, sa.address_data)
+    end
     return cost
 end
 
 function node_cost(::Type{A}, sa::SAStruct, node) where {A <: AbstractArchitecture}
     # Unpack node data type.
     n = sa.nodes[node]
-    local cost
-    first = true
+    cost = 0.0
     for edge in n.out_edges
-        if first
-            cost = edge_cost(A, sa, edge)
-            first = false
-        else
-            cost += edge_cost(A, sa, edge)
-        end
+        cost += edge_cost(A, sa, edge)
     end
     for edge in n.in_edges
-        if first
-            cost = edge_cost(A, sa, edge)
-            first = false
-        else
+        cost += edge_cost(A, sa, edge)
+    end
+    cost += address_cost(n, sa.address_data)
+    return cost
+end
+
+#=
+Node pair cost is slightly more subtle than just each independent node cost if
+
+    1. The communication resources in the array are asymmetric. Then if two 
+        nodes are swapped and are connected by a channel, the double cost of 
+        that channel is not cancelled out correctly.
+
+    2. For multi-pin nets, if a source and sink are swapped, then the the 
+        objective function is calculated incorrectly due to counting the channel
+        twice.
+=#
+function node_pair_cost(::Type{A}, sa::SAStruct, i,j) where {A <: AbstractArchitecture}
+    cost = node_cost(A, sa, i)
+    # Get the two node types for calculating the cost of the second node.
+    a = sa.nodes[i]
+    b = sa.nodes[j]
+
+    for edge in b.out_edges
+        if !in(edge, a.in_edges)
             cost += edge_cost(A, sa, edge)
         end
     end
-    # If cost is not initialized, throw an error
-    first && error("Node $node does not have any edges.")
+    for edge in b.in_edges
+        if !in(edge, a.out_edges)
+            cost += edge_cost(A, sa, edge)
+        end
+    end
+    cost += address_cost(b, sa.address_data)
     return cost
 end
+
+address_cost(node::Node, ::EmptyAddressData) = zero(Float64)

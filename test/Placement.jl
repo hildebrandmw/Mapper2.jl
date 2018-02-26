@@ -62,6 +62,12 @@
     c = sa.nodes[x].component
     sa.grid[c,addr] = 0
     @test !SA.verify_placement(m, sa)
+end
 
+@testset "Testing Fanout Placement" begin
+    m = Example1.make_fanout()
+    sa = Mapper2.SA.SAStruct(m)
 
+    Mapper2.SA.place(sa);
+    @test Mapper2.SA.map_cost(sa) == 14
 end

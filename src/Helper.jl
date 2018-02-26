@@ -1,8 +1,8 @@
 module Helper
 
-export  oneofin,
-        typeunion,
-        push_to_dict,
+using MicroLogging
+
+export  push_to_dict,
         add_to_dict,
         rev_dict,
         rev_dict_safe,
@@ -13,36 +13,13 @@ export  oneofin,
         max_entry
 
 """
-    oneofin(a, b)
-
-Return `true` if at least one element of collection `a` is in collection `b`.
-"""
-function oneofin(a, b)
-   for i in a
-      in(i, b) && return true
-   end
-   return false
-end
-
-function typeunion(a::Array{T,N}) where {T,N}
-    types = DataType[]
-    for i in a
-        t = typeof(i)
-        if t ∉ types
-            push!(types, t)
-        end
-    end
-    return Array{Union{types...},N}(a)
-end
-
-"""
     push_to_dict(d, k, v)
 
 Push value `v` to the vector found in dictionary `d` at `d[k]`. If `d[k]`
 does not exist, create a new vector by `d[k] = [v]`.
 """
 function push_to_dict(d, k, v)
-    haskey(d, k) ? push!(d[k], v) : d[k] = valtype(d)([v]) 
+    haskey(d, k) ? push!(d[k], v) : d[k] = valtype(d)([v])
     return nothing
 end
 
@@ -124,12 +101,12 @@ end
 
 # Documentation for the max and min functions generated above.
 @doc """
-    `dim_max(indices)` returns tuple of the minimum componentwise values 
+    `dim_max(indices)` returns tuple of the minimum componentwise values
     from a collection of CartesianIndices.
     """ dim_max
 
 @doc """
-    `dim_min(indices)` returns tuple of the minimum componentwise values 
+    `dim_min(indices)` returns tuple of the minimum componentwise values
     from a collection of CartesianIndices.
     """ dim_min
 

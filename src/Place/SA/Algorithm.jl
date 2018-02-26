@@ -265,11 +265,13 @@ function move_with_undo(sa::SAStruct, undo_cookie, node::Int64, address, compone
         # Save the index of the occupying node
         undo_cookie.index_of_other_node  = occupying_node
         # Compute the cost before the move
-        base_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
+        #base_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
+        base_cost = node_pair_cost(A, sa, node, occupying_node)
         # Swap nodes
         swap(sa, node, occupying_node)
         # Get cost after move and store
-        moved_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
+        #moved_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
+        moved_cost = node_pair_cost(A, sa, node, occupying_node)
         undo_cookie.cost_of_move = moved_cost - base_cost
     end
     return true

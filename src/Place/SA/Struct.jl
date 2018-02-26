@@ -90,8 +90,8 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D2,D1,N <: Node,L,
-                        T <: AddressData}
+struct SAStruct{A,U,D,D2,D1,N,L,T <: AddressData}
+
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
     nodeclass               ::Vector{Int64}
@@ -99,7 +99,7 @@ struct SAStruct{A,U,D,D2,D1,N <: Node,L,
     special_maptables       ::Maptable{D}
     special_addresstables   ::Vector{Vector{CartesianIndex{D}}}
     distance                ::Array{U,D2}
-    grid                    ::Array{Int64, D1}
+    grid                    ::Array{Int64,D1}
     address_data            ::T
     #=
     Component tables for tracking local component references to the global
@@ -160,38 +160,35 @@ struct BasicMultiChannel <: MultiChannel
     sinks   ::Vector{Int64}
 end
 
-Base.promote_type(::Type{BasicChannel}, ::Type{BasicMultiChannel}) = BasicMultiChannel
-Base.convert(::Type{BasicMultiChannel}, b::BasicChannel) = BasicMultiChannel([b.source],[b.sink])
-
-function build_channel(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
-    # Build up adjacency lists.
-    # Sources in the task-graphs are strings so we need to use the
-    # node-dictionary to convert them into integers.
-
-    #if length(edge.sources) > 1 || length(edge.sinks) > 1
-        sources = [node_dict[i] for i in edge.sources]
-        sinks   = [node_dict[i] for i in edge.sinks]
-        return BasicMultiChannel(sources, sinks)
-    #else
-    #    source  = node_dict[first(edge.sources)]
-    #    sink    = node_dict[first(edge.sinks)]
-    #    return BasicChannel(source, sink)
-    #end
+function setup_channel_build(::Type{A}, taskgraph) where A <: AbstractArchitecture
+    edges = getedges(taskgraph)
+    nodes = getnodes(taskgraph)
+    node_dict = Dict(n.name => i for (i,n) in enumerate(nodes))
+    # Make source and sink vectors
+    sources = map(edges) do edge
+        [node_dict[i] for i in edge.sources]
+    end
+    sinks = map(edges) do edge
+        [node_dict[i] for i in edge.sinks]
+    end
+    # Pass this to the `build_channels` function
+    return build_channels(A, edges, sources, sinks)
 end
 
-@doc """
-    build_channel(::Type{A}, edge::TaskgrpahEdge, node_dict)
+function build_channels(::Type{A},
+                        edges,
+                        sources ::Vector,
+                        sinks   ::Vector) where A <: AbstractArchitecture
 
-Return a concrete subtype of `SAChannel` for the `edge` and architecture
-`A`. Argument `node_dict` is a dictionary mapping taskgraph string names to
-integers.
-
-Must initialize the required fields to their default values:
-- `sources = [node_dict[s] for s in edge.sources]`
-- `sinks = [node_dict[s] for s in edge.sinks]`
-
-Other additional fields left for you to implement as needed.
-""" build_channel
+    # Get the maximum length of sources and sinks. Use this to determine
+    # which type of channels to build.
+    max_length = max(maximum.((length.(sources), length.(sinks)))...)
+    if max_length == 1
+        return [BasicChannel(first(i), first(j)) for (i,j) in zip(sources, sinks)]
+    else
+        return [BasicMultiChannel(i,j) for (i,j) in zip(sources, sinks)]
+    end
+end
 
 ################################################################################
 # Address Data
@@ -216,32 +213,35 @@ function SAStruct(m::Map{A,D}) where {A,D}
     taskgraph    = m.taskgraph
     # First step - create the component_table.
     component_table = build_component_table(architecture)
-
     # Next step, build the SA Taskgraph
     node_iterator = getnodes(taskgraph)
-    nodes    = [build_node(A, n, D) for n in node_iterator]
+    nodes       = [build_node(A, n, D) for n in node_iterator]
     task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
-    # Build dictionary to map node names to indices
-    node_dict = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
-    # Build the basic links
-    edges = typeunion([build_channel(A, n, node_dict) for n in getedges(taskgraph)])
+
+    #------------------------------#
+    # Build the channel containers #
+    #------------------------------#
+    edges = setup_channel_build(A, taskgraph)
     @debug """
+        Node Type: $(typeof(nodes))
         Edge Type: $(typeof(edges))
         """
 
     # Assign adjacency information to nodes.
     record_edges!(nodes, edges)
 
-    classes, normal, special = equivalence_classes(A, taskgraph)
+    #----------------------------------------------------#
+    # Obtain task equivalence classes from the taskgraph #
+    #----------------------------------------------------#
+
+    classes, nclass, sclass = equivalence_classes(A, taskgraph)
     # Build the map table based on the normal node equivalence classes.
     # Behold the beautiful diagonal structure
-    maptables = build_maptables(architecture, normal, component_table)
+    maptables = build_maptables(architecture, nclass, component_table)
 
-    s_maptables = build_maptables(architecture, special, component_table)
+    s_maptables = build_maptables(architecture, sclass, component_table)
 
-    s_addresstables = build_addresstables(architecture,
-                                                special,
-                                                component_table)
+    s_addresstables = build_addresstables(architecture, sclass, component_table)
 
     arraysize = size(component_table)
     distance = build_distance_table(architecture)
@@ -250,13 +250,13 @@ function SAStruct(m::Map{A,D}) where {A,D}
     grid = zeros(Int64, max_num_components, size(component_table)...)
     address_data = build_address_data(A, architecture, taskgraph)
 
-    sa = SAStruct{A,                # Architecture Type
-                  eltype(distance), # Encoding of Tile Distance
-                  D,                # Dimensionality of the Architecture
-                  2*D,              # 2x Architecture Dimensionality
-                  D+1,              # Architecture Dimensionality + 1
-                  eltype(nodes), # Type of the taskgraph nodes
-                  eltype(edges), # Type of the taskgraph edges
+    sa = SAStruct{A,                    # Architecture Type
+                  eltype(distance),     # Encoding of Tile Distance
+                  D,                    # Dimensionality of the Architecture
+                  2*D,                  # 2x Architecture Dimensionality
+                  D+1,                  # Architecture Dimensionality + 1
+                  eltype(nodes),        # Type of the taskgraph nodes
+                  eltype(edges),        # Type of the taskgraph edges
                   typeof(address_data)  # Type of address data
                  }(
         nodes,
@@ -662,8 +662,8 @@ function check_consistency(sa::SAStruct)
                 push!(bad_nodes, node_assigned)
                 @warn """
                     Data structure inconsistency for node $index.
-                    Node assigned to location: $(node.address), $(node.component). 
-                    
+                    Node assigned to location: $(node.address), $(node.component).
+
                     Node assigned in the grid at this location: $node_assigned.
                     """
             end

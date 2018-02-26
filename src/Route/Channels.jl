@@ -1,16 +1,17 @@
-struct RoutingChannel <: AbstractRoutingChannel
+const ARC = AbstractRoutingChannel
+struct RoutingChannel <: ARC
     start::Vector{Int64}
     stop ::Vector{Int64}
 end
 RoutingChannel(start, stop, taskgraph_edge) = RoutingChannel(start, stop)
 
-Base.start(r::AbstractRoutingChannel)   = r.start
-stop(r::AbstractRoutingChannel)         = r.stop
+Base.start(r::ARC)   = r.start
+stop(r::ARC)         = r.stop
 
 #=
 Fallback for choosing links to give priority to during routing.
 =#
-Base.isless(::AbstractRoutingChannel, ::AbstractRoutingChannel) = false
+Base.isless(::ARC, ::ARC) = false
 
 function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: AbstractArchitecture}
     # Debug printing
@@ -70,12 +71,3 @@ function get_routing_ports(::Type{A}, edge::TaskgraphEdge, component::Component,
         KeyError("Symbol: $sym not recognized")
     end
 end
-
-################################################################################
-# Default extraction for source and sink ports.
-################################################################################
-
-# Functions defined in Routing.jl
-
-# isvalid_source_port
-# isvalid_sink_port

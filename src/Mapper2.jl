@@ -7,7 +7,8 @@ using Reexport
 using MicroLogging
 
 function set_logging(level)
-    modules = (Mapper2.MapperCore,
+    modules = (Mapper2.Helper,
+               Mapper2.MapperCore,
                Mapper2.Place,
                Mapper2.SA,
                Mapper2.Routing,
