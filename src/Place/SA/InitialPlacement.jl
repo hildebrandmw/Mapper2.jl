@@ -115,10 +115,10 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
     component_dict_rev  = rev_dict(component_dict)
     # Iterate through all the indices belonging to nodes.
     for i in keys(node_dict_rev)
-        # Iterate through all the "in_neighbors" of this node.
+        # Iterate through all the "inneighbors" of this node.
         # Looking for an incoming edge that is not from the source.
         # This edge leads to the component this task will be mapped to.
-        for neighbor in in_neighbors(graph, i)
+        for neighbor in inneighbors(graph, i)
             neighbor == 1 && continue
             b = neighbor
             # Get the address and component number from the reversed
@@ -162,8 +162,8 @@ function bipartite_match!(g::AbstractGraph)
     sink = 2
     # group the vertices according to their number of preferences
     sort_dict = SortedDict{Int64,Array{Int64,1}}()
-    for a in out_neighbors(g,source)
-        count = length(out_neighbors(g,a))
+    for a in outneighbors(g,source)
+        count = length(outneighbors(g,a))
         push_to_dict(sort_dict, count, a)
     end
     # unwrap vertex value array for each key in sort_dict
@@ -174,7 +174,7 @@ function bipartite_match!(g::AbstractGraph)
     # source -> a -> b -> sink links are made
     # if link requires a backward trace, it's skipped for now (taken care of later)
     for a in a_set
-        for b in out_neighbors(g,a)
+        for b in outneighbors(g,a)
             if has_edge(g,b=>sink) && !has_edge(g,sink=>b)
                 add_edge!(g,a=>source)
                 add_edge!(g,b=>a)
@@ -186,17 +186,17 @@ function bipartite_match!(g::AbstractGraph)
         end
     end
     # links that require backward tracing are created below
-    for a in out_neighbors(g,source)
+    for a in outneighbors(g,source)
         has_edge(g,a=>source) && continue
         two_found = false # initialize
-        for b in out_neighbors(g,a)
+        for b in outneighbors(g,a)
             two_found && break
             predecessor = Int64[] # create an array to keep track the path
             neighbor = b
             previous_neighbor = a
             exit = false # initialize
             while !two_found && !exit
-                for new_neighbor in out_neighbors(g,neighbor)
+                for new_neighbor in outneighbors(g,neighbor)
                     # check if neighbor can be connected to sink
                     if (new_neighbor == sink && !has_edge(g,sink=>neighbor))
                         two_found = true
@@ -206,8 +206,8 @@ function bipartite_match!(g::AbstractGraph)
                         break
                     end
                     # check if the vertex has no remaining moves
-                    if ((out_neighbors(g,neighbor)) == [source,previous_neighbor]
-                        ||(in_neighbors(g,neighbor)) == [sink,previous_neighbor])
+                    if ((outneighbors(g,neighbor)) == [source,previous_neighbor]
+                        ||(inneighbors(g,neighbor)) == [sink,previous_neighbor])
                         exit = true
                         break
                     end
@@ -243,9 +243,9 @@ function bipartite_match!(g::AbstractGraph)
                 add_edge!(g,predecessor[2]=>predecessor[1])
                 add_edge!(g,sink=>predecessor[end])
                 for i = 2:length(predecessor)-1
-                    if i in out_neighbors(g,source)
+                    if i in outneighbors(g,source)
                         add_edge!(g,predecessor[i]=>predecessor[i+1])
-                    elseif i in in_neighbors(g,sink)
+                    elseif i in inneighbors(g,sink)
                         rem_edge!(g,predecessor[i]=>predecessor[i+1])
                     end # end if
                 end # end for loop

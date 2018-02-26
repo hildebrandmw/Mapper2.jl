@@ -18,6 +18,7 @@ export  build_input_primitive,
         make_edges,
         # Map
         make_map,
+        make_fanout,
         # Placement
         place,
         # Routing
@@ -27,6 +28,7 @@ export  build_input_primitive,
 struct TestArchitecture <: AbstractArchitecture end
 
 make_map() = NewMap(build_test_arch(), make_taskgraph())
+make_fanout() = NewMap(build_test_arch(), make_fanout_taskgraph())
 
 include("Architecture.jl")
 include("Taskgraph.jl")

@@ -190,7 +190,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         # Mark node as discovered and all undiscovered neighbors.
         discovered[v.index] = true
         predecessor[v.index] = v.predecessor
-        for u in out_neighbors(graph, v.index)
+        for u in outneighbors(graph, v.index)
             link_type = getlink(r,u)
             if !discovered[u] && canuse(A, link_type, task)
                 # Compute the cost of taking the new vertex and add it

@@ -1,6 +1,7 @@
 module Helper
 
 export  oneofin,
+        typeunion,
         push_to_dict,
         add_to_dict,
         rev_dict,
@@ -21,6 +22,17 @@ function oneofin(a, b)
       in(i, b) && return true
    end
    return false
+end
+
+function typeunion(a::Array{T,N}) where {T,N}
+    types = DataType[]
+    for i in a
+        t = typeof(i)
+        if t ∉ types
+            push!(types, t)
+        end
+    end
+    return Array{Union{types...},N}(a)
 end
 
 """

@@ -1,30 +1,32 @@
 ################################################################################
 # Abstract Types for Placement
 ################################################################################
-abstract type PlacementNode end
-abstract type PlacementChannel end
-abstract type PlacementAddressData end
+abstract type Node end
+abstract type SAChannel end
+abstract type TwoChannel <: SAChannel end
+abstract type MultiChannel <: SAChannel end
+abstract type AddressData end
 
 
 @doc """
-Fields required by specialized SANode types:
+Fields required by specialized Node types:
 * `address::CartesianIndex{D}` where `D` is the dimension of the architecture.
 * `component_index<:Integer`
 * `out_links::Vector{Int64}`
 * `in_links::Vector{Int64}`
-""" PlacementNode
+""" Node
 
 @doc """
-Fields required by specialized SANode types:
+Fields required by specialized Node types:
 * `sources::Vector{Int64}`
 * `sinks::Vector{Int64}`
-""" PlacementChannel
+""" SAChannel
 
 @doc """
 Container allowing specific data to be associated with addresses in the
 SAStruct. Useful for processor specific mappings such as core frequency or
 leakage.
-""" PlacementAddressData
+""" AddressData
 
 @doc """
 Default mapping doesn't use address specific data for its mapping objective.
@@ -53,9 +55,9 @@ Data structure specialized for Simulated Annealing placement.
 * `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
                     with type parameters)
 * `D1` - `D + 1`.
-* `N <: PlacementNode` - Task node type.
-* `L <: PlacementChannel` - Edge node type.
-* `T <: PlacementAddressData`` - The AddressData type.
+* `N <: Node` - Task node type.
+* `L <: SAChannel` - Edge node type.
+* `T <: AddressData`` - The AddressData type.
 
 # Fields
 * `nodes::Vector{N}` - Taskgraph Nodes specialized for placement.
@@ -88,8 +90,8 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D2,D1,N <: PlacementNode,L <: PlacementChannel,
-                        T <: PlacementAddressData}
+struct SAStruct{A,U,D,D2,D1,N <: Node,L,
+                        T <: AddressData}
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
     nodeclass               ::Vector{Int64}
@@ -118,7 +120,7 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 # Basis SA Node
 ################################################################################
 
-mutable struct BasicPlaceNode{D} <: PlacementNode
+mutable struct BasicNode{D} <: Node
     address  ::CartesianIndex{D}
     component::Int64
     out_edges::Vector{Int64}
@@ -126,13 +128,13 @@ mutable struct BasicPlaceNode{D} <: PlacementNode
 end
 
 function build_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
-    return BasicPlaceNode(CartesianIndex{D}(), 0, Int64[], Int64[])
+    return BasicNode(CartesianIndex{D}(), 0, Int64[], Int64[])
 end
 
 @doc """
     build_node(::Type{A}, n::TaskgraphNode, D::Integer)
 
-Construct an `PlacementNode` for the given taskgraph node and architecture `A`
+Construct an `Node` for the given taskgraph node and architecture `A`
 with dimension `D`.
 
 Must initialize the required fields to their default values:
@@ -148,32 +150,39 @@ Other additional fields left for your to implement as needed.
 # Basis SA Edge
 ################################################################################
 
-struct BasicPlaceChannel <: PlacementChannel
+struct BasicChannel <: TwoChannel
     source::Int64
     sink  ::Int64
 end
+
+struct BasicMultiChannel <: MultiChannel
+    sources ::Vector{Int64}
+    sinks   ::Vector{Int64}
+end
+
+Base.promote_type(::Type{BasicChannel}, ::Type{BasicMultiChannel}) = BasicMultiChannel
+Base.convert(::Type{BasicMultiChannel}, b::BasicChannel) = BasicMultiChannel([b.source],[b.sink])
 
 function build_channel(::Type{T}, edge::TaskgraphEdge, node_dict) where {T <: AbstractArchitecture}
     # Build up adjacency lists.
     # Sources in the task-graphs are strings so we need to use the
     # node-dictionary to convert them into integers.
-    if length(edge.sources) > 1
-        error("Multi source nets are not implemented yet")
-    end
-    if length(edge.sinks) > 1
-        error("Multi sink nets are not implemented yet")
-    end
-    sources  = node_dict[first(edge.sources)]
-    sinks    = node_dict[first(edge.sinks)]
-    #sources = [node_dict[s] for s in edge.sources]
-    #sinks   = [node_dict[s] for s in edge.sinks]
-    return BasicPlaceChannel(sources, sinks)
+
+    #if length(edge.sources) > 1 || length(edge.sinks) > 1
+        sources = [node_dict[i] for i in edge.sources]
+        sinks   = [node_dict[i] for i in edge.sinks]
+        return BasicMultiChannel(sources, sinks)
+    #else
+    #    source  = node_dict[first(edge.sources)]
+    #    sink    = node_dict[first(edge.sinks)]
+    #    return BasicChannel(source, sink)
+    #end
 end
 
 @doc """
     build_channel(::Type{A}, edge::TaskgrpahEdge, node_dict)
 
-Return a concrete subtype of `PlacementChannel` for the `edge` and architecture
+Return a concrete subtype of `SAChannel` for the `edge` and architecture
 `A`. Argument `node_dict` is a dictionary mapping taskgraph string names to
 integers.
 
@@ -188,7 +197,7 @@ Other additional fields left for you to implement as needed.
 # Address Data
 ################################################################################
 
-struct EmptyAddressData <: PlacementAddressData end
+struct EmptyAddressData <: AddressData end
 
 function build_address_data(::Type{T},
                             architecture,
@@ -215,7 +224,10 @@ function SAStruct(m::Map{A,D}) where {A,D}
     # Build dictionary to map node names to indices
     node_dict = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
     # Build the basic links
-    edges = [build_channel(A, n, node_dict) for n in getedges(taskgraph)]
+    edges = typeunion([build_channel(A, n, node_dict) for n in getedges(taskgraph)])
+    @debug """
+        Edge Type: $(typeof(edges))
+        """
 
     # Assign adjacency information to nodes.
     record_edges!(nodes, edges)
@@ -354,17 +366,25 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
     return component_table
 end
 
+function record(nodes, i, edge::TwoChannel)
+    push!(nodes[edge.source].out_edges, i)
+    push!(nodes[edge.sink].in_edges, i)
+    return nothing
+end
+function record(nodes, i, edge::MultiChannel)
+    for j in edge.sources
+        push!(nodes[j].out_edges,i)
+    end
+    for j in edge.sinks
+        push!(nodes[j].in_edges,i)
+    end
+    return nothing
+end
+
 function record_edges!(nodes, edges)
     # Reverse populate the nodes so they track their edges.
     for (i,edge) in enumerate(edges)
-        push!(nodes[edge.source].out_edges, i)
-        push!(nodes[edge.sink].in_edges, i)
-        #for j in edge.sources
-        #    push!(nodes[j].out_edges, i)
-        #end
-        #for j in edge.sinks
-        #    push!(nodes[j].in_edges, i)
-        #end
+        record(nodes, i, edge)
     end
     return nothing
 end
@@ -428,18 +448,19 @@ function equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitec
         end
     end
 
+    # Get the names of normal nodes
+    normal_nodes = join([n.name for n in normal_node_reps], "\n")
+    # Get the names of special nodes
+    special_nodes = join([i.name for i in special_node_reps], "\n")
+
     # Debug printing.
     @debug begin
-        # Get the names of normal nodes
-        normal_nodes = join([n.name for n in normal_node_reps], "\n")
-        # Get the names of special nodes
-        special_nodes = join([n.name for n in special_node_reps], "\n")
         # Build print string
         """
         Number of Normal Representatives: $(length(normal_node_reps))
         $normal_nodes
         Number of Special Node Reps: $(length(special_node_reps))
-        $special_node_reps
+        $special_nodes
         """
     end
     return nodeclasses, normal_node_reps, special_node_reps

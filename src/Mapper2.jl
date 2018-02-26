@@ -9,6 +9,7 @@ using MicroLogging
 function set_logging(level)
     modules = (Mapper2.MapperCore,
                Mapper2.Place,
+               Mapper2.SA,
                Mapper2.Routing,
               )
     for m in modules

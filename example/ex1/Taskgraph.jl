@@ -5,6 +5,13 @@ function make_taskgraph()
     return Taskgraph(name, nodes, edges)
 end
 
+function make_fanout_taskgraph()
+    name = "test_taskgraph"
+    nodes = make_nodes()
+    edges = make_fanout_edges()
+    return Taskgraph(name, nodes, edges)
+end
+
 const input_node_names = ("input1", "input2")
 const output_node_names = ("output1", "output2")
 # Just have 6 general task nodes so the 8 general primites are underutilized.
@@ -36,6 +43,24 @@ function make_edges()
              ("task1","task2","B"),
              ("task2","task3","B"),
              ("task3","task4","B"),
+             ("task4","task5","B"),
+             ("task5","task6","B"),
+             ("task1","task6","A"),
+             ("task2","output1","A"),
+             ("task6","output2","B"),
+            ]
+
+    return [TaskgraphEdge(a[1],a[2],Dict("class" => a[3])) for a in edges]
+end
+
+function make_fanout_edges()
+    # The following tuple is a collection: (source_task, sink_task, class)
+    # Class can be one of: {A,B,all}
+    edges = [("input1","task1","A"),
+             ("input2","task1","B"),
+             ("task1","task2","B"),
+             ("task2","task3","B"),
+             ("task3",["task4","task5"],"B"),
              ("task4","task5","B"),
              ("task5","task6","B"),
              ("task1","task6","A"),

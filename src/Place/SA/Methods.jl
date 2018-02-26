@@ -53,20 +53,36 @@ end
 ################################################################################
 # DEFAULT METRIC FUNCTIONS
 ################################################################################
-function edge_cost(::Type{A}, sa::SAStruct, edge) where {A <: AbstractArchitecture}
+#=
+Right now, this first function is basically a dispatch method to handle the
+case when we have multiple edge types.
+
+Ideas include:
+
+1. Allow type dispatch to do everything.
+2. Make this a "generated" function based on all the types of the edges and
+    build a "case" statement out of it.
+=#
+function edge_cost(::Type{A}, sa::SAStruct, i::Int) where {A <: AbstractArchitecture}
+    return edge_cost(A, sa, sa.edges[i])
+end
+
+function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::TwoChannel)
     cost = 0
-    x = sa.edges[edge]
-    
-    a = sa.nodes[x.source].address
-    b = sa.nodes[x.sink].address
+    a = sa.nodes[edge.source].address
+    b = sa.nodes[edge.sink].address
     return Int64(sa.distance[a,b])
-    #for src in sa.edges[edge].sources, snk in sa.edges[edge].sinks
-    #    # Get the source and sink addresses
-    #    src_address = sa.nodes[src].address
-    #    snk_address = sa.nodes[snk].address
-    #    cost += Int64(sa.distance[src_address, snk_address])
-    #end
-    #return cost
+end
+
+function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChannel)
+    cost = 0
+    for src in edge.sources, snk in edge.sinks
+        # Get the source and sink addresses
+        a = sa.nodes[src].address
+        b = sa.nodes[snk].address
+        cost += Int64(sa.distance[a,b])
+    end
+    return cost
 end
 
 #=
@@ -79,13 +95,12 @@ TODO: Think of a better way to make this code generic.
 
 map_cost(sa::SAStruct) = map_cost(architecture(sa), sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
-    cost = sum(edge_cost(A, sa, edge) for edge in eachindex(sa.edges))
+    cost = sum(edge_cost(A, sa, i) for i in eachindex(sa.edges))
     return cost
 end
 
 function node_cost(::Type{A}, sa::SAStruct, node) where {A <: AbstractArchitecture}
-    # Get the node type from the SA Structure.
-
+    # Unpack node data type.
     n = sa.nodes[node]
     local cost
     first = true
