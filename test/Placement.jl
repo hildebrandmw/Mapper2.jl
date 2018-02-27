@@ -13,7 +13,7 @@
     x = sa.task_table["task2"]
     y = sa.task_table["task2"]
 
-    # make sure their class matches 
+    # make sure their class matches
     cx = sa.nodeclass[x]
     cy = sa.nodeclass[y]
     @test cx == cy
@@ -30,7 +30,7 @@
     # Move both tasks to this primitive
     SA.move(sa, x, c, addr)
     SA.move(sa, y, c, addr)
-    
+
     @test !SA.verify_placement(m, sa)
 
     ### Move a node without updating the grid

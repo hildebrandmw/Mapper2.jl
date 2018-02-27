@@ -244,9 +244,9 @@ function bipartite_match!(g::AbstractGraph)
                 add_edge!(g,sink=>predecessor[end])
                 for i = 2:length(predecessor)-1
                     if i in outneighbors(g,source)
-                        add_edge!(g,predecessor[i]=>predecessor[i+1])
+                        add_edge!(g,predecessor[i],predecessor[i+1])
                     elseif i in inneighbors(g,sink)
-                        rem_edge!(g,predecessor[i]=>predecessor[i+1])
+                        rem_edge!(g,predecessor[i],predecessor[i+1])
                     end # end if
                 end # end for loop
                 break
@@ -254,4 +254,40 @@ function bipartite_match!(g::AbstractGraph)
         end # end of 2nd for loop
     end # end of 1st for loop
     return g
+end
+
+function build_testgraph(d)
+  # create empty array to count the number of elements on RHS
+  value_array = []
+  for value in values(d)
+    for entry in value
+      !(in(entry,value_array)) && push!(value_array,entry)
+    end
+  end
+  # number of nodes equals to entries on RHS + entries on LHS + source node
+  # + sink node
+  g = DiGraph(length(d)+length(value_array)+2)
+  # add edges
+  for (key, values) in d
+    add_edge!(g,1=>key)
+    for value in values
+      add_edge!(g,(key)=>(value))
+      add_edge!(g,(value)=>2)
+    end
+  end
+  return g
+end
+
+# this function converts the matched graph into a dictionary format used in
+# verification
+function graph2dict(g)
+    dict = Dict{Int64,Int64}()
+    for a in outneighbors(g,1)
+        for b in inneighbors(g,a)
+            if (b != 1)
+                dict[a] = b
+            end
+        end
+    end
+    return dict
 end
