@@ -89,6 +89,7 @@ function place(
         cooler ::AbstractSACool  = DefaultSACool(0.997),
         doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
         limiter::AbstractSALimit = DefaultSALimit(0.44),
+        kwargs...
        )
 
     # Unpack SA

@@ -52,10 +52,8 @@ Then, navigate into *docs/build* and open `index.html`.
 Improve Coverage.
 
 ### TODO (B = Basic, M = Medium, H = Hard)
-*   Code Coverage Tests:
-    - More thoroughly test bipartite matching algorithm.
-    - Include tests that exercise various error checking routines in the routing
-    verification process.
+*   (B) Move verification into MapType rather than routing. Makes more sense
+    to put it there.
 
 *   (M) May be some changes to make to routing. Perhaps an equivalence class
     trick like is used in placement to classify what architecture links can be

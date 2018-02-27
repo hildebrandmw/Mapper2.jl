@@ -3,6 +3,7 @@ struct RoutingChannel <: ARC
     start::Vector{Int64}
     stop ::Vector{Int64}
 end
+
 RoutingChannel(start, stop, taskgraph_edge) = RoutingChannel(start, stop)
 
 Base.start(r::ARC)   = r.start
@@ -54,7 +55,7 @@ function collect_nodes(arch::TopLevel{A,D},
             first = false
         else
             full_paths = [PortPath(p, path) for p in newpaths]
-            append!(port_paths, full_paths)
+            push!(port_paths, full_paths)
         end
     end
     # Augment all of the paths to get the full port path

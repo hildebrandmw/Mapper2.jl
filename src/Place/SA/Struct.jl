@@ -37,7 +37,6 @@ The placeholder is just this empty type.
 # SA Struct
 ################################################################################
 
-
 const Maptable{D} = Vector{Array{Vector{UInt8},D}}
 """
     struct SAStruct{A,U,D,D2,D1,N,L,T}
@@ -50,13 +49,11 @@ Data structure specialized for Simulated Annealing placement.
 # Paramters
 
 * `A` - The Architecture Type
-* `U` - Element type for the distance calculation LUT.
+* `U` - Type of the Distance provider
 * `D` - The dimension of the underlying architecture.
-* `D2`- Twice `D`. (still haven't figured out how to make julia to arithmetic
-                    with type parameters)
 * `D1` - `D + 1`.
-* `N <: Node` - Task node type.
-* `L <: SAChannel` - Edge node type.
+* `N` - Task node type.
+* `L` - Edge node type.
 * `T <: AddressData`` - The AddressData type.
 
 # Fields
@@ -77,7 +74,7 @@ Data structure specialized for Simulated Annealing placement.
 
     Accessed using `special_addresstables[i]`. The tasknode can be mapped to
     at least one component at each address of the returned vector.
-* `distance::Array{U,D2}` - Distance look up table from address `a` to address
+* `distance::U` - Distance look up table from address `a` to address
     `b`. Precomputed using graph searches on the original architecture.
 * `grid::Array{Int64,D1}` - Mapping from address `a`, component `i` to the
     tasknode index mapped to that location.
@@ -90,7 +87,7 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D2,D1,N,L,T <: AddressData}
+struct SAStruct{A,U,D,D1,N,L,T <: AddressData}
 
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
@@ -98,7 +95,7 @@ struct SAStruct{A,U,D,D2,D1,N,L,T <: AddressData}
     maptables               ::Maptable{D}
     special_maptables       ::Maptable{D}
     special_addresstables   ::Vector{Vector{CartesianIndex{D}}}
-    distance                ::Array{U,D2}
+    distance                ::U
     grid                    ::Array{Int64,D1}
     address_data            ::T
     #=
@@ -206,17 +203,20 @@ end
 # Constructor for the SA Structure
 ################################################################################
 
-function SAStruct(m::Map{A,D}) where {A,D}
+function SAStruct(m::Map{A,D};
+                  distance = build_distance_table(m.architecture),
+                  kwargs...
+                 ) where {A,D}
     @info "Building Placement Structure\n"
 
-    architecture = m.architecture
-    taskgraph    = m.taskgraph
-    # First step - create the component_table.
+    architecture  = m.architecture
+    taskgraph     = m.taskgraph
+    # Create the component_table.
     component_table = build_component_table(architecture)
-    # Next step, build the SA Taskgraph
+    # Build the SA Taskgraph
     node_iterator = getnodes(taskgraph)
-    nodes       = [build_node(A, n, D) for n in node_iterator]
-    task_table  = Dict(n.name => i for (i,n) in enumerate(node_iterator))
+    nodes         = [build_node(A, n, D) for n in node_iterator]
+    task_table    = Dict(n.name => i for (i,n) in enumerate(node_iterator))
 
     #------------------------------#
     # Build the channel containers #
@@ -244,16 +244,14 @@ function SAStruct(m::Map{A,D}) where {A,D}
     s_addresstables = build_addresstables(architecture, sclass, component_table)
 
     arraysize = size(component_table)
-    distance = build_distance_table(architecture)
     # Find the maximum number of components in any address.
     max_num_components = maximum(map(length, component_table))
     grid = zeros(Int64, max_num_components, size(component_table)...)
     address_data = build_address_data(A, architecture, taskgraph)
 
     sa = SAStruct{A,                    # Architecture Type
-                  eltype(distance),     # Encoding of Tile Distance
+                  typeof(distance),     # Encoding of Tile Distance
                   D,                    # Dimensionality of the Architecture
-                  2*D,                  # 2x Architecture Dimensionality
                   D+1,                  # Architecture Dimensionality + 1
                   eltype(nodes),        # Type of the taskgraph nodes
                   eltype(edges),        # Type of the taskgraph edges
@@ -338,9 +336,29 @@ function record(m::Map{A,D}, sa::SAStruct) where {A,D}
     return nothing
 end
 
-################################################################################
-# Construction routines.
-################################################################################
+function record(nodes, i, edge::TwoChannel)
+    push!(nodes[edge.source].out_edges, i)
+    push!(nodes[edge.sink].in_edges, i)
+    return nothing
+end
+function record(nodes, i, edge::MultiChannel)
+    for j in edge.sources
+        push!(nodes[j].out_edges,i)
+    end
+    for j in edge.sinks
+        push!(nodes[j].in_edges,i)
+    end
+    return nothing
+end
+
+function record_edges!(nodes, edges)
+    # Reverse populate the nodes so they track their edges.
+    for (i,edge) in enumerate(edges)
+        record(nodes, i, edge)
+    end
+    return nothing
+end
+
 
 function build_component_table(tl::TopLevel{A,D}) where {A,D}
     # Get the dimensions of the addresses to build the array that is going to
@@ -366,29 +384,6 @@ function build_component_table(tl::TopLevel{A,D}) where {A,D}
     return component_table
 end
 
-function record(nodes, i, edge::TwoChannel)
-    push!(nodes[edge.source].out_edges, i)
-    push!(nodes[edge.sink].in_edges, i)
-    return nothing
-end
-function record(nodes, i, edge::MultiChannel)
-    for j in edge.sources
-        push!(nodes[j].out_edges,i)
-    end
-    for j in edge.sinks
-        push!(nodes[j].in_edges,i)
-    end
-    return nothing
-end
-
-function record_edges!(nodes, edges)
-    # Reverse populate the nodes so they track their edges.
-    for (i,edge) in enumerate(edges)
-        record(nodes, i, edge)
-    end
-    return nothing
-end
-
 """
     equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
 
@@ -412,7 +407,7 @@ Returns a tuple of 3 elements:
     Take the negative of the index to get the number for the equivalence class.
 
 """
-function equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitecture}
     @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
@@ -518,72 +513,6 @@ function build_addresstables(architecture::TopLevel{A,D},
     return addresstables
 end
 
-################################################################################
-# BFS Routines for building the distance look up table
-################################################################################
-function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
-    # The data type for the LUT
-    dtype = UInt8
-    # Pre-allocate a table of the right dimensions.
-    dims = dim_max(addresses(architecture))
-    # Replicate the dimensions once to get a 2D sized LUT.
-    distance = Array{dtype}(dims..., dims...)
-    # Get the neighbor table for finding adjacent components in the top level.
-    neighbor_table = build_neighbor_table(architecture)
-
-    @debug "Building Distance Table"
-    # Run a BFS for each starting address
-    @showprogress 1 for address in addresses(architecture)
-        bfs!(distance, architecture, address, neighbor_table)
-    end
-    return distance
-end
-
-#=
-Simple data structure for keeping track of costs associated with addresses
-Gets put the the queue for the BFS.
-=#
-struct CostAddress{U,D}
-    cost::U
-    address::CartesianIndex{D}
-end
-
-function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
-              source::CartesianIndex{D}, neighbor_table) where {U,N,A,D}
-    # Create a queue for visiting addresses.
-    q = Queue(CostAddress{U,D})
-    # Add the source addresses to the queue
-    enqueue!(q, CostAddress(zero(U), source))
-
-    # Create a set of visited items and add the source to that set.
-    queued_addresses = Set{CartesianIndex{D}}()
-    push!(queued_addresses, source)
-    # Begin BFS - iterate until the queue is empty.
-    while !isempty(q)
-        u = dequeue!(q)
-        distance[source, u.address] = u.cost
-        for v in neighbor_table[u.address]
-            if v ∉ queued_addresses
-                enqueue!(q, CostAddress(u.cost + one(U), v))
-                push!(queued_addresses, v)
-            end
-        end
-    end
-    return nothing
-end
-
-function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    dims = Int64.(dim_max(addresses(architecture)))
-    @debug "Building Neighbor Table"
-    # Get the connected component dictionary
-    cc = MapperCore.connected_components(architecture)
-    # Create a big list of lists
-    neighbor_table = Array{Vector{CartesianIndex{D}}}(dims)
-    for (address, set) in cc
-        neighbor_table[address] = collect(set)
-    end
-    return neighbor_table
-end
 
 ################################################################################
 # Verification routine for SA Placement

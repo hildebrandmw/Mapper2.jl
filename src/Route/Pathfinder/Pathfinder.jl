@@ -144,7 +144,6 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
     return nothing
 end
 
-const debug = []
 
 """
     shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
@@ -200,14 +199,6 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
             end
         end
     end
-    # Raise an error if routing was not successful
-    if !success
-        empty!(debug)
-        push!(debug, p)
-        push!(debug, r)
-        push!(debug, channel)
-        error("Shortest Path failed epicly on link: $channel.")
-    end
     # Do a back-trace from the last vertex to determine the path that
     # this connection took through the graph.
     path = [previous_index]
@@ -244,4 +235,3 @@ function route(p::Pathfinder, rs::RoutingStruct)
     end
     return nothing
 end
-

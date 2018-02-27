@@ -1,19 +1,48 @@
 struct ChannelPath
-    links::Vector{Int64}
-end
-ChannelPath() = ChannelPath(Int64[])
-
-# Simple redirection methods
-for fn in (:start, :length, :first, :last)
-    @eval (Base.$fn)(e::ChannelPath) = ($fn)(e.links)
-end
-for fn in (:next, :done, :getindex)
-    @eval (Base.$fn)(e::ChannelPath, s) = ($fn)(e.links, s)
+    links::Vector{Vector{Int64}}
 end
 
-struct RoutingStruct{RG <: RoutingGraph, 
-                     L <: AbstractRoutingLink, 
+ChannelPath() = ChannelPath(Vector{Int64}[])
+ChannelPath(x::Vector{Int64}) = ChannelPath([x])
+
+Base.getindex(c::ChannelPath, i::Tuple{T,T}) where T <: Integer = c.links[i[1]][i[2]]
+function Base.getindex(c::ChannelPath, i::T) where T <: Integer
+    for v in c.links
+        lv = length(v)
+        if lv >= i
+            return v[i]
+        else
+            i -= lv 
+        end
+    end
+    throw(BoundsError(vcat(c.links...), i))
+end
+
+Base.length(c::ChannelPath) = sum(length.(c.links))
+
+Base.start(c::ChannelPath) = (1,1)
+Base.done(c::ChannelPath, state) = state[1] > length(c.links)
+function Base.next(c::ChannelPath, state)
+    i = c[state]
+    # Unpack state
+    outer = state[1]
+    inner = state[2] + 1
+    # Increment double counters
+    if inner > length(c.links[outer])
+        outer += 1
+        inner = 1
+    end
+    return i, (outer, inner)
+end
+
+################################################################################
+# Routing Struct
+################################################################################
+
+struct RoutingStruct{RG <: RoutingGraph,
+                     L <: AbstractRoutingLink,
                      C <: AbstractRoutingChannel}
+
     "Routing Resources Graph"
     graph   ::RG
     "Annotaions for the graph"
@@ -30,6 +59,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     taskgraph    = m.taskgraph
     # Create the routing resources graph from the architecture.
     @info "Building Resource Graph"
+
     graph = routing_graph(architecture)
     @debug routing_graph_info(graph)
     # Annotate the links in the routing graph with the custom structure defined
@@ -154,7 +184,7 @@ function get_routing_path(architecture, path, portmap_rev, linkmap_rev)
         if eltype(a) <: PortPath
             # Make an ordered set to keep track of things - this takes care
             # of the instance where a routing path through the architecture
-            # can enter one port of something like a multiplexor and 
+            # can enter one port of something like a multiplexor and
             # exit through another port without taking a link in between.
             set = OrderedSet()
             # Look behind - get the port of this collection that is connected

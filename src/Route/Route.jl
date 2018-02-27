@@ -30,18 +30,17 @@ abstract type AbstractRoutingLink end
 abstract type AbstractRoutingChannel end
 abstract type AbstractRoutingAlgorithm end
 
-
-
 # This file converts the top level architecture to a simple graph plus
 # translation dictionaries.
 include("Graph.jl")
 include("Links.jl")
 include("Channels.jl")
+
 # Encapsulation for the whole routing struct.
 include("Struct.jl")
 
 # Algorithms
-include("Pathfinder.jl")
+include("Pathfinder/Pathfinder.jl")
 
 # Verification
 include("Verification.jl")
@@ -67,18 +66,18 @@ end
 # REQUIRED METHODS
 ################################################################################
 
-routing_link_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingLink
-routing_channel_type(::Type{A}) where {A <: AbstractArchitecture} = RoutingChannel
+routing_link_type(::Type{<:AbstractArchitecture})       = RoutingLink
+routing_channel_type(::Type{<:AbstractArchitecture})    = RoutingChannel
 
-function annotate_port(::Type{A}, port) where {A <: AbstractArchitecture}
+function annotate_port(::Type{<:AbstractArchitecture}, port)
     return RoutingLink()
 end
 
-function annotate_link(::Type{A}, link) where {A <: AbstractArchitecture}
+function annotate_link(::Type{<:AbstractArchitecture}, link)
     return RoutingLink()
 end
 
-function annotate_component(::Type{A}, component::Component, ports) where {A <: AbstractArchitecture}
+function annotate_component(::Type{<:AbstractArchitecture}, component::Component, ports)
     @assert component.primitive == "mux"
     return RoutingLink()
 end
@@ -97,11 +96,10 @@ function canuse(::Type{A},link::AbstractRoutingLink,task::AbstractRoutingChannel
     return true
 end
 
-function canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) where 
+function canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) where
         A <: AbstractArchitecture
     return true
 end
-
 
 """
     isvalid_source_port(::Type{A}, port::Port, edge::TaskgraphEdge) where A <: AbstractArchitecture

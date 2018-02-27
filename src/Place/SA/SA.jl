@@ -17,7 +17,7 @@ export  SAStruct
 
 
 function place(m::Map{A}; kwargs...) where {A <: AbstractArchitecture}
-    s = SAStruct(m) 
+    s = SAStruct(m; kwargs...)
     place(s; kwargs...)
     record(m, s)
     return m
