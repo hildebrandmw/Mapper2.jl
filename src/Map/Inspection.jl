@@ -43,8 +43,8 @@ end
 
 function count_global_links(edge::EdgeMap)
     link_count = 0
-    for node in edge.path
-        if isgloballink(node)
+    for v in vertices(edge.path)
+        if isgloballink(v)
             link_count += 1
         end
     end

@@ -29,6 +29,7 @@ architecture. The following steps need to happen:
         for printing at the end.
 =#
 ################################################################################
+
 function verify_routing(m::Map{A,D}, rs::RoutingStruct) where {A,D}
     @info "Verifying Routing"
     # Create a new error tracker.
@@ -115,7 +116,7 @@ function walkpath(architecture::TopLevel{A,D},
         # through the architecture.
         thispath = path[i]
         if !canuse(A, architecture[first(thispath)], taskedge)
-            routing_invalid_resource(errors)
+            routing_invalid_resource(errors, first(thispath), taskedge)
         end
         if eltype(thispath) <: PortPath
             if !(eltype(path[i+1]) <: LinkPath)
@@ -221,9 +222,9 @@ function routing_invalid_connection(errors, this, that)
         Invalid connection from $this to $that.
         """
 end
-function routing_invalid_resource(errors)
+function routing_invalid_resource(errors, path, edge)
     increment(errors)
     @warn """
-        Invalid Resource!!
+        Invalid resource $path for edge $edge.
         """
 end

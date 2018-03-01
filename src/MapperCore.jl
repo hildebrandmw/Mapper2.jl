@@ -2,7 +2,6 @@ module MapperCore
 
 using ..Mapper2.Helper
 using IterTools
-using GZip
 using JSON
 using DataStructures
 using MicroLogging

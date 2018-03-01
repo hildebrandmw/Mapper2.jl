@@ -276,7 +276,7 @@ end
 # SHOW #
 ########
 Base.string(c::ComponentPath) = join(c.path, ".")
-Base.string(a::AddressPath)   = join((a.address, string(a.path)), ".")
+Base.string(a::AddressPath)   = join((a.address.I, string(a.path)), ".")
 Base.string(p::AbstractPath)  = join((string(p.path), p.name), ".")
 typestring(p::AbstractComponentPath)    = "Component"
 typestring(p::PortPath)                 = "Port"
@@ -749,17 +749,6 @@ function check_connectivity(architecture,
     end
 end
 
-function get_connected_port(architecture,
-                            portpaths::Vector{T},
-                            linkpath::LinkPath,
-                            dir::Symbol = :source) where T <: PortPath
-    for portpath in portpaths
-        if check_connectivity(architecture, portpath, linkpath, dir)
-            return portpath
-        end
-    end
-    error("Connected port path not found.")
-end
 ################################################################################
 # ASSERTION METHODS.
 ################################################################################
@@ -767,7 +756,8 @@ end
 """
     assert_no_children(c::AbstractComponent)
 
-Throw error if component `c` has any children.
+Return `true` if `c` has no children. Otherwise, return `false` and log an
+error.
 """
 function assert_no_children(c::AbstractComponent)
     passed = true
@@ -783,11 +773,10 @@ end
 """
     assert_no_intrarouting(c::AbstractComponent)
 
-Throw error if component `c` has any intra-component routing.
+Return `true` if `c` has not internal links. Otherwise, return `false` and
+log an error.
 """
 function assert_no_intrarouting(c::AbstractComponent)
-    # Iterate through all ports. Ensure that the neighbor lists for each
-    # port is empty.
     passed = true
     for port in values(c.ports)
         if port.link.name != ""
@@ -813,10 +802,8 @@ function isfree(c::AbstractComponent, p::PortPath)
     # If the link name is empty - the port is not yet assigned.
     if istop(p)
         return isempty(c[p].link.name)
-    #=
-    Otherwise - check the port_link dictionary for the component and see if
-    anything is assigned to this link yet.
-    =#
+    # Otherwise - check the port_link dictionary for the component and see if
+    # anything is assigned to this link yet.
     else
         return !haskey(c.port_link, p)
     end

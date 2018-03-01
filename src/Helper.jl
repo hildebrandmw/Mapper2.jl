@@ -1,8 +1,9 @@
 module Helper
 
-using MicroLogging
+using LightGraphs
 
-export  push_to_dict,
+export  typeunion,
+        push_to_dict,
         add_to_dict,
         rev_dict,
         rev_dict_safe,
@@ -10,7 +11,26 @@ export  push_to_dict,
         rand_cartesian,
         dim_max,
         dim_min,
-        max_entry
+        max_entry,
+        SparseDiGraph,
+        has_vertex,
+        add_vertex!,
+        add_edge!,
+        vertices,
+        outneighbors,
+        inneighbors,
+        nv
+
+function typeunion(A::Array)
+    types = DataType[]
+    for i in A
+        t = typeof(i)
+        if t ∉ types
+            push!(types, t)
+        end
+    end
+    return Array{Union{types...}}(A)
+end
 
 """
     push_to_dict(d, k, v)
@@ -110,5 +130,44 @@ end
     from a collection of CartesianIndices.
     """ dim_min
 
+################################################################################
+# Subgraph for for lightgraphs
+################################################################################
+struct AdjList{T}
+    adjin ::Vector{T}
+    adjout::Vector{T}
+end
+AdjList{T}() where T = AdjList(T[], T[])
+
+struct SparseDiGraph{T}
+    vertices::Dict{T,AdjList{T}}
+end
+
+SparseDiGraph{T}() where T = SparseDiGraph(Dict{T,AdjList{T}}())
+
+LightGraphs.has_vertex(g::SparseDiGraph, v) = haskey(g.vertices, v)
+
+function LightGraphs.add_vertex!(g::SparseDiGraph{T}, v) where T
+    has_vertex(g, v) && return false
+    g.vertices[v] = AdjList{T}()
+    return true
+end
+
+function LightGraphs.add_edge!(g::SparseDiGraph, src, snk)
+    has_vertex(g, src) || throw(KeyError(src))
+    has_vertex(g, snk) || throw(KeyError(snk))
+    push!(g.vertices[src].adjout, snk)
+    push!(g.vertices[snk].adjin,  src)
+    return nothing
+end
+
+LightGraphs.vertices(g::SparseDiGraph) = keys(g.vertices)
+
+LightGraphs.edges(g::SparseDiGraph) = SparseEdgeIter(G)
+
+LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].adjout
+LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].adjin
+
+LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
 
 end # module Helper

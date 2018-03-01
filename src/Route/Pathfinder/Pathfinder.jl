@@ -10,6 +10,7 @@ struct CostVertex
    index       ::Int64
    predecessor ::Int64
 end
+CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
 mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
@@ -155,59 +156,138 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
     A = getarchitecture(p)
     # Reset the runtime structures.
     soft_reset(p)
+
     # Unpack the certain variables.
     graph       = r.graph.graph
     pq          = p.pq
     discovered  = p.discovered
     predecessor = p.predecessor
     # Add all the start nodes to the priority queue.
-    startnodes = shuffle(start(r, channel))
-    for i in startnodes
-        push!(pq, CostVertex(0.0, i, -1))
+    start_vectors = start(r, channel)
+
+    if length(start_vectors) > 1
+        throw(ErrorException("""
+            Pathfinder cannot run for channels with more than one source component.
+            """))
     end
-    # Get the stop nodes for this channel
-    stopnodes = stop(r, channel)
 
     task = getchannel(r, channel)
 
-    previous_index = 0
-    success = false
-    while !isempty(pq)
-        # Pop a node out of the priority queue
-        v = pop!(pq)
-        # Check if this node is one of the stop nodes. If so - exit the loop.
-        if in(v.index, stopnodes)
-            previous_index = v.index
-            predecessor[v.index] = v.predecessor
-            success = true
-            break
-        end
-        # If the node has not been discovered yet - mark it as discovered and
-        # mark its predecessor for a potential backtrace. Add all neighbors
-        # of this node to the queue.
-        discovered[v.index] && continue
-        # Mark node as discovered and all undiscovered neighbors.
-        discovered[v.index] = true
-        predecessor[v.index] = v.predecessor
-        for u in outneighbors(graph, v.index)
-            link_type = getlink(r,u)
-            if !discovered[u] && canuse(A, link_type, task)
-                # Compute the cost of taking the new vertex and add it
-                # to the queue.
-                new_cost = v.cost + linkcost(p,r,u)
-                push!(pq, CostVertex(new_cost,u,v.index))
+    # Get the stop nodes for this channel
+    stop_vectors = stop(r, channel)
+    stop_mask    = trues(length(stop_vectors))
+
+    # Path type that we will store the final paths in.
+    paths = SparseDiGraph{Int64}()
+
+    # Keep iterating until all destination nodes have been reached.
+    while count(stop_mask) > 0
+        # Empty the priority queue
+        soft_reset(p)
+
+        # Get the start nodes. If this is the first iteration, get the start
+        # nodes from the data structure definition. Otherwise, use the previously
+        # used nodes in "paths" as the starting points
+        if nv(paths) == 0
+            startnodes = shuffle(first(start_vectors))
+            for i in startnodes
+                push!(pq, CostVertex(i))
+            end
+        else
+            startnodes = Int64[]
+            for j in vertices(paths) 
+                discovered[j] = true
+                # Add all the neighbors of these nodes to the priority queue.
+                for u in outneighbors(graph, j)
+                    link_type = getlink(r,u)
+                    if !discovered[u] && canuse(A, link_type, task)
+                        new_cost = linkcost(p,r,u)
+                        push!(pq, CostVertex(new_cost,u,j))
+                    end
+                end
+                push!(startnodes, j)
             end
         end
-    end
-    # Do a back-trace from the last vertex to determine the path that
-    # this connection took through the graph.
-    path = [previous_index]
-    # Iterate until we find a start node.
-    while !in(first(path), startnodes)
-        unshift!(path, predecessor[first(path)])
+
+        # Get the stop nodes from the undiscovered destinations.
+        # Iterate through the vector{vector{int}}, skipping if the destination
+        # has already been found.
+        stopnodes = Int64[]
+        for i in eachindex(stop_vectors)
+            stop_mask[i] || continue
+            for j in stop_vectors[i]
+                push!(stopnodes, j)
+            end
+        end
+
+        # Initialize search variables
+        lastnode  = 0
+        success   = false
+        while !isempty(pq)
+            # Pop a node out of the priority queue
+            v = pop!(pq)
+            # Check if this node is one of the stop nodes. If so - exit the loop.
+            if in(v.index, stopnodes)
+                lastnode = v.index
+                predecessor[v.index] = v.predecessor
+                success = true
+                break
+            end
+            # If the node has not been discovered yet - mark it as discovered and
+            # mark its predecessor for a potential backtrace. Add all neighbors
+            # of this node to the queue.
+            discovered[v.index] && continue
+            # Mark node as discovered and all undiscovered neighbors.
+            discovered[v.index] = true
+            predecessor[v.index] = v.predecessor
+            for u in outneighbors(graph, v.index)
+                link_type = getlink(r,u)
+                if !discovered[u] && canuse(A, link_type, task)
+                    # Compute the cost of taking the new vertex and add it
+                    # to the queue.
+                    new_cost = v.cost + linkcost(p,r,u)
+                    push!(pq, CostVertex(new_cost,u,v.index))
+                end
+            end
+        end
+
+        if success == false
+            throw(ErrorException("Shortest Path failed."))
+        end
+        # Do a back-trace from the last vertex to determine the path that
+        # this connection took through the graph.
+        add_vertex!(paths, lastnode)
+
+        i = lastnode
+        j = predecessor[i]
+        # Iterate until we find a start node.
+        while j != -1
+            add_vertex!(paths, j) 
+            add_edge!(paths, j, i)
+            i, j = j, predecessor[j]
+        end
+
+        # Now, find which destination was reached, and mark it as completed
+        found_vector = false
+        for i in eachindex(stop_vectors)
+            stop_mask[i] || continue
+            # Check to see if the last discovered node is in this collection
+            if in(lastnode, stop_vectors[i])
+                stop_mask[i] = false
+                found_vector = true
+                break
+            end
+        end
+
+        # Error checking
+        if found_vector == false
+            throw(ErrorException("""
+                Final Node $previous_index is not a valid stop node.
+                """))
+        end
     end
     # Wrap the path in an edge path and add it to the RoutingStruct.
-    set_route(r, ChannelPath(path), channel)
+    set_route(r, paths, channel)
     return nothing
 end
 

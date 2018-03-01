@@ -16,12 +16,9 @@ export  route,
         RoutingLink,
         AbstractRoutingChannel,
         RoutingChannel,
-        ChannelList,
         routing_link_type,
-        routing_channel_type,
-        annotate_port,
-        annotate_link,
-        annotate_component,
+        routing_channel,
+        annotate,
         canuse,
         isvalid_source_port,
         isvalid_sink_port
@@ -65,38 +62,26 @@ end
 ################################################################################
 # REQUIRED METHODS
 ################################################################################
-
-routing_link_type(::Type{<:AbstractArchitecture})       = RoutingLink
-routing_channel_type(::Type{<:AbstractArchitecture})    = RoutingChannel
-
-function annotate_port(::Type{<:AbstractArchitecture}, port)
+function annotate(::Type{<:AbstractArchitecture}, port::Port)
     return RoutingLink()
 end
 
-function annotate_link(::Type{<:AbstractArchitecture}, link)
+function annotate(::Type{<:AbstractArchitecture}, link::Link)
     return RoutingLink()
 end
 
-function annotate_component(::Type{<:AbstractArchitecture}, component::Component, ports)
+function annotate(::Type{<:AbstractArchitecture}, component::Component)
     @assert component.primitive == "mux"
     return RoutingLink()
 end
 
 
-"""
-    canuse(::Type{A}, rs::RoutingStruct, arch_link::Integer, task_link::Integer) where A <: AbstractArchitecture
-
-Indicate whether the architecture link at `arch_link` can be used by the
-taskgraph link at `task_link`. Default implementation always returns true.
-
-Specialized implementations can allow for multiple, separate networks.
-"""
-function canuse(::Type{A},link::AbstractRoutingLink,task::AbstractRoutingChannel) where
+function canuse(::Type{A},item::AbstractRoutingLink,edge::AbstractRoutingChannel) where
         A <: AbstractArchitecture
     return true
 end
 
-function canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) where
+function canuse(::Type{A},item::Union{Port,Link}, edge::TaskgraphEdge) where
         A <: AbstractArchitecture
     return true
 end
