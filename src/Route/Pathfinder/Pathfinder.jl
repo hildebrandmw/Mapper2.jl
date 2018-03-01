@@ -301,8 +301,8 @@ function route(p::Pathfinder, rs::RoutingStruct)
         update_historical_congestion(p, rs)
         ncongested = 0
         # Count the number of congested links.
-        for i in p.links_to_route
-            if iscongested(rs, i)
+        for j in p.links_to_route
+            if iscongested(rs, j)
                 ncongested += 1
             end
         end

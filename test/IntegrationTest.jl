@@ -76,5 +76,6 @@ end
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)
-    @test MapperCore.check_routing(m)
+    # expect routing to fail because of inadequate resources.
+    @test MapperCore.check_routing(m) == false
 end

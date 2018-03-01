@@ -128,7 +128,7 @@ canmap(::Type{T}, t::TN, c::Component) where {T <: AA}  = true
 
 # Routing Queries
 canuse(::Type{<:AA},item::PLC, edge::TE)                = true
-getcapacity(::Type{A}, item::PLC) where A <: AA         = 1
+getcapacity(::Type{A}, item) where A <: AA              = 1
 
 isvalid_source_port(::Type{<:AA}, port::Port, edge::TE) = (port.class in PORT_SINKS)
 isvalid_sink_port(::Type{<:AA}, port::Port, edge::TE) = (port.class in PORT_SOURCES)

@@ -5,7 +5,7 @@ passfail(b::Bool) = b ? "passed" : "failed"
 ################################################################################
 function check_routing(m::Map)
     port_okay = check_ports(m)
-    #capacity_okay = check_capacity(m)
+    capacity_okay = check_capacity(m)
     graph_okay = check_routing_connectivity(m)
     arch_okay = check_architecture_connectivity(m)
     resource_okay = check_architecture_resources(m)
@@ -13,17 +13,18 @@ function check_routing(m::Map)
     @info """
         Routing Summary
         ---------------
+        Congestion Check:   $(passfail(capacity_okay))
 
-        Port Check: $(passfail(port_okay))
+        Port Check:         $(passfail(port_okay))
 
         Graph Connectivity: $(passfail(graph_okay))
 
         Architecture Check: $(passfail(arch_okay))
 
-        Resource Check: $(passfail(resource_okay))
+        Resource Check:     $(passfail(resource_okay))
         """
 
-    return foldl(&, (port_okay, graph_okay, arch_okay, resource_okay))
+    return foldl(&, (capacity_okay, port_okay, graph_okay, arch_okay, resource_okay))
 end
 
 function check_ports(m::Map{A}) where A
@@ -97,6 +98,40 @@ function check_ports(m::Map{A}) where A
         end
     end
     return success
+end
+
+function check_capacity(m::Map{A}) where A <: AbstractArchitecture
+    arch    = m.architecture
+    edges   = m.mapping.edges
+
+    times_resource_used = Dict{Any,Int}()
+    resource_to_edge    = Dict{Any,Vector{Int}}()
+
+    # categorize edges
+    for (i,edge) in enumerate(edges)
+        for v in vertices(edge.path)
+            add_to_dict(times_resource_used, v)
+            push_to_dict(resource_to_edge, v, i)
+        end
+    end
+
+    congested_edges = Set{Int}() 
+    for (path, occupancy) in times_resource_used
+        # record congested edges
+        if occupancy > getcapacity(A, arch[path])
+            push!(congested_edges, resource_to_edge[path]...)
+        end
+    end
+
+    if length(congested_edges) > 0
+        @error """
+            Mapping has routing congestion.
+
+            Congested edges: $(sort(collect(congested_edges)))
+            """
+        return false
+    end
+    return true
 end
 
 

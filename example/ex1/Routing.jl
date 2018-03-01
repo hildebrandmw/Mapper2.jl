@@ -33,16 +33,19 @@ end
 function Mapper2.routing_channel(::Type{A}, start, stop, edge::TaskgraphEdge) where {A <: TestArchitecture} 
     TypedRoutingChannel(start, stop, edge)
 end
+function Mapper2.getcapacity(::Type{A}, item) where {A <: TestArchitecture}
+    return get(item.metadata, "capacity", 10)
+end
 
 # Provide custom annotation methods.
 function Mapper2.annotate(::Type{A},port::Port) where {A <: TestArchitecture}
-    capacity = get(port.metadata, "capacity", 10)
+    capacity = getcapacity(A, port)
     class    = get(port.metadata, "class", "all")
     cost     = get(port.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)
 end
 function Mapper2.annotate(::Type{A},link::Link) where {A <: TestArchitecture}
-    capacity = get(link.metadata, "capacity", 10)
+    capacity = getcapacity(A, link)
     class    = get(link.metadata, "class", "all")
     cost     = get(link.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)

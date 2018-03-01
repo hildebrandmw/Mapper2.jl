@@ -172,10 +172,7 @@ function setup_channel_build(::Type{A}, taskgraph) where A <: AbstractArchitectu
     return build_channels(A, edges, sources, sinks)
 end
 
-function build_channels(::Type{A},
-                        edges,
-                        sources ::Vector,
-                        sinks   ::Vector) where A <: AbstractArchitecture
+function build_channels(::Type{A}, edges, sources, sinks) where A <: AbstractArchitecture
 
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
