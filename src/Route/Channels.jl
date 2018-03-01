@@ -1,74 +1,95 @@
 const ARC = AbstractRoutingChannel
+#=
+I'm making the start and stop nodes vector{vector{int}}.
+- The outer vector is for each independent component. Thus, if there are 3
+    source components, the length of the outer vector will be 3.
+
+- The inner vector points to ports on that component, in the case that one of
+    several input/output ports may be used.
+=#
 struct RoutingChannel <: ARC
-    start::Vector{Int64}
-    stop ::Vector{Int64}
+    start::Vector{Vector{Int64}}
+    stop ::Vector{Vector{Int64}}
 end
 
-RoutingChannel(start, stop, taskgraph_edge) = RoutingChannel(start, stop)
+# Default routing channel doesn't need to look at the taskgraph_edge.
+# This is a default rerouting function to provide the 3-argument function
+# call for future specialization.
+function routing_channel(::Type{A}, start, stop, edge) where {A<:AbstractArchitecture}
+    RoutingChannel(start, stop)
+end
 
 Base.start(r::ARC)   = r.start
 stop(r::ARC)         = r.stop
 
-#=
-Fallback for choosing links to give priority to during routing.
-=#
+# Fallback for choosing links to give priority to during routing.
 Base.isless(::ARC, ::ARC) = false
 
-function build_routing_taskgraph(m::Map{A}, rg::RoutingGraph) where {A <: AbstractArchitecture}
+function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: AbstractArchitecture}
     # Debug printing
-    @info "Building Default Routing Taskgraph"
+    @debug "Building Default Routing Taskgraph"
     # Unpack map
-    taskgraph       = m.taskgraph
-    architecture    = m.architecture
+    taskgraph = m.taskgraph
+    arch      = m.architecture
     # Decode the routing task type for this architecture
-    task_type = routing_channel_type(A)
-    # Allocate a StartStopNodes vector with an index for each edge in the
-    # base taskgraph.
-    channels = Vector{task_type}(num_edges(taskgraph))
-    # Iterate through all edges in the taskgraph
-    for (i,edge) in enumerate(getedges(taskgraph))
-        # Get the source nodes names
+    channels = map(getedges(taskgraph)) do edge
+        # Get source and destination nodes paths
         sources = MapperCore.getpath.(m, getsources(edge))
         sinks   = MapperCore.getpath.(m, getsinks(edge))
-        # Collect the nodes in the routing graph for these ports.
-        start = collect_nodes(architecture, rg, edge, sources, :source)
-        stop  = collect_nodes(architecture, rg, edge, sinks, :sink)
-        channels[i] = task_type(start,stop,edge)
+        # Convert these to indices in the routing graph
+        start = collect_nodes(arch, r.map, edge, sources, :source)
+        stop  = collect_nodes(arch, r.map, edge, sinks, :sink)
+        # Build the routing channel type
+        return routing_channel(A, start, stop, edge)
     end
+    # Return the collection of channels
     return channels
 end
 
 function collect_nodes(arch::TopLevel{A,D},
-                       resource_graph,
-                       edge,
+                       pathmap,
+                       edge::TaskgraphEdge,
                        paths,
-                       symbol) where {A,D}
+                       dir) where {A,D}
 
+    nodes = Vector{Int64}[]
     # Iterate through the source paths - get the port names.
-    first = true
-    local port_paths
     for path in paths
-        newpaths = get_routing_ports(A, edge, arch[path], symbol)
-        # Augment the port paths to get a full path.
-        if first
-            port_paths = [PortPath(p, path) for p in newpaths]
-            first = false
-        else
-            full_paths = [PortPath(p, path) for p in newpaths]
-            push!(port_paths, full_paths)
-        end
+        # Get the component from the architecture
+        component = arch[path]
+        ports = get_routing_ports(A, edge, component, dir)
+
+        # The ports are just a collection of strings. 
+        #
+        # 1. Create port path types from these ports using the path for the 
+        #    component that they belong to. 
+        #
+        # 2. Use these full paths to index into the portmap dictionary to
+        #    get the numbers in the routing graph.
+        port_paths = [PortPath(port, path) for port in ports]
+        port_indices = [pathmap[pp] for pp in port_paths]
+
+        # Add this to the collection of nodes
+        push!(nodes, port_indices)
     end
-    # Augment all of the paths to get the full port path
-    # Convert these paths to indices
-    return unique(resource_graph.portmap[p] for p in port_paths)
+    return nodes
 end
 
-function get_routing_ports(::Type{A}, edge::TaskgraphEdge, component::Component, sym) where A <: AbstractArchitecture
-    if sym == :source
-        return [k for (k,v) in component.ports if isvalid_source_port(A,v,edge)]
-    elseif sym == :sink
-        return [k for (k,v) in component.ports if isvalid_sink_port(A,v,edge)]
+"""
+    get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir::Symbol)
+
+Return an array of the names of the ports of `c` that can serve as the correct
+function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
+
+- `:source` - indicates a source port for directed communication.
+- `:sink` - indicates a sink port for direction communication.
+"""
+function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: AbstractArchitecture
+    if dir == :source
+        return [k for (k,v) in c.ports if isvalid_source_port(A,v,e)]
+    elseif dir == :sink
+        return [k for (k,v) in c.ports if isvalid_sink_port(A,v,e)]
     else
-        KeyError("Symbol: $sym not recognized")
+        throw(KeyError("Symbol: $dir not recognized"))
     end
 end

@@ -19,11 +19,14 @@ end
 getpath(nodemap::NodeMap) = nodemap.path
 
 mutable struct EdgeMap
-    path        ::Vector{Any}
+    path        ::SparseDiGraph{Any}
     metadata    ::Dict{String,Any}
+
     #-- constructors
-    EdgeMap(path::Vector{Any}; metadata = Dict{String,Any}()) = new(path, metadata)
-    EdgeMap() = new(Any[], Dict{String,Any}())
+    function EdgeMap(path::SparseDiGraph; metadata = Dict{String,Any}()) 
+        return new(path, metadata)
+    end
+    EdgeMap() = new(SparseDiGraph{Any}(), Dict{String,Any}())
 end
 getpath(edgemap::EdgeMap) = edgemap.path
 

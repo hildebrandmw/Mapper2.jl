@@ -2,7 +2,7 @@
 Overwrite routing link type to allow classification of routing links by class.
 """
 struct TypedRoutingLink <: AbstractRoutingLink
-    channels::ChannelList
+    channels::Vector{Int64}
     cost    ::Float64
     capacity::Int64
     class   ::String
@@ -12,46 +12,42 @@ end
 Provide constructor.
 """
 function TypedRoutingLink(cost, capacity, class)
-    return TypedRoutingLink(ChannelList(), cost, capacity, class)
+    return TypedRoutingLink(Int[], cost, capacity, class)
 end
 
-"""
-Provide dispatch mechanism.
-"""
-Mapper2.routing_link_type(::Type{A}) where {A <: TestArchitecture} = TypedRoutingLink
 
 """
 New RoutingTask type to allow classification of tasks by a class.
 """
 struct TypedRoutingChannel <: AbstractRoutingChannel
-    start::Vector{Int64}
-    stop::Vector{Int64}
+    start::Vector{Vector{Int64}}
+    stop::Vector{Vector{Int64}}
     class::String
+
     function TypedRoutingChannel(start, stop, edge)
         class = get(edge.metadata, "class", "all")
         return new(start, stop, class)
     end
 end
 
-"""
-Routing Task dispatch mechanism.
-"""
-Mapper2.routing_channel_type(::Type{A}) where {A <: TestArchitecture} = TypedRoutingChannel
+function Mapper2.routing_channel(::Type{A}, start, stop, edge::TaskgraphEdge) where {A <: TestArchitecture} 
+    TypedRoutingChannel(start, stop, edge)
+end
 
 # Provide custom annotation methods.
-function Mapper2.annotate_port(::Type{A},port) where {A <: TestArchitecture}
+function Mapper2.annotate(::Type{A},port::Port) where {A <: TestArchitecture}
     capacity = get(port.metadata, "capacity", 10)
     class    = get(port.metadata, "class", "all")
     cost     = get(port.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)
 end
-function Mapper2.annotate_link(::Type{A},link) where {A <: TestArchitecture}
+function Mapper2.annotate(::Type{A},link::Link) where {A <: TestArchitecture}
     capacity = get(link.metadata, "capacity", 10)
     class    = get(link.metadata, "class", "all")
     cost     = get(link.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)
 end
-function Mapper2.annotate_component(::Type{A}, component::Component, ports) where {A <: TestArchitecture}
+function Mapper2.annotate(::Type{A}, component::Component) where {A <: TestArchitecture}
     @assert component.primitive == "mux"
     return TypedRoutingLink(1.0,10,"all")
 end

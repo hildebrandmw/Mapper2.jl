@@ -1,44 +1,6 @@
-struct ChannelPath
-    links::Vector{Vector{Int64}}
-end
-
-ChannelPath() = ChannelPath(Vector{Int64}[])
-ChannelPath(x::Vector{Int64}) = ChannelPath([x])
-
-Base.getindex(c::ChannelPath, i::Tuple{T,T}) where T <: Integer = c.links[i[1]][i[2]]
-function Base.getindex(c::ChannelPath, i::T) where T <: Integer
-    for v in c.links
-        lv = length(v)
-        if lv >= i
-            return v[i]
-        else
-            i -= lv 
-        end
-    end
-    throw(BoundsError(vcat(c.links...), i))
-end
-
-Base.length(c::ChannelPath) = sum(length.(c.links))
-
-Base.start(c::ChannelPath) = (1,1)
-Base.done(c::ChannelPath, state) = state[1] > length(c.links)
-function Base.next(c::ChannelPath, state)
-    i = c[state]
-    # Unpack state
-    outer = state[1]
-    inner = state[2] + 1
-    # Increment double counters
-    if inner > length(c.links[outer])
-        outer += 1
-        inner = 1
-    end
-    return i, (outer, inner)
-end
-
 ################################################################################
 # Routing Struct
 ################################################################################
-
 struct RoutingStruct{RG <: RoutingGraph,
                      L <: AbstractRoutingLink,
                      C <: AbstractRoutingChannel}
@@ -48,7 +10,7 @@ struct RoutingStruct{RG <: RoutingGraph,
     "Annotaions for the graph"
     links   ::Vector{L}
     "Paths for links in the taskgraph"
-    paths   ::Vector{ChannelPath}
+    paths   ::Vector{SparseDiGraph{Int}}
     "Start and stop nodes for each connection to be routed."
     channels::Vector{C}
 end
@@ -61,12 +23,20 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     @info "Building Resource Graph"
 
     graph = routing_graph(architecture)
+    # Make sure map structure in graph is one to one
+    let
+        maprev = rev_dict_safe(graph.map)
+        for (k,v) in maprev
+            length(v) > 1  && throw(ErrorException("$k => $v"))
+        end
+    end
+
     @debug routing_graph_info(graph)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
     links = annotate(architecture, graph)
     # Initialize the paths variable.
-    paths = [ChannelPath() for i in 1:num_edges(taskgraph)]
+    paths = [SparseDiGraph{Int}() for i in 1:num_edges(taskgraph)]
     # Get start and stop nodes for each taskgraph.
     channels = build_routing_taskgraph(m, graph)
 
@@ -80,7 +50,7 @@ end
 #-- Accessors
 allpaths(rs::RoutingStruct) = rs.paths
 getpath(rs::RoutingStruct, i::Integer) = rs.paths[i]
-setpath(rs::RoutingStruct, path::ChannelPath, i::Integer) = rs.paths[i] = path
+setpath(rs::RoutingStruct, path::SparseDiGraph, i::Integer) = rs.paths[i] = path
 
 alllinks(rs::RoutingStruct) = rs.links
 getlink(rs::RoutingStruct, i::Integer) = rs.links[i]
@@ -90,8 +60,7 @@ stop(rs::RoutingStruct, i::Integer) = stop(rs.channels[i])
 
 getchannel(rs::RoutingStruct, i::Integer) = rs.channels[i]
 
-portmap(rs::RoutingStruct) = portmap(rs.graph)
-linkmap(rs::RoutingStruct) = linkmap(rs.graph)
+getmap(r::RoutingStruct) = getmap(r.graph)
 
 #---------#
 # Methods #
@@ -99,12 +68,13 @@ linkmap(rs::RoutingStruct) = linkmap(rs.graph)
 iscongested(rs::RoutingStruct) = iscongested(rs.links)
 iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getpath(rs, path))
 
-function iscongested(rs::RoutingStruct, path::ChannelPath)
-    for i in path
+function iscongested(rs::RoutingStruct, path::SparseDiGraph{Int})
+    for i in vertices(path)
         iscongested(getlink(rs, i)) && return true
     end
     return false
 end
+
 """
     clear_route(rs::RoutingStruct, index::Integer)
 
@@ -118,23 +88,22 @@ function clear_route(rs::RoutingStruct, channel::Integer)
     3. Set the path to an empty set.
     =#
     path = getpath(rs, channel)
-    for link in path
-        remchannel(getlink(rs, link), channel)
+    for i in vertices(path)
+        remchannel(getlink(rs, i), channel)
     end
     # Clear the path variable
-    setpath(rs, ChannelPath(), channel)
+    setpath(rs, SparseDiGraph{Int}(), channel)
     return nothing
 end
 
-function set_route(rs::RoutingStruct, path::ChannelPath, channel::Integer)
+function set_route(rs::RoutingStruct, path::SparseDiGraph, channel::Integer)
     # This should always be the case - this assertion is to catch bugs.
-    @assert length(getpath(rs, channel)) == 0
-    for link in path
-        addchannel(getlink(rs, link), channel)
+    @assert nv(getpath(rs, channel)) == 0
+    for i in vertices(path)
+        addchannel(getlink(rs, i), channel)
     end
     setpath(rs, path, channel)
 end
-
 
 ################################################################################
 # Method for recording the post-place structure into the Map.
@@ -143,68 +112,35 @@ function reverse_lookup(index, portmap_rev, linkmap_rev)
     return haskey(portmap_rev, index) ? portmap_rev[index] : linkmap_rev[index]
 end
 
-function record(m::Map, rs::RoutingStruct)
-    architecture = m.architecture
-    # Run the verification routine.
-    errors = verify_routing(m, rs)
-    if errors.num_errors > 0
-        m.metadata["routing_success"] = false
-    else
-        m.metadata["routing_success"] = true
-    end
-    mapping = m.mapping
-    # Run safe reverse on the port map since multiple port paths can point to
-    # the same port.
-    portmap_rev = rev_dict_safe(portmap(rs))
-    # Run normal reverse on the link map since all links should only have
-    # a single instance.
-    linkmap_rev = rev_dict(linkmap(rs))
-    # For now - just dump everything.
-    for (i,path) in enumerate(allpaths(rs))
-        routing_path = get_routing_path(architecture, path, portmap_rev, linkmap_rev)
+function record(m::Map, r::RoutingStruct)
+    architecture    = m.architecture
+    mapping         = m.mapping
+
+    maprev = rev_dict(getmap(r))
+    for (i,path) in enumerate(allpaths(r))
+
+        routing_path = get_routing_path(architecture, path, maprev)
         # Extract the sources and destinations for this edges of the taskgraph.
-        taskgraph_edge = getedge(m.taskgraph, i)
-        sources = getsources(taskgraph_edge)
-        sinks   = getsinks(taskgraph_edge)
-        metadata = Dict(
-                    "sources" => sources,
-                    "sinks" => sinks,
-                   )
+        taskgraph_edge  = getedge(m.taskgraph, i)
+        sources         = getsources(taskgraph_edge)
+        sinks           = getsinks(taskgraph_edge)
+
+        metadata = Dict("sources" => sources, "sinks" => sinks,)
         mapping[i] = EdgeMap(routing_path, metadata = metadata)
     end
-    return errors
+    return nothing
 end
 
-function get_routing_path(architecture, path, portmap_rev, linkmap_rev)
-    routing_path = Any[]
-    for (j,node) in enumerate(path)
-        a = reverse_lookup(node, portmap_rev, linkmap_rev)
-
-        # Get connectivity information
-        if eltype(a) <: PortPath
-            # Make an ordered set to keep track of things - this takes care
-            # of the instance where a routing path through the architecture
-            # can enter one port of something like a multiplexor and
-            # exit through another port without taking a link in between.
-            set = OrderedSet()
-            # Look behind - get the port of this collection that is connected
-            # to the previous link.
-            if j > 1
-                b = reverse_lookup(path[j-1], portmap_rev, linkmap_rev)
-                push!(set, get_connected_port(architecture, a, b, :sink))
-            end
-            # Look ahead - get the port of this collection that is connected
-            # to the next link.
-            if j < length(path)
-                b = reverse_lookup(path[j+1], portmap_rev, linkmap_rev)
-                push!(set, get_connected_port(architecture, a, b, :source))
-            end
-            # Add 1 or 2 port paths to the routing path.
-            push!(routing_path, set...)
-        else
-            # Add 1 link path to the routing set.
-            push!(routing_path, a)
-        end
+function get_routing_path(arch::TopLevel{A,D}, g, maprev) where {A,D}
+    routing_path = SparseDiGraph{Any}()
+    # Add vertices
+    for v in vertices(g)
+        path = maprev[v]
+        add_vertex!(routing_path, path)
+    end
+    # Add edges
+    for src in vertices(g), dst in outneighbors(g, src)
+        add_edge!(routing_path, maprev[src], maprev[dst])
     end
     return routing_path
 end
