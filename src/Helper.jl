@@ -12,6 +12,7 @@ export  typeunion,
         dim_max,
         dim_min,
         max_entry,
+        # Graph related types and methods
         SparseDiGraph,
         has_vertex,
         add_vertex!,
@@ -19,7 +20,10 @@ export  typeunion,
         vertices,
         outneighbors,
         inneighbors,
-        nv
+        nv,
+        source_vertices,
+        sink_vertices,
+        make_lightgraph
 
 function typeunion(A::Array)
     types = DataType[]
@@ -137,6 +141,7 @@ struct AdjList{T}
     adjin ::Vector{T}
     adjout::Vector{T}
 end
+
 AdjList{T}() where T = AdjList(T[], T[])
 
 struct SparseDiGraph{T}
@@ -162,12 +167,33 @@ function LightGraphs.add_edge!(g::SparseDiGraph, src, snk)
 end
 
 LightGraphs.vertices(g::SparseDiGraph) = keys(g.vertices)
-
-LightGraphs.edges(g::SparseDiGraph) = SparseEdgeIter(G)
-
 LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].adjout
 LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].adjin
-
 LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
+
+source_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(inneighbors(g,v)) == 0]
+sink_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(outneighbors(g,v)) == 0]
+
+################################################################################
+# Verification routines for graphs
+################################################################################
+
+"""
+    make_lightgraph(s::SparseDiGraph)
+
+Given `s`, return a tuple `(g,d` where lightgraph `g` and dictionary `d` 
+where `g` is isomorphic to `s` and `d` maps vertices of `s` to vertices of `g`.
+"""
+function make_lightgraph(s::SparseDiGraph)
+    g = DiGraph(nv(s))
+    # Create a mapping dictionary
+    d = Dict(v => i for (i,v) in enumerate(vertices(s)))
+    # Iterate over edges, adding each edge to the lightgraph
+    for i in vertices(s), j in outneighbors(s, i)
+        add_edge!(g, d[i], d[j])
+    end
+    return g, d
+end
+
 
 end # module Helper

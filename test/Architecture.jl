@@ -11,7 +11,7 @@
         C = ComponentPath("a.b.c")
         @test C == ComponentPath(["a","b","c"])
         @test length(ComponentPath("a.b.c")) == 3
-        @test prefix(C) == ["a","b"]
+        @test prefix(C) == ComponentPath(["a","b"])
 
         # Some address path tests
         A = AddressPath(CartesianIndex(1), ComponentPath(""))

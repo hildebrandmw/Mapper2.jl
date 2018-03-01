@@ -18,14 +18,15 @@ export  route,
         RoutingChannel,
         routing_link_type,
         routing_channel,
-        annotate,
-        canuse,
-        isvalid_source_port,
-        isvalid_sink_port
+        annotate
 
 abstract type AbstractRoutingLink end
 abstract type AbstractRoutingChannel end
 abstract type AbstractRoutingAlgorithm end
+
+const AA = AbstractArchitecture
+const ARL = AbstractRoutingLink
+const ARC = AbstractRoutingChannel
 
 # This file converts the top level architecture to a simple graph plus
 # translation dictionaries.
@@ -38,9 +39,6 @@ include("Struct.jl")
 
 # Algorithms
 include("Pathfinder/Pathfinder.jl")
-
-# Verification
-include("Verification.jl")
 
 # Routing dispatch
 function route(m::Map{A,D}) where {A,D}
@@ -55,54 +53,15 @@ function route(m::Map{A,D}) where {A,D}
     return m
 end
 
-function routing_algorithm(m::Map{A,D}, rs) where {A <: AbstractArchitecture, D}
-    return Pathfinder(m, rs)
-end
+routing_algorithm(m::Map{A,D}, rs) where {A <: AA, D} = Pathfinder(m, rs)
 
 ################################################################################
 # REQUIRED METHODS
 ################################################################################
-function annotate(::Type{<:AbstractArchitecture}, port::Port)
-    return RoutingLink()
+function annotate(::Type{A}, item::Union{Port,Link,Component}) where A <: AA
+    RoutingLink(capacity = getcapacity(A, item))
 end
 
-function annotate(::Type{<:AbstractArchitecture}, link::Link)
-    return RoutingLink()
-end
-
-function annotate(::Type{<:AbstractArchitecture}, component::Component)
-    @assert component.primitive == "mux"
-    return RoutingLink()
-end
-
-
-function canuse(::Type{A},item::AbstractRoutingLink,edge::AbstractRoutingChannel) where
-        A <: AbstractArchitecture
-    return true
-end
-
-function canuse(::Type{A},item::Union{Port,Link}, edge::TaskgraphEdge) where
-        A <: AbstractArchitecture
-    return true
-end
-
-"""
-    isvalid_source_port(::Type{A}, port::Port, edge::TaskgraphEdge) where A <: AbstractArchitecture
-
-Return `true` if `port` is a valid source for taskgraph `edge`.
-"""
-function isvalid_source_port(::Type{A}, port::Port, edge::TaskgraphEdge) where A <: AbstractArchitecture
-    return port.class in PORT_SINKS
-end
-
-"""
-    isvalid_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge) where A <: AbstractArchitecture
-
-Return `true` if `port` is a valid sink for taskgraph `edge`.
-"""
-function isvalid_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge) where
-        A <: AbstractArchitecture
-    return port.class in PORT_SOURCES
-end
+MapperCore.canuse(::Type{A}, item::ARL, edge::ARC) where A <: AA = true
 
 end

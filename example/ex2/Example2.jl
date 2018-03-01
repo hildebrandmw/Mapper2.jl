@@ -20,5 +20,4 @@ include("Architecture.jl")
 include("Taskgraph.jl")
 include("Placement.jl")
 
-
-end#module example 3
+end#module Example2

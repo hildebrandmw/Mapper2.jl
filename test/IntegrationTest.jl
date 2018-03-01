@@ -40,6 +40,7 @@
         found_links += k*v
     end
     @test found_links == expected_links 
+    @test MapperCore.check_routing(m)
 end
 
 @testset "Testing Example 2" begin
@@ -75,4 +76,5 @@ end
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)
+    @test MapperCore.check_routing(m)
 end
