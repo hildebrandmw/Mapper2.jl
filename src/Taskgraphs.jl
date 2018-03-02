@@ -140,10 +140,10 @@ end
 # METHODS FOR THE TASKGRAPH
 ################################################################################
 # -- Some accessor methods.
-getnodes(tg::Taskgraph) = values(tg.nodes)
-getedges(tg::Taskgraph) = tg.edges
-getnode(tg::Taskgraph, node::String) = tg.nodes[node]
-getedge(tg::Taskgraph, i::Integer) = tg.edges[i]
+getnodes(t::Taskgraph) = values(t.nodes)
+getedges(t::Taskgraph) = t.edges
+getnode(t::Taskgraph, node::String) = t.nodes[node]
+getedge(t::Taskgraph, i::Integer) = t.edges[i]
 
 # -- helpful query methods.
 nodenames(t::Taskgraph) = keys(t.nodes)
@@ -153,7 +153,7 @@ num_edges(t::Taskgraph) = length(getedges(t))
 """
     add_node(t::Taskgraph, task::TaskgraphNode)
 
-Add a new node to `t`. Error if node already exists.
+Add a `task` to `t`. Error if node already exists.
 """
 function add_node(t::Taskgraph, task::TaskgraphNode)
     if haskey(t.nodes, task.name)
@@ -169,7 +169,8 @@ end
 """
     add_edge(t::Taskgraph, edge::TaskgraphEdge)
 
-Add a new edge to `t`.
+Add a `edge` to `t`. Multiple edges from the same source to destination are
+allowed.
 """
 function add_edge(t::Taskgraph, edge::TaskgraphEdge)
     # Update the edge array

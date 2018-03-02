@@ -14,7 +14,7 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
 
     @debug "Building Distance Table"
     # Run a BFS for each starting address
-    @showprogress 1 for address in addresses(architecture)
+    for address in addresses(architecture)
         bfs!(distance, architecture, address, neighbor_table)
     end
     return distance

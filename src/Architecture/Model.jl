@@ -200,14 +200,22 @@ const PORT_CLASSES = Set([
     "bidir",
  ])
 const PORT_SOURCES = Set([
-    "input",
-    "bidir",
- ])
-const PORT_SINKS = Set([
     "output",
     "bidir",
  ])
+const PORT_SINKS = Set([
+    "input",
+    "bidir",
+ ])
 
+function checkclass(port::Port, dir::Symbol)
+    if dir == :source
+        return (port.class in PORT_SOURCES)
+    elseif dir == :sink
+        return (port.class in PORT_SINKS)
+    end
+    throw(KeyError(dir))
+end
 
 ################################################################################
 #                                  LINK TYPE                                   #
@@ -355,13 +363,13 @@ function Base.getindex(tl::TopLevel, p::AddressPath)
 end
 
 function Base.getindex(tl::TopLevel, p::PortPath{T}) where T <: AddressPath
-    # Get the component and then get the port.
+    # component -> port
     c = tl[p.path]
     return c.ports[p.name]
 end
 
 function Base.getindex(tl::TopLevel, p::LinkPath{T}) where T <: AddressPath
-    # Get the component and then the link.
+    # component -> link
     c = tl[p.path]
     return c.links[p.name]
 end
@@ -370,21 +378,17 @@ end
     walk_children(c::Component)
 
 Return `Vector{ComponentPath}` enumerating paths to all the children of `c`.
+Paths are returned relative to `c`.
 """
 function walk_children(c::Component)
-    # Create an empty component path - which will return the component itself.
+    # This is performed as a dfs walk through the sub-component hierarchy of c.
     components = [ComponentPath()]
-    # Iterate through all children of the component, create a component path
-    # for each child.
     queue = [ComponentPath([id]) for id in keys(c.children)]
-    # Perform a DFS
     while !isempty(queue)
-        # Pull a path off of the queue
         path = shift!(queue)
-        # Add the path to the list of components.
         push!(components, path)
-        # Walk through all children of the component pointed to by the current
-        # path - add all children to the queue
+        # Need to push child the child name to the component path to get the
+        # component path relative to c.
         push!(queue, (push(path, id) for id in keys(c[path].children))...)
     end
     return components
@@ -396,7 +400,6 @@ function connected_components(tl::TopLevel{A,D}) where A where D
     # Iterate through all links - record adjacency information
     for link in links(tl)
         for source_port_path in link.sources, sink_port_path in link.sinks
-            # Extract the address from the source port path.
             src_address = source_port_path.path.address
             snk_address = sink_port_path.path.address
             push_to_dict(cc, src_address, snk_address)
@@ -415,16 +418,14 @@ end
 # METHODS FOR NAVIGATING THE HIERARCHY
 ################################################################################
 function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
-    # If it doesn't have the key, than just return false. Otherwise, apply
-    # the provided function to the value and result.
     isempty(key) && return true
     return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
 end
 
 function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
-    # If 'f' evaluates to true here, return true in general.
+    # check top component
     search_metadata(c, key, value, f) && return true
-    # Otherwise, call recursively call search_metadata! on all subcomponents
+    # recursively call search_metadata! on all subcomponents
     for child in values(c.children)
         search_metadata!(child, key, value, f) && return true
     end
@@ -447,6 +448,8 @@ end
 function assert_no_intrarouting(c::AbstractComponent)
     passed = true
     for port in values(c.ports)
+        # check for default empty link name. If a link is assigned, this will
+        # not be the empty string.
         if port.link.name != ""
             passed = false
             @error """

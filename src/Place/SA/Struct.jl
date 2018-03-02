@@ -98,15 +98,12 @@ struct SAStruct{A,U,D,D1,N,L,T <: AddressData}
     distance                ::U
     grid                    ::Array{Int64,D1}
     address_data            ::T
-    #=
-    Component tables for tracking local component references to the global
-    reference in the Map data type
-    =#
+    # Map back fields
     component_table ::Array{Vector{ComponentPath}, D}
     task_table      ::Dict{String,Int64}
 end
 
-# Convenience decoding methods - this is kinda gross.
+# Convenience decoding methods
 dimension(::SAStruct{A,U,D})  where {A,U,D} = D
 architecture(::SAStruct{A})   where {A} = A
 nodetype(s::SAStruct) = typeof(s.nodes)
@@ -189,12 +186,7 @@ end
 ################################################################################
 
 struct EmptyAddressData <: AddressData end
-
-function build_address_data(::Type{T},
-                            architecture,
-                            taskgraph) where {T <: AbstractArchitecture}
-    return EmptyAddressData()
-end
+build_address_data(::Type{<:AbstractArchitecture}, arch, taskgraph) = EmptyAddressData()
 
 ################################################################################
 # Constructor for the SA Structure
@@ -266,11 +258,10 @@ function SAStruct(m::Map{A,D};
         component_table,
         task_table,
     )
-    # Run initial placement to return a valid structure.
-    initial_placement!(sa)
-    # Verify that everything worked correctly.
-    verify_placement(m, sa)
 
+    # Run initial placement and verify result.
+    initial_placement!(sa)
+    verify_placement(m, sa)
     return sa
 end
 
@@ -313,22 +304,19 @@ legality of the placement.
 """
 function record(m::Map{A,D}, sa::SAStruct) where {A,D}
     verify_placement(m, sa)
-    # Iterate through both the SA Nodes and taskgraph nodes. This is how
-    # we can be sure the order of the iteration is consistent because this
-    # is how the SA nodes were created in the first place.
     mapping = m.mapping
-    # Reverse the task table to assign indices to tasks.
     task_table_rev = rev_dict(sa.task_table)
-    for (index, sa_node) in enumerate(sa.nodes)
+
+    for (index, node) in enumerate(sa.nodes)
         # Get the mapping for the node
-        address = sa_node.address
-        component_index = sa_node.component
+        address         = node.address
+        component_index = node.component
         # Get the component name in the original architecture
         component_path = sa.component_table[address][component_index]
+        task_node_name  = task_table_rev[index]
         # Create an entry in the "Mapping" data structure
-        task_node_name = task_table_rev[index]
-        nodemap = mapping.nodes[task_node_name]
-        nodemap.path = AddressPath(address, component_path)
+        nodemap         = mapping.nodes[task_node_name]
+        nodemap.path    = AddressPath(address, component_path)
     end
     return nothing
 end
@@ -338,6 +326,7 @@ function record(nodes, i, edge::TwoChannel)
     push!(nodes[edge.sink].in_edges, i)
     return nothing
 end
+
 function record(nodes, i, edge::MultiChannel)
     for j in edge.sources
         push!(nodes[j].out_edges,i)
@@ -411,7 +400,7 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
     nodeclasses = Vector{Int64}(length(getnodes(taskgraph)))
     # Allocate empty vectors to serve as representatives for the normal and
     # special classes.
-    normal_node_reps = TaskgraphNode[]
+    normal_node_reps  = TaskgraphNode[]
     special_node_reps = TaskgraphNode[]
     # Start iterating through the nodes in the taskgraph.
     for (index,node) in enumerate(getnodes(taskgraph))
@@ -440,14 +429,10 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
         end
     end
 
-    # Get the names of normal nodes
-    normal_nodes = join([n.name for n in normal_node_reps], "\n")
-    # Get the names of special nodes
+    # Scoping issues with "n" and "i" if build inside @debug block.
+    normal_nodes  = join([n.name for n in normal_node_reps], "\n")
     special_nodes = join([i.name for i in special_node_reps], "\n")
-
-    # Debug printing.
     @debug begin
-        # Build print string
         """
         Number of Normal Representatives: $(length(normal_node_reps))
         $normal_nodes
@@ -455,6 +440,7 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
         $special_nodes
         """
     end
+
     return nodeclasses, normal_node_reps, special_node_reps
 end
 
@@ -514,9 +500,8 @@ end
 ################################################################################
 # Verification routine for SA Placement
 ################################################################################
-function verify_placement(m::Map{A,D}, sa::SAStruct) where A where D
+function verify_placement(m::Map{A,D}, sa::SAStruct{A}) where A where D
     # Assert that the SAStruct belongs to the same architecture
-    @assert A == architecture(sa)
     @debug "Verifying Placement"
 
     bad_nodes = check_grid_population(sa)
@@ -602,14 +587,11 @@ function check_consistency(sa::SAStruct)
 end
 
 function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
-    # Create a list of bad nodes for more helpful error messages.
+
     bad_nodes = Int64[]
-    # Get the architecture parameter.
-    # A = get_A(m)
-    # Get the architecture itself.
     architecture = m.architecture
     # Iterate through each node in the SA
-    for (index, (m_node_name, m_node)) in zip(1:length(sa.nodes), m.taskgraph.nodes)
+    for (index, (m_node_name, m_node)) in enumerate(m.taskgraph.nodes)
         sa_node = sa.nodes[index]
         # Get the mapping for the node
         address = sa_node.address
@@ -632,4 +614,4 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
         end
     end
     return bad_nodes
-    end
+end

@@ -62,8 +62,8 @@ function build_io_tile()
     add_link(tile, "routing_mux.out[0]", "output.in")
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
-        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata = metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata = metadata)
     end
     check(tile)
     return tile
@@ -89,8 +89,8 @@ function build_general_tile()
     add_link(tile, "routing_mux.out[5]", "general.in[1]")
     metadata = Dict{String,Any}("capacity" => 5)
     for (count, dir) in enumerate(dir_tuple)
-        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata = metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata = metadata)
     end
     check(tile)
     return tile
@@ -120,8 +120,8 @@ function build_super_tile()
     add_link(tile, "routing_mux.out[7]", "general[1].in[1]")
     metadata = Dict{String,Any}("capacity" => 6)
     for (count, dir) in enumerate(dir_tuple)
-        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata)
-        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata)
+        add_link(tile, "routing_mux.out[$count]","$(dir)_out", metadata = metadata)
+        add_link(tile, "$(dir)_in", "routing_mux.in[$count]", metadata = metadata)
     end
     check(tile)
     return tile
@@ -136,8 +136,8 @@ function build_double_general_tile()
     for dir in dir_tuple
         add_port(tile, "$(dir)_in", "input")
         add_port(tile, "$(dir)_out", "output")
-        add_link(tile, "general.$(dir)_out", "$(dir)_out", metadata)
-        add_link(tile, "$(dir)_in", "general.$(dir)_in", metadata)
+        add_link(tile, "general.$(dir)_out", "$(dir)_out", metadata = metadata)
+        add_link(tile, "$(dir)_in", "general.$(dir)_in", metadata = metadata)
     end
     check(tile)
     return tile 
@@ -162,14 +162,14 @@ function build_routing_tile()
         add_link(tile,
                       "$(dir)_in",
                       ["mux_$(dir)[0].in[0]", "mux_$(dir)[1].in[0]"],
-                      metadata)
+                      metadata = metadata)
 
         add_link(tile,"mux_$dir[0].out[0]", "routing_mux.in[$(2*(i-1))]", 
-                      a_metadata)
+                      metadata = a_metadata)
         add_link(tile,"mux_$dir[1].out[0]", "routing_mux.in[$(2*(i-1)+1)]", 
-                      b_metadata)
+                      metadata = b_metadata)
 
-        add_link(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata)
+        add_link(tile,"routing_mux.out[$(i-1)]", "$(dir)_out", metadata = metadata)
     end
     check(tile)
     return tile

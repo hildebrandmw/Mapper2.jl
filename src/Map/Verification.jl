@@ -49,7 +49,7 @@ function check_ports(m::Map{A}) where A
             sourcepath = getpath(m, source)
             found = false
             for rs in routing_sources
-                if prefix(rs) == sourcepath && isvalid_source_port(A, arch[rs], tg_edge)
+                if prefix(rs) == sourcepath && is_source_port(A, arch[rs], tg_edge)
                     found = true
                     delete!(routing_sources, rs)
                     break
@@ -75,7 +75,7 @@ function check_ports(m::Map{A}) where A
             sinkpath = getpath(m, sink)
             found = false
             for rs in routing_sinks
-                if prefix(rs) == sinkpath && isvalid_sink_port(A, arch[rs], tg_edge)
+                if prefix(rs) == sinkpath && is_sink_port(A, arch[rs], tg_edge)
                     found = true
                     delete!(routing_sinks, rs)
                     break

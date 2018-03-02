@@ -5,7 +5,6 @@ using IterTools
 using JSON
 using DataStructures
 using MicroLogging
-using ProgressMeter
 using LightGraphs
 
 emptymeta() = Dict{String,Any}()
@@ -13,6 +12,40 @@ emptymeta() = Dict{String,Any}()
 include("Taskgraphs.jl")
 include("Architecture/Architecture.jl")
 include("Map/Map.jl")
+
+#-------------------------------------------------------------------------------
+# Mapping methods
+#-------------------------------------------------------------------------------
+const AA = AbstractArchitecture
+const TN = TaskgraphNode
+const TE = TaskgraphEdge
+const PLC = Union{Port,Link,Component}
+
+# Placement Queries
+isspecial(::Type{T}, t::TN) where {T <: AA}             = false
+isequivalent(::Type{T}, a::TN, b::TN) where {T <: AA}   = true
+ismappable(::Type{T}, c::Component) where {T <: AA}     = true
+canmap(::Type{T}, t::TN, c::Component) where {T <: AA}  = true 
+
+# Routing Queries
+canuse(::Type{<:AA}, item::PLC, edge::TE)               = true
+getcapacity(::Type{A}, item) where A <: AA              = 1
+
+is_source_port(::Type{<:AA}, port::Port, edge::TE)      = true
+is_sink_port(::Type{<:AA}, port::Port, edge::TE)        = true
+
+#-------------------------------------------------------------------------------
+# Exports
+#-------------------------------------------------------------------------------
+
+export  isspecial,
+        isequivalent,
+        ismappable, 
+        canmap,
+        canuse,
+        is_sink_port,
+        is_source_port,
+        getcapacity
 
 ### Taskgraph Exports###
 
@@ -51,22 +84,22 @@ export  AbstractArchitecture,
         prefix,
         push,
         pushfirst,
-        typestring,
+        #typestring,
         # Architecture stuff
-        AbstractPort,
         Port,
         Link,
-        PORT_SINKS,
-        PORT_SOURCES,
         # Link Methods
         isaddresslink,
         # Components
         AbstractComponent,
         TopLevel,
         Component,
+        # Verification
+        check_routing,
         # Methods
+        checkclass,
         ports,
-        architecture,
+        portnames,
         addresses,
         pathtype,
         children,
@@ -92,7 +125,7 @@ export  AbstractArchitecture,
         connection_rule,
         build_mux,
         check,
-        # Methods
+        # Analysis methods
         build_distance_table,
         build_component_table
 
@@ -104,33 +137,4 @@ export  Map,
         EdgeMap,
         save,
         load
-
-
-export  isspecial,
-        isequivalent,
-        ismappable, 
-        canmap,
-        canuse,
-        isvalid_sink_port,
-        isvalid_source_port,
-        getcapacity
-
-const AA = AbstractArchitecture
-const TN = TaskgraphNode
-const TE = TaskgraphEdge
-const PLC = Union{Port,Link,Component}
-
-# Placement Queries
-isspecial(::Type{T}, t::TN) where {T <: AA}             = false
-isequivalent(::Type{T}, a::TN, b::TN) where {T <: AA}   = true
-ismappable(::Type{T}, c::Component) where {T <: AA}     = true
-canmap(::Type{T}, t::TN, c::Component) where {T <: AA}  = true 
-
-# Routing Queries
-canuse(::Type{<:AA},item::PLC, edge::TE)                = true
-getcapacity(::Type{A}, item) where A <: AA              = 1
-
-isvalid_source_port(::Type{<:AA}, port::Port, edge::TE) = (port.class in PORT_SINKS)
-isvalid_sink_port(::Type{<:AA}, port::Port, edge::TE) = (port.class in PORT_SOURCES)
-
 end

@@ -356,6 +356,8 @@ whose components are the destinations of links originating at address `k`.
 
 Search the metadata of field of `c` for `key`. If `c.metadata[key]` does not
 exist, return `false`. Otherwise, return `f(value, c.metadata[key])`.
+
+If `isempty(key) == true`, will return `true` regardless of `value` and `f`.
 """ search_metadata
 
 @doc """

@@ -86,9 +86,9 @@ function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
 """
 function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: AbstractArchitecture
     if dir == :source
-        return [k for (k,v) in c.ports if isvalid_source_port(A,v,e)]
+        return [k for (k,v) in c.ports if checkclass(v,dir) && is_source_port(A,v,e)]
     elseif dir == :sink
-        return [k for (k,v) in c.ports if isvalid_sink_port(A,v,e)]
+        return [k for (k,v) in c.ports if checkclass(v,dir) && is_sink_port(A,v,e)]
     else
         throw(KeyError("Symbol: $dir not recognized"))
     end

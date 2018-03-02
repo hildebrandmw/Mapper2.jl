@@ -2,7 +2,6 @@ julia 0.6
 IterTools
 JSON
 DataStructures
-ProgressMeter
 LightGraphs
 Formatting
 Reexport

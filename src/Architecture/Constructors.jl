@@ -8,11 +8,6 @@ a component at one level of hierarchy before adding instantiating it as a child
 in another component. For now, I won't be worrying about maintaining consistency
 in the component hierarchy when a child is changed. So make sure everything
 is finalized before instantiation.
-
-At some point, I may write a consistency function that makes sure parents
-have a consistent view of their children and something has not gone horribly
-wrong at some point. This will actually probably be necessary to validate
-an architecture after construction as just a form of bug-checking.
 =#
 
 """
@@ -24,7 +19,6 @@ provided suffix with bracket-vector notation.
 For example, the function call `add_port(c, "test", "input", 3)` should add
 3 `input` ports to component `c` with names: `test[2], test[1], test[0]`.
 """
-
 function add_port(c::Component, name, class, number = 0;
                   metadata = Dict{String, Any}())
     if number == 0
@@ -79,94 +73,63 @@ function add_child(c::AbstractComponent, child::AbstractComponent, name, number 
     return nothing
 end
 
-#=
-The add_link function is meant for connecting directed links from a source
-to a set of destinations. Thus, there is only one source and multiple destinations.
+#--------------------------------------------------------------------------------
+# Link constructors
+#--------------------------------------------------------------------------------
 
-If we need bidirectional support in the future, I'll have to add another function
-for connecting together a bunch of bidirectional ports with no notion of
-concreteness.
-
-OPTIONS
-
-1. Can incorporate this into the add_link function silently using a keyword
-    or by leaving some array empty.
-
-    This reduces the number of functions but can get potentially confusing and
-    might not always be clear if bidirectional semantics are desired.
-
-2. Make a specific function for connecting bidirectional components. This
-    might result in more code, but makes it clear when bidirectional connections
-    are desired.
-
-DECISION
-
-For now, go with option 2. Don't really need bidirectional connections for
-KiloCore architectures, and making the want of bidirectional components more
-explicit is probably better.
-=#
-function add_link(c   ::AbstractComponent,
-                        src ::String,
-                        dest::Array{String,1},
-                        metadata = Dict{String,Any}())
-    add_link(c, PortPath(src), PortPath.(dest), metadata)
+function add_link(c, src ::String,dest::Vector{String}; metadata = emptymeta())
+    add_link(c, PortPath(src), PortPath.(dest); metadata = metadata)
 end
 
-function add_link(c   ::AbstractComponent,
-                        src ::String,
-                        dest::String,
-                        metadata = Dict{String,Any}())
-    add_link(c, PortPath(src), [PortPath(dest)], metadata)
+function add_link(c, src::String, dest::String; metadata = emptymeta())
+    add_link(c, PortPath(src), [PortPath(dest)]; metadata = metadata)
 end
 
-# TODO - clean up this function --- make it more compact.
-function add_link(c   ::AbstractComponent,
-                        src ::PortPath{P},
-                        dest::Array{PortPath{P},1},
-                        metadata = Dict{String,Any}(),
-                        linkname = "") where P
+function add_link(  c, 
+                    src::PortPath,
+                    dest::Vector{PortPath{P}};
+                    metadata = emptymeta(),
+                    linkname = "") where P
     
-    # Make sure no ports at this level of hierarchy are used.
-    # Check the direction of the source
-    # TODO: Hoist these into functions.
+    # Check port directions
     if istop(src)
-        if !in(c[src].class,PORT_SOURCES)
-            error(src, " is not a valid source.")
+        if !checkclass(c[src], :sink) 
+            error("$src is not a valid top-level source port.")
         end
     else
-        if !in(c[src].class,PORT_SINKS)
-            error(src, " is not a valid source.")
+        if !checkclass(c[src], :source)
+            error("$src is not a valid source port.")
         end
     end
     for port_path in dest
         if istop(port_path)
-            if !in(c[port_path].class,PORT_SINKS)
-                error(port_path, " is not a valid sink.")
+            if !checkclass(c[port_path], :source)
+                error("$port_path is not a valid top-level sink port.")
             end
         else
-            if !in(c[port_path].class,PORT_SOURCES)
-                error(port_path, " is not a valid sink.")
+            if !checkclass(c[port_path], :sink)
+                error("$port_path is not a valid sink port.")
             end
         end
     end
 
+    # check if port is available for a new link
     port_iterator = chain((src,), dest)
     for port_path in port_iterator
         if !isfree(c, port_path)
-            error(port_path, " already has a connection.")
+            error("$port_path already has a connection.")
         end
     end
 
-    # Create a link.
-    
-    # If no link name is given - create a unique one based on the number of
-    # links in the component.
+    # create link
+
+    # provide default name
     if isempty(linkname)
-        linkname = "link[" * string(length(c.links) + 1) * "]"
+        linkname = "link[$(length(c.links)+1)]"
     end
-    # Check if the link name already exists
+
     if haskey(c.links, linkname)
-        error("Link name: ", linkname, " already exists in component ", c.name)
+        error("Link name: $linkname already exists in component $(c.name)")
     end
     newlink = Link(linkname, true, [src], dest, metadata)
     # Create a key for this link and add it to the component.

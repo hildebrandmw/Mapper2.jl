@@ -16,8 +16,8 @@
         # Some address path tests
         A = AddressPath(CartesianIndex(1), ComponentPath(""))
         @test length(A) == 1
-        @test typestring(C) == "Component"
-        @test typestring(A) == "Component"
+        @test MapperCore.typestring(C) == "Component"
+        @test MapperCore.typestring(A) == "Component"
     end
     # Testing Port Paths
     let

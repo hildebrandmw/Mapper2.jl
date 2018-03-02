@@ -79,17 +79,13 @@ function Mapper2.canuse(::Type{A}, item::TypedRoutingLink, edge::TypedRoutingCha
         A <: TestArchitecture
     return check_class(item.class, edge.class)
 end
-function Mapper2.isvalid_source_port(::Type{A}, 
+function Mapper2.is_source_port(::Type{A}, 
                                      port::Port, 
                                      edge::TaskgraphEdge) where A <: TestArchitecture
-    port.class in Mapper2.PORT_SINKS || return false
-    # Check metadata
     return check_class(port, edge)
 end
-function Mapper2.isvalid_sink_port(::Type{A}, 
+function Mapper2.is_sink_port(::Type{A}, 
                                    port::Port, 
                                    edge::TaskgraphEdge) where A <: TestArchitecture
-    port.class in Mapper2.PORT_SOURCES || return false
-    # Check metadata
     return check_class(port, edge)
 end

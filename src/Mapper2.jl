@@ -18,11 +18,6 @@ function set_logging(level)
     end
 end
 
-export oneofin, push_to_dict
-
-###############################
-# Common types and operations #
-###############################
 include("Helper.jl")
 include("MapperCore.jl")
 
@@ -41,7 +36,7 @@ include("Route/Route.jl")
 @reexport using .SA
 
 # Default Placement Algorithm
-Place.placement_routine(::Type{A}) where {A <: AbstractArchitecture} = SA.place
+Place.placement_routine(::Type{<:AbstractArchitecture}) = SA.place
 
 ###########
 # ROUTING #
