@@ -69,7 +69,7 @@ function build_graph(sa::SAStruct)
         for index in eachindex(maptable)
             # Skip entries that have no component that this node class can
             # be mapped to.
-            length(maptable[index]) == 0 && continue
+            sa_canmap(maptable[index]) || continue
             # Get the address
             address = CartesianIndex(ind2sub(maptable, index))
             # Iterate through all components this node class can be mapped
@@ -109,6 +109,9 @@ function build_graph(sa::SAStruct)
     return graph, node_dict, component_dict
 end
 
+sa_canmap(a::Array) = (length(a) > 0)
+sa_canmap(a::Bool) = a
+
 function do_assignment(placement_struct, graph, node_dict, component_dict)
     # Reverse the node and component dictionaries.
     node_dict_rev       = rev_dict(node_dict)
@@ -123,9 +126,9 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
             b = neighbor
             # Get the address and component number from the reversed
             # component dictionary.
-            (address, component) = component_dict_rev[b]
+            position = component_dict_rev[b]
             node = node_dict_rev[i]
-            assign(placement_struct, node, component, address)
+            assign(placement_struct, node, position)
         end
     end
     return nothing

@@ -6,28 +6,13 @@
     placement   = true
     routing     = true
     # Try making a map
-    try
-        m = Example1.make_map()
-    catch
-        makemap = false
-    end
-    @test makemap
+    m = Example1.make_map()
 
     # Try placement
-    try
-        m = Example1.place(m, move_attempts = 5000)
-    catch
-        placement = false
-    end
-    @test placement
+    m = Example1.place(m, move_attempts = 5000)
 
     # Try routing
-    try
-        m = Example1.route(m)
-    catch
-        routing = false
-    end
-    @test routing
+    m = Example1.route(m)
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)

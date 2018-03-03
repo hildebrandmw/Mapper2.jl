@@ -51,7 +51,7 @@ mutable struct SAState
             "Initializing SA State"
         end
 
-        SAStateUpdateInterval = 10
+        SAStateUpdateInterval = 2
         return new(
             # Most recent run
             temperature,        # temperature
