@@ -9,7 +9,9 @@ using DataStructures
 using Formatting
 using MicroLogging
 
-export  SAStruct
+export  SAStruct,
+        getaddress,
+        getcomponent
 
 
 function place(m::Map{A}; kwargs...) where {A <: AbstractArchitecture}
