@@ -290,7 +290,7 @@ end
 ports(c::Component) = values(c.ports)
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
-portnames(c::Component) = keys(c.ports)
+portnames(c::Component) = collect(keys(c.ports))
 function portnames(c::Component, classes)
     return [k for (k,v) in c.ports if v.class in classes]
 end

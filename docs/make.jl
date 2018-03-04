@@ -14,27 +14,14 @@ makedocs(
             ],
         "Developer" => Any[
             "dev/overview.md",
-            #"dev/architecture.md",
-            #"dev/constructor.md",
-            #"Placement" => Any[
-            #       "dev/placement/placement.md"
-            #       "dev/placement/struct.md",
-            #       "dev/placement/algorithm.md",
-            #    ],
-            #"Pathfinder Routing" => Any[
-            #        "dev/routing/struct.md", 
-            #        "dev/routing/algorithm.md",
-            #    ],
             ],
         "Internal Documentation" => Any[
                 "lib/internal.md",
-                "lib/internals/addresses.md",
-                "lib/internals/architecture.md",
-                "lib/internals/helper.md",
-                "lib/internals/map.md",
+                "lib/internals/mappercore.md",
                 "lib/internals/placement.md",
+                "lib/internals/sa.md",
                 "lib/internals/routing.md",
-                "lib/internals/taskgraph.md",
+                "lib/internals/helper.md",
             ],
         ]
     )

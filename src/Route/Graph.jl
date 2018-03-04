@@ -142,9 +142,7 @@ function add_links!(top, c::AbstractComponent)
 end
 
 function splicegraphs(c::AbstractComponent, top::RoutingGraph, subgraphs::Vector)
-    # Insert subgraphs into "top"
     add_subgraphs!(top, keys(c.children), subgraphs)
-    # Connect items in "top" together
     add_links!(top, c)
     return top
 end
@@ -153,28 +151,32 @@ function routing_graph(c::AbstractComponent,
                        memoize = true,
                        md = Dict{String, RoutingGraph}())
 
-    # Check to see if this component is memoized. If so - just return the
-    # memoized graph
+    # Check memoize dict
     memoize && haskey(md, c.name) && return md[c.name]
     if length(c.children) == 0
         g = routing_skeleton(c)
     else
-        # Call routing graph on each of the children of the component - will
-        # recursively build up an array of completed component.
         subgraphs = [routing_graph(i,memoize,md) for i in children(c)]
-        # Build the skeleton for the current top level component.
-        topgraph = routing_skeleton(c)
-        # Add all the routing at this level and splice all the independent graphs
-        # of the subcomponents together.
+        topgraph  = routing_skeleton(c)
         g = splicegraphs(c, topgraph, subgraphs)
     end
     # Memoize this result
     memoize && memoize!(c, md, c.name, g)
+    safety_check(c, g)
     return g
 end
 
 memoize!(::Component, md::Dict, key, value) = (md[key] = value)
 memoize!(::TopLevel, md::Dict, key, value)  = nothing
+
+safety_check(::Component, g) = nothing
+function safety_check(::TopLevel, g) 
+    maprev = rev_dict_safe(g.map)
+    for (k,v) in maprev
+        length(v) > 1  && throw(ErrorException("$k => $v"))
+    end
+    @debug routing_graph_info(g)
+end
 
 function routing_graph_info(g)
     """

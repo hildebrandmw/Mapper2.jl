@@ -206,11 +206,9 @@ function build_test_arch()
     add_child(arch, routing_tile, CartesianIndex(2,2))
 
     # Connect all ports together
-    key = ""
-    val = ""
-    fn = x -> true
-    src_rule = PortRule(key, val, fn)
-    dst_rule = PortRule(key, val, fn)
+
+    src_rule = x -> true
+    dst_rule = x -> true
 
     offsets = [CartesianIndex(-1,0),
                CartesianIndex(1,0), 
@@ -219,14 +217,12 @@ function build_test_arch()
 
     src_dirs = ("north", "south", "east", "west")
     dst_dirs = ("south", "north", "west", "east")
-    offset_rules = OffsetRule[]
-    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
-        src_ports = ["$(src)_out"]
-        dst_ports = ["$(dst)_in"]
-        # Create the offset rule and add it to the collection
-        new_rule = OffsetRule([offset], src_ports, dst_ports)
-        push!(offset_rules, new_rule)
-    end
+
+    src_ports = ["$(i)_out" for i in src_dirs]
+    dst_ports = ["$(i)_in" for i in dst_dirs]
+
+    offset_rules = zip(offsets, src_ports, dst_ports)
+
     # Build metadata dictionary for capacity and cost
     metadata = Dict{String,Any}("capacity"  => 5)
     # Launch the function call!

@@ -57,11 +57,9 @@ function build_arch()
     end
 
     # Connect all ports together
-    key = ""
-    val = ""
     fn = x -> true
-    src_rule = PortRule(key, val, fn)
-    dst_rule = PortRule(key, val, fn)
+    src_rule = fn
+    dst_rule = fn
 
     offsets = [CartesianIndex(-1, 0, 0),
                CartesianIndex( 1, 0, 0), 
@@ -72,14 +70,11 @@ function build_arch()
 
     src_dirs = ("north", "south", "east", "west", "up",   "down")
     dst_dirs = ("south", "north", "west", "east", "down", "up"  )
-    offset_rules = OffsetRule[]
-    for (offset, src, dst) in zip(offsets, src_dirs, dst_dirs)
-        src_ports = ["$(src)_out"]
-        dst_ports = ["$(dst)_in"]
-        # Create the offset rule and add it to the collection
-        new_rule = OffsetRule([offset], src_ports, dst_ports)
-        push!(offset_rules, new_rule)
-    end
+
+    src_ports = ["$(i)_out" for i in src_dirs]
+    dst_ports = ["$(i)_in" for i in dst_dirs]
+
+    offset_rules = zip(offsets, src_ports, dst_ports)
 
     connection_rule(a, offset_rules, src_rule, dst_rule)
     check(a)

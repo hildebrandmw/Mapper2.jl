@@ -1,10 +1,3 @@
-#=
-A flexible structure used to launch the pathfinder algorithm.
-
-May be used as a whole routing structure or a sub-structure for routing problems
-with multiple networks.
-=#
-
 struct CostVertex
    cost        ::Float64
    index       ::Int64
@@ -13,17 +6,15 @@ end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
+
+
 mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
-    """
-    The present and historical link costs.
-    """
     historical_cost         ::Vector{Float64}
     current_cost_factor     ::Float64
     historical_cost_factor  ::Float64
     iteration_limit         ::Int64
     links_to_route          ::T
-    # Structures used during the pathfinder algorithm. Keep them here to
-    # avoid re-allocation every time.
+    # Scratch-pad to avoid re-allocation.
     discovered  ::BitVector
     predecessor ::Vector{Int64}
     pq          ::Q
@@ -40,19 +31,12 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         iteration_limit         = 200
         links_to_route = 1:num_edges(m.taskgraph)
 
-        #=
-        Runtime Structures
-
-        Put in this structure to avoid reallocation for each invocation of the
-            Pathfinder Algorithm
-        =#
-
         # Initialized all nodes as undiscovered
         discovered  = falses(num_vertices)
         # Initially, all nodes have no predecessors. The initial state of this
         # structure should be cleared to the correct default values.
         predecessor = zeros(Int64, num_vertices)
-        pq = binary_minheap(CostVertex)
+        pq          = binary_minheap(CostVertex)
 
         return new{A,typeof(links_to_route),typeof(pq)}(
             historical_cost,
@@ -60,7 +44,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
             historical_cost_factor,
             iteration_limit,
             links_to_route,
-            # runtime structures
+            # scratchpad
             discovered,
             predecessor,
             pq,)
@@ -70,14 +54,13 @@ end
 "Return the Architecture type for the given Pathfinder structure."
 getarchitecture(::Pathfinder{A,T,Q}) where {A,T,Q} = A
 
-
 """
     links_to_route(p::Pathfinder, routing_struct, iteration)
 
 Return an iterator of links to route given the `Pathfinder` state, the
 `RoutingStruct`, and the `iteration` number.
 """
-function links_to_route(p::Pathfinder, r, iteration)
+function links_to_route(p::Pathfinder, r::RoutingStruct, iteration)
     # Every so many iterations, reset the entire routing process to help
     # global convergence.
     if mod(iteration,50) == 1
@@ -117,7 +100,6 @@ function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
         clear_route(rs, link)
     end
 end
-
 
 """
     linkcost(pf::Pathfinder, rs::RoutingStruct, node::Integer)

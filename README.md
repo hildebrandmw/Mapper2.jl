@@ -38,30 +38,3 @@ julia --color=yes make.jl
 ```
 
 Then, navigate into *docs/build* and open `index.html`.
-
-## TODO LIST
-
-### DOCUMENTATION
-* General Docs
-* Architecture/Constructors.jl
-* MapType/\*
-* Placement
-* Routing
-
-### Tests
-Improve Coverage.
-
-### TODO (B = Basic, M = Medium, H = Hard)
-*   (B) Move verification into MapType rather than routing. Makes more sense
-    to put it there.
-
-*   (M) May be some changes to make to routing. Perhaps an equivalence class
-    trick like is used in placement to classify what architecture links can be
-    used by a given taskgraph link.
-
-*   (H) Add placement and routing support for fanout networks.
-
-*   (B) Redo plotting - either by wrapping Plot statements inside a macro to
-    diable them or by providing some kind of callback functionality to get all
-    kinds of plotting outside of the base mapper.
-

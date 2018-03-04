@@ -2,7 +2,9 @@ module Helper
 
 using LightGraphs
 
-export  typeunion,
+export  make_ref_list,
+        wrap_vector,
+        typeunion,
         push_to_dict,
         add_to_dict,
         rev_dict,
@@ -24,6 +26,14 @@ export  typeunion,
         source_vertices,
         sink_vertices,
         make_lightgraph
+
+function make_ref_list(v)
+    ref_strings = ["[`$(string(i))`](@ref)" for i in v]
+    return join(ref_strings, ", ")
+end
+
+wrap_vector(v) = [v]
+wrap_vector(v::Vector) = identity(v)
 
 function typeunion(A::Array)
     types = DataType[]

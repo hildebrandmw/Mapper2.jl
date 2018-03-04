@@ -27,20 +27,59 @@ function iscongested(a::Vector{L}) where L <: AbstractRoutingLink
     end
     return false
 end
+################################################################################
+# Routing Link Documentation
+################################################################################
 
-function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-    @info "Annotating Graph Links"
-    maprev = rev_dict(rg.map)
+@doc """
+Default [`AbstractRoutingLink`](@ref) implementing only the required interface.
 
-    # Initialize this to any. We'll clean it up later.
-    routing_links_any = Vector{Any}(nv(rg.graph))
+# Constructor
+    RoutingLink(;cost = 1.0, capacity = 1)
+""" RoutingLink
 
-    for (i, path) in maprev
-        routing_links_any[i] = annotate(A, arch[path])
-    end
-    # Clean up types
-    routing_links = typeunion(routing_links_any)
+@doc """
+    channels(l::AbstractRoutingLink)
 
-    @debug "Type of Routing Link Annotations: $(typeof(routing_links))"
-    return routing_links
-end
+Return list of channels currently occupying `l`.
+""" channels
+
+@doc """
+    cost(l::AbstractRoutingLink)
+
+Return the cost of `l`.
+""" cost
+
+@doc """
+    capacity(l::AbstractRoutingLink)
+
+Return the capacity of `l`.
+""" capacity
+
+@doc """
+    occupancy(l::AbstractRoutingLink)
+
+Return the current occupancy of `l`.
+""" occupancy
+
+@doc """
+    iscongested(l::AbstractRoutingLink)
+
+Return `true` if `occupancy(l) > capacity(l)`
+
+    iscongested(v::Vector{L}) where {L <: AbstractRoutingLink}
+
+Return `true` if at least one element of `v` is congested.
+""" iscongested
+
+@doc """
+    addchannel(l::AbstractRoutingLink, c::Int64)
+
+Add `c` to the channels in `l`.
+""" addchannel
+
+@doc """
+    remchannel(l::AbstractRoutingLink, c::Int64)
+
+Remove `c` from the channels in `l`.
+""" remchannel
