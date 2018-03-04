@@ -34,10 +34,120 @@ The placeholder is just this empty type.
 """ EmptyAddressData
 
 ################################################################################
+# Location data structure
+################################################################################
+struct Location{D}
+    address     ::CartesianIndex{D}
+    component   ::Int64
+end
+
+Location{D}() where D = Location(zero(CartesianIndex{D}), 0)
+
+Base.getindex(a::Array, l::Location) = a[l.component, l.address]
+Base.setindex!(a::Array, x, l::Location) = a[l.component, l.address] = x
+
+getaddress(l::Location)         = l.address
+getcomponent(l::Location)       = l.component
+getaddress(c::CartesianIndex)   = c
+getcomponent(c::CartesianIndex) = 1
+
+################################################################################
+# Maptables
+################################################################################
+
+abstract type AbstractMapTable{D} end
+struct MapTable{D} <: AbstractMapTable{D}
+    class       ::Vector{Int64}
+    normal_lut  ::Vector{Array{Vector{Int64},D}}
+    special_lut ::Vector{Vector{Location{D}}}
+end
+
+struct FlatMapTable{D} <: AbstractMapTable{D}
+    class       ::Vector{Int64}
+    normal_lut  ::Vector{Array{Bool,D}}
+    special_lut ::Vector{Vector{CartesianIndex{D}}}
+end
+
+function MapTable(arch::TopLevel{A}, taskgraph, component_table; isflat = false) where A
+    classes, normal_class_reps, special_class_reps = equivalence_classes(A, taskgraph)
+
+    normal_lut = build_normal_lut(arch, normal_class_reps, component_table)
+    special_lut = build_special_lut(arch, special_class_reps, component_table)
+
+    # Simplify data structures
+    if isflat
+        normal_lut = [map(x -> length(x) > 0, i) for i in normal_lut]
+        special_lut = [map(x -> getaddress(x), i) for i in special_lut]
+
+        return FlatMapTable(classes, normal_lut, special_lut)
+    end
+    return MapTable(classes, normal_lut, special_lut)
+end
+
+# Methods
+isnormal(class::Int64) = class > 0
+
+ltype(m::MapTable{D}) where D = Location{D}
+ltype(m::FlatMapTable{D}) where D = CartesianIndex{D}
+
+function getlocations(m::MapTable{D}, table, address::CartesianIndex{D}) where D
+    location = Location{D}[]
+    for i in table[address]
+        push!(location, Location(address,i))
+    end
+    return location
+end
+
+function getlocations(m::FlatMapTable{D}, table, address::CartesianIndex{D}) where D
+    return table[address] ? [address] : CartesianIndex{D}[]
+end
+
+function getlocations(m::AbstractMapTable{D}, node::Int) where D
+    # Get the class for this 
+    class = m.class[node]
+    if isnormal(class)
+        locations = ltype(m)[]
+        table = m.normal_lut[class]
+        for i in eachindex(table)
+            address = CartesianIndex(ind2sub(table, i))
+            append!(locations, getlocations(m, table, address))
+        end
+        return locations
+    else
+        return m.special_lut[-class]
+    end
+end
+
+function isvalid(m::MapTable,index,location::Location) 
+    class = m.class[index]
+    if isnormal(class)
+        component = getcomponent(location)
+        list = m.normal_lut[class][getaddress(location)]
+        return component in list
+    else
+        return location in m.special_lut[-class]
+    end
+end
+
+function isvalid(m::FlatMapTable, index, location::CartesianIndex)
+    class = m.class[index]
+    if isnormal(class)
+        return m.normal_lut[class][getaddress(location)]
+    else
+        return location in m.special_lut[-class]
+    end
+end
+
+@doc """
+    isvalid(m::AbstractMapTable, index::Int, location::Union{Location,CartesianIndex})
+
+Return `true` is node `index` can be mapped to `location`. 
+""" isvalid
+
+################################################################################
 # SA Struct
 ################################################################################
 
-const Maptable{D} = Vector{Array{Vector{UInt8},D}}
 """
     struct SAStruct{A,U,D,D2,D1,N,L,T}
 
@@ -87,14 +197,11 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D1,N,L,T <: AddressData}
+struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable, T <: AddressData}
 
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
-    nodeclass               ::Vector{Int64}
-    maptables               ::Maptable{D}
-    special_maptables       ::Maptable{D}
-    special_addresstables   ::Vector{Vector{CartesianIndex{D}}}
+    maptable                ::M
     distance                ::U
     grid                    ::Array{Int64,D1}
     address_data            ::T
@@ -114,15 +221,31 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 # Basis SA Node
 ################################################################################
 
-mutable struct BasicNode{D} <: Node
-    address  ::CartesianIndex{D}
-    component::Int64
+abstract type AbstractFastNode <: Node end
+
+mutable struct BasicNode{T} <: Node
+    location ::T
     out_edges::Vector{Int64}
     in_edges ::Vector{Int64}
 end
 
-function build_node(::Type{T}, n::TaskgraphNode, D) where {T <: AbstractArchitecture}
-    return BasicNode(CartesianIndex{D}(), 0, Int64[], Int64[])
+# Node Interface
+location(n::Node)       = n.location
+assign(n::Node, l)      = (n.location = l)
+getaddress(n::Node)     = getaddress(n.location)
+getcomponent(n::Node)   = getcomponent(n.location) 
+
+
+# -------------
+# Construction
+# -------------
+function build_node(::Type{T}, n::TaskgraphNode, x) where {T <: AbstractArchitecture}
+    return BasicNode(x, Int64[], Int64[])
+end
+
+function setup_node_build(::Type{A}, t::Taskgraph, D, isflat::Bool) where A <: AbstractArchitecture
+    init = isflat ? zero(CartesianIndex{D}) : Location{D}()
+    return [build_node(A, n, init) for n in getnodes(t)]
 end
 
 @doc """
@@ -194,6 +317,7 @@ build_address_data(::Type{<:AbstractArchitecture}, arch, taskgraph) = EmptyAddre
 
 function SAStruct(m::Map{A,D};
                   distance = build_distance_table(m.architecture),
+                  enable_flattness = true,
                   kwargs...
                  ) where {A,D}
     @info "Building Placement Structure\n"
@@ -202,10 +326,18 @@ function SAStruct(m::Map{A,D};
     taskgraph     = m.taskgraph
     # Create the component_table.
     component_table = build_component_table(architecture)
-    # Build the SA Taskgraph
-    node_iterator = getnodes(taskgraph)
-    nodes         = [build_node(A, n, D) for n in node_iterator]
-    task_table    = Dict(n.name => i for (i,n) in enumerate(node_iterator))
+
+    # If the maximum number of components is 1, we can apply the fast-node
+    #   optimizations
+    if enable_flattness
+        isflat = maximum(map(x -> length(x), component_table)) == 1
+    else
+        isflat = false
+    end
+    isflat && @info "Applying Flat Architecture Optimization"
+
+    nodes      = setup_node_build(A, taskgraph, D, isflat) 
+    task_table = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
 
     #------------------------------#
     # Build the channel containers #
@@ -222,36 +354,30 @@ function SAStruct(m::Map{A,D};
     #----------------------------------------------------#
     # Obtain task equivalence classes from the taskgraph #
     #----------------------------------------------------#
-
-    classes, nclass, sclass = equivalence_classes(A, taskgraph)
-    # Build the map table based on the normal node equivalence classes.
-    # Behold the beautiful diagonal structure
-    maptables = build_maptables(architecture, nclass, component_table)
-
-    s_maptables = build_maptables(architecture, sclass, component_table)
-
-    s_addresstables = build_addresstables(architecture, sclass, component_table)
+    maptable = MapTable(architecture, taskgraph, component_table, isflat = isflat)
 
     arraysize = size(component_table)
-    # Find the maximum number of components in any address.
-    max_num_components = maximum(map(length, component_table))
-    grid = zeros(Int64, max_num_components, size(component_table)...)
+    if isflat
+        grid = zeros(size(component_table)...)
+    else
+        max_num_components = maximum(map(length, component_table))
+        grid = zeros(Int64, max_num_components, size(component_table)...)
+    end
+
     address_data = build_address_data(A, architecture, taskgraph)
 
     sa = SAStruct{A,                    # Architecture Type
                   typeof(distance),     # Encoding of Tile Distance
                   D,                    # Dimensionality of the Architecture
-                  D+1,                  # Architecture Dimensionality + 1
+                  ndims(grid),          # Architecture Dimensionality + 1
                   eltype(nodes),        # Type of the taskgraph nodes
                   eltype(edges),        # Type of the taskgraph edges
+                  typeof(maptable),
                   typeof(address_data)  # Type of address data
                  }(
         nodes,
         edges,
-        classes,
-        maptables,
-        s_maptables,
-        s_addresstables,
+        maptable,
         distance,
         grid,
         address_data,
@@ -264,6 +390,8 @@ function SAStruct(m::Map{A,D};
     verify_placement(m, sa)
     return sa
 end
+
+flat_transform(A) = [map(x -> length(x) >= 1, i) for i in A]
 
 """
     cleargrid(sa::SAStruct)
@@ -288,7 +416,11 @@ function preplace(m::Map, sa::SAStruct)
         # Get the index to assign
         index = sa.task_table[task_name]
         # Assign the nodes
-        assign(sa, index, component, address)
+        if typeof(sa.nodes[index].location) <: CartesianIndex
+            assign(sa, index, address)
+        else
+            assign(sa, index, Location(address, component))
+        end
     end
     return nothing
 end
@@ -309,8 +441,8 @@ function record(m::Map{A,D}, sa::SAStruct) where {A,D}
 
     for (index, node) in enumerate(sa.nodes)
         # Get the mapping for the node
-        address         = node.address
-        component_index = node.component
+        address         = getaddress(node)
+        component_index = getcomponent(node)
         # Get the component name in the original architecture
         component_path = sa.component_table[address][component_index]
         task_node_name  = task_table_rev[index]
@@ -445,18 +577,16 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
 end
 
 
-function build_maptables(architecture::TopLevel{A,D},
-                         nodes,
-                         component_table) where {A,D}
-    maptype = UInt8
+function build_normal_lut(arch::TopLevel{A,D}, nodes, component_table) where {A,D}
+    maptype = Int64
     # Preallocate map table
     maptable = Vector{Array{Vector{maptype},D}}(length(nodes))
 
     for (index,node) in enumerate(nodes)
         # Pre-allocate the map table with empty arrays.
         this_table = fill(UInt8[], size(component_table))
-        # Iterate through all components of the top level architecture.
-        for (address,component) in architecture.children
+        # Iterate through all components of the top level arch.
+        for (address,component) in arch.children
             # Get the mappable component from the "component_table"
             mappables = component_table[address]
             component_list = maptype[]
@@ -474,21 +604,19 @@ function build_maptables(architecture::TopLevel{A,D},
     return maptable
 end
 
-function build_addresstables(architecture::TopLevel{A,D},
-                             nodes,
-                             component_table) where {A,D}
+function build_special_lut(arch::TopLevel{A,D}, nodes, component_table) where {A,D}
 
     # Pre-allocate the table.
 
-    addresstables = Vector{Vector{CartesianIndex{D}}}(length(nodes))
+    addresstables = Vector{Vector{Location{D}}}(length(nodes))
     # Iterate through each node - then through each address.
     for (index,node) in enumerate(nodes)
-        this_table = CartesianIndex{D}[]
-        for (address, component) in architecture.children
+        this_table = Location{D}[]
+        for (address, component) in arch.children
             mappables = component_table[address]
             for (i,path) in enumerate(mappables)
                 c = component[path]
-                canmap(A, node, c) && push!(this_table, address)
+                canmap(A, node, c) && push!(this_table, Location(address,i))
             end
         end
         addresstables[index] = this_table
@@ -566,21 +694,16 @@ function check_consistency(sa::SAStruct)
     bad_nodes = Int64[]
     # Verify that addresses for the nodes match the grid
     for (index,node) in enumerate(sa.nodes)
-        try
-            node_assigned = sa.grid[node.component, node.address]
-            if index != node_assigned
-                push!(bad_nodes, index)
-                push!(bad_nodes, node_assigned)
-                @warn """
-                    Data structure inconsistency for node $index.
-                    Node assigned to location: $(node.address), $(node.component).
-
-                    Node assigned in the grid at this location: $node_assigned.
-                    """
-            end
-        catch
-            @warn "Something wrong with node: $index"
+        node_assigned = sa.grid[location(node)]
+        if index != node_assigned
             push!(bad_nodes, index)
+            push!(bad_nodes, node_assigned)
+            @warn """
+                Data structure inconsistency for node $index.
+                Node assigned to location: $(location(node)).
+
+                Node assigned in the grid at this location: $node_assigned.
+                """
         end
     end
     return bad_nodes
@@ -594,23 +717,18 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
     for (index, (m_node_name, m_node)) in enumerate(m.taskgraph.nodes)
         sa_node = sa.nodes[index]
         # Get the mapping for the node
-        address = sa_node.address
-        component_index = sa_node.component
+        address = getaddress(sa_node)
+        component = getcomponent(sa_node)
         # Get the component name in the original architecture
-        try
-            component_path = sa.component_table[address][component_index]
-            # Get the component from the architecture
-            path = AddressPath(address, component_path)
-            component = architecture[path]
-            if !canmap(A, m_node, component)
-                push!(bad_nodes, index)
-                @warn """
-                    Node index $index incorrectly assigned to architecture node $(m_node.name).
-                    """
-            end
-        catch
-            @warn "Something wrong with node index: $index"
+        component_path = sa.component_table[address][component]
+        # Get the component from the architecture
+        path = AddressPath(address, component_path)
+        component = architecture[path]
+        if !canmap(A, m_node, component)
             push!(bad_nodes, index)
+            @warn """
+                Node index $index incorrectly assigned to architecture node $(m_node.name).
+                """
         end
     end
     return bad_nodes
