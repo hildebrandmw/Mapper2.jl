@@ -25,71 +25,29 @@ function build_graph(sa::SAStruct)
     - Will need to build a dictionary mapping tuples (Address, component_id) to
     an integer to keep track of architecture components.
     =#
-    # Unpack commonly used object.
-    component_table = sa.component_table
 
     # Offset for the source and sink nodes.
     sourcesink_offset = 2
     # Create the node translation dictionary
     node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
-    # Start enumerating all the mapable components and building a translation
-    # dictionary.
-    keytype = Tuple{CartesianIndex{dimension(sa)},Int64}
-    component_dict = Dict{keytype, Int64}()
-    # Variable for keeping track of the current vertex number.
-    vertex_number = sourcesink_offset + length(node_dict)
-    for index in eachindex(component_table)
-        # Check to see if the component list at this index is empty. If so,
-        # move to the next index.
-        length(component_table[index]) == 0 && continue
-        # Convert the index into subscripts
-        subscripts = ind2sub(component_table, index)
-        # Create an address
-        address = CartesianIndex(subscripts)
-        # Iterate through all indices at this location.
-        for i in 1:length(component_table[index])
-            # Increment vertex cound
-            vertex_number += 1
-            # Create a key entry.
-            key = (address, i)
-            component_dict[key] = vertex_number
-        end
-    end
+    component_dict = Dict{Any, Int64}()
+
     # Build the light graph
-    graph = DiGraph(vertex_number)
+    graph = DiGraph(sourcesink_offset + length(node_dict))
     edges_added = 0
-    # Begin adding edges to the graph - get all of the unique equivalence classes.
-    unique_classes = unique(sa.nodeclass)
-    for class in unique_classes
-        # Get all the node indices that fall into this class.
-        node_indices = find(x -> x == class, sa.nodeclass)
-        # Get the map table for this class.
-        maptable = class < 0 ? sa.special_maptables[-class] : sa.maptables[class]
-        # Iterate through all addresses - add an edge as appropriate.
-        for index in eachindex(maptable)
-            # Skip entries that have no component that this node class can
-            # be mapped to.
-            sa_canmap(maptable[index]) || continue
-            # Get the address
-            address = CartesianIndex(ind2sub(maptable, index))
-            # Iterate through all components this node class can be mapped
-            # to at this address
-            for i in 1:length(maptable[index])
-                # Create a key to get the index of the component.
-                # Key is a tuple (address, component_index)
-                key = (address, Int64(maptable[index][i]))
-                # Look up the node number from the component dict
-                component_number = component_dict[key]
-                # Create an edge for all nodes in the class.
-                for node_index in node_indices
-                    node_number = node_dict[node_index]
-                    add_edge!(graph, node_number, component_number)
-                    # Record the total number of edges added
-                    edges_added += 1
-                end
+
+    for i in 1:length(sa.nodes)
+        node_number = node_dict[i]
+        for key in getlocations(sa.maptable, i)
+            if !haskey(component_dict, key)
+                add_vertex!(graph)
+                component_dict[key] = nv(graph)
             end
+            add_edge!(graph, node_number, component_dict[key])
+            edges_added += 1
         end
     end
+
     # Create the source and sink edges
     for i in values(node_dict)
         add_edge!(graph, 1, i)
@@ -101,7 +59,7 @@ function build_graph(sa::SAStruct)
     # Prints for debug.
     @debug """
         Translation Tables Complete.
-        Number of Vertices: $vertex_number.
+        Number of Vertices: $(nv(graph)).
         Number of Tasks: $(length(node_dict)).
         Number of Components: $(length(component_dict)).
         Number of edges added: $(edges_added).

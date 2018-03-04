@@ -16,7 +16,7 @@ end
 
 # constructor for non-flat architectures
 function MoveCookie(::SAStruct{A,U,D,D1}) where {A,U,D,D1} 
-    MoveCookie(0.0, 0, false, 0, (zero(CartesianIndex{D}), 0))
+    MoveCookie(0.0, 0, false, 0, Location{D}())
 end
 
 # constructor for flat architecture - check if the grid is the same dimension
@@ -143,7 +143,7 @@ function place(
         ############## 
         for i in 1:move_attempts
             # Try to generate a move. If it failed, try again.
-            generate_move(A, sa, cookie, distance_limit, max_addresses) || continue
+            generate_move(sa, cookie, distance_limit, max_addresses) || continue
             successful_moves += 1
             # Get the cost of the move
             cost_of_move = cookie.cost_of_move
@@ -233,42 +233,32 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
-isnormal(class::Int64) = class > 0
 #function isvalid(sa::SAStruct, node::Int64, address::CartesianIndex, component)
-function isvalid(sa::SAStruct, index::Int64, location::Tuple{CartesianIndex{D},<:Integer}) where D
-    address     = location[1]
-    component   = location[2]
-    # Get the class associated with this node.
-    class = sa.nodeclass[index]
-    # Get the map tables for the node. Check if the component is in the 
-    # maptable.
-    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
-    return component in maptable[address]
-end
+#function isvalid(sa::SAStruct, index::Int64, location::Location)
+#    address     = location[1]
+#    component   = location[2]
+#    # Get the class associated with this node.
+#    class = sa.nodeclass[index]
+#    # Get the map tables for the node. Check if the component is in the 
+#    # maptable.
+#    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
+#    return component in maptable[address]
+#end
+#
+#function isvalid(sa::SAStruct, index::Int64, location::CartesianIndex)
+#    class = sa.nodeclass[index]
+#    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
+#    return maptable[location]
+#end
 
-function isvalid(sa::SAStruct, index::Int64, location::CartesianIndex)
-    class = sa.nodeclass[index]
-    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
-    return maptable[location]
-end
-
-check_location(sa::SAStruct, i::Tuple{CartesianIndex{D},<:Integer}) where D = sa.grid[i[2],i[1]]
-check_location(sa::SAStruct, i::CartesianIndex) = sa.grid[i]
-
-#function move_with_undo(sa::SAStruct, cookie, index::Int64, address, component)
-function move_with_undo(sa::SAStruct, cookie, index::Int64, new_location)
-    A = architecture(sa)
+function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) where A
     node = sa.nodes[index]
     # Store the old information
     old_location = location(node)
-    #old_address     = sa.nodes[node].address
-    #old_component   = sa.nodes[node].component
     cookie.index_of_moved_node = index
     cookie.old_location = old_location
-    #cookie.old_address     = old_address
-    #cookie.old_component   = old_component
     # Check to see if there is a node already mapped to this location
-    occupying_node = check_location(sa, new_location)
+    occupying_node = sa.grid[new_location]
     if occupying_node == 0
         cookie.move_was_swap = false
 
@@ -279,7 +269,7 @@ function move_with_undo(sa::SAStruct, cookie, index::Int64, new_location)
         cookie.cost_of_move = moved_cost - base_cost
     else
         # Check if the node at the new location can be moved to the old location
-        isvalid(sa, occupying_node, old_location) || return false
+        isvalid(sa.maptable, occupying_node, old_location) || return false
         cookie.move_was_swap = true
         # Save the index of the occupying node
         cookie.index_of_other_node  = occupying_node
@@ -316,59 +306,54 @@ end
 canmove(::Type{A}, x) where {A <: AbstractArchitecture} = true
 
 # Move generation in the general case.
-function generate_move(::Type{A}, sa::SAStruct, cookie, limit, upperbound) where {A <: AbstractArchitecture} 
+function generate_move(sa::SAStruct{A}, cookie, limit, upperbound) where {A <: AbstractArchitecture} 
     # Pick a random node
     index = rand(1:length(sa.nodes))
-    old_address = getaddress(sa.nodes[index])
-    # Give a "canmove" function to allow certain nodes to be fixed if so
-    # desired.
     canmove(A, sa.nodes[index]) || return false
+
+    old_address = getaddress(sa.nodes[index])
+    maptable = sa.maptable
     # Get the equivalent class of the node
-    class = sa.nodeclass[index]
+    class = maptable.class[index]
     # Get the address and component to move this node to
     if isnormal(class)
-        address = standard_move(A, sa, old_address, limit, upperbound)
-        maptable = sa.maptables[class]
-        length(maptable[address]) == 0 && return false
-        component = rand(maptable[address])
+        address = standard_move(A, old_address, limit, upperbound)
+        components = maptable.normal_lut[class][address]
+
+        length(components) == 0 && return false
+        component = rand(components)
+        new_location = Location(address, component)
     else
-        address = special_move(A, sa, class)
-        component = rand(sa.special_maptables[-class][address])
+        new_location = rand(maptable.special_lut[-class])
     end
     # Perform the move and record enough information to undo the move. The
     # function "move_with_undo" will return false if the move is a swap and
     # the moved node cannot be placed.
-    return move_with_undo(sa::SAStruct, cookie, index, (address, component))
+    return move_with_undo(sa::SAStruct, cookie, index, new_location)
 end
 
-function generate_move(::Type{A}, sa::SAStruct{A,U,D,D}, cookie, limit, upperbound) where {A <: AbstractArchitecture, U,D}
+
+function generate_move(sa::SAStruct{A,U,D,D}, cookie, limit, upperbound) where {A <: AbstractArchitecture, U,D}
     index = rand(1:length(sa.nodes))
-    old_address = getaddress(sa.nodes[index])
     canmove(A, sa.nodes[index]) || return false
 
-    class = sa.nodeclass[index]
+    old_address = getaddress(sa.nodes[index])
+    maptable    = sa.maptable
+    class = maptable.class[index]
     if isnormal(class)
-        address = standard_move(A, sa, old_address, limit, upperbound)
-        maptable = sa.maptables[class]
-        # Flat maptables are arrays of boolean. true => class can map.
-        maptable[address] || return false
+        address = standard_move(A, old_address, limit, upperbound)
+        # Check if this is an acceptable destination address
+        maptable.normal_lut[class][address] || return false
     else
-        address = special_move(A, sa, class)
+        address = rand(maptable.special_lut[-class])
     end
     return move_with_undo(sa::SAStruct, cookie, index, address)
 end
 
-function standard_move(::Type{A}, sa::SAStruct, address, limit, ub) where {A <: AbstractArchitecture}
+function standard_move(::Type{A}, address, limit, ub) where {A <: AbstractArchitecture}
     # Generate a new address based on the distance limit
     move_ub = min.(address.I .+ limit, ub)
     move_lb = max.(address.I .- limit, 1)
     new_address = rand_cartesian(move_lb, move_ub)
     return new_address
 end
-
-function special_move(::Type{A}, sa::SAStruct, class) where {A <: AbstractArchitecture}
-    # Get the special address table for this class.
-    new_address = rand(sa.special_addresstables[-class])
-    return new_address
-end
-

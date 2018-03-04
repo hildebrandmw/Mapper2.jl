@@ -15,7 +15,7 @@ function assign(sa::SAStruct, index, spot)
     node = sa.nodes[index]
     # update node then grid.
     assign(node, spot)
-    sa.grid[node] = index
+    sa.grid[location(node)] = index
 end
 
 """
@@ -25,9 +25,9 @@ Move `node` to the given `component` and `address`.
 """
 function move(sa::SAStruct, index, spot)
     node = sa.nodes[index]
-    sa.grid[node] = 0
+    sa.grid[location(node)] = 0
     assign(node,spot)
-    sa.grid[node] = index
+    sa.grid[location(node)] = index
 end
 
 """
@@ -41,11 +41,13 @@ function swap(sa::SAStruct, node1, node2)
     n2 = sa.nodes[node2]
     # Swap address/component assignments
     s = location(n1)
-    assign(n1, location(n2))
+    t = location(n2)
+
+    assign(n1, t)
     assign(n2, s)
     # Swap grid.
-    sa.grid[n1] = node1
-    sa.grid[n2] = node2
+    sa.grid[t] = node1
+    sa.grid[s] = node2
     return nothing
 end
 
@@ -67,8 +69,8 @@ function edge_cost(::Type{A}, sa::SAStruct, i::Int) where {A <: AbstractArchitec
 end
 
 function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::TwoChannel)
-    a = sa.nodes[edge.source].address
-    b = sa.nodes[edge.sink].address
+    a = getaddress(sa.nodes[edge.source])
+    b = getaddress(sa.nodes[edge.sink])
     return Float64(sa.distance[a,b])
 end
 
@@ -76,8 +78,8 @@ function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChan
     cost = 0.0
     for src in edge.sources, snk in edge.sinks
         # Get the source and sink addresses
-        a = sa.nodes[src].address
-        b = sa.nodes[snk].address
+        a = getaddress(sa.nodes[src])
+        b = getaddress(sa.nodes[snk])
         cost += sa.distance[a,b]
     end
     return cost
