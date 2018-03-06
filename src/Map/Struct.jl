@@ -13,7 +13,6 @@ mutable struct NodeMap{D}
     NodeMap{D}() where D = new{D}(AddressPath{D}(), emptymeta())
 end
 
-
 #-- Methods
 getpath(nodemap::NodeMap) = nodemap.path
 
@@ -34,7 +33,7 @@ Flexible data structure recording the mapping of nodes and edges in the taskgrap
 to elements in the top level.
 """
 mutable struct Mapping{D}
-    nodes::Dict{String, NodeMap{D}}
+    nodes::Dict{String,NodeMap{D}}
     edges::Vector{EdgeMap}
 end
 
@@ -69,8 +68,8 @@ end
 
 function NewMap(architecture::TopLevel{A,D}, 
                 taskgraph   ::Taskgraph;
-                options = Dict{Symbol,Any}(),
-                metadata = Dict{String,Any}(),) where {A,D}
+                options     = Dict{Symbol,Any}(),
+                metadata    = Dict{String,Any}(),) where {A,D}
 
     # Create a new Mapping data type for the new map
     # Get the node names

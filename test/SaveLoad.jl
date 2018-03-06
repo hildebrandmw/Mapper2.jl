@@ -28,11 +28,9 @@ This file tests the save and load feature of the Mapper.
     # Assert the two costs are the same.
     @test Mapper2.SA.map_cost(sn) == Mapper2.SA.map_cost(sm)
     # Get the link histograms for the two maps. Make sure they match
-    #=
     lm = MapperCore.global_link_histogram(m)
     ln = MapperCore.global_link_histogram(n)
     @test lm == ln
-    =#
 
-    rm("tests.json")
+    rm("tests.jls")
 end

@@ -2,7 +2,6 @@ module MapperCore
 
 using ..Mapper2.Helper
 using IterTools
-using JSON
 using DataStructures
 using MicroLogging
 using LightGraphs
