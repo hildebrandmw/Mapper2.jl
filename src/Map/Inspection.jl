@@ -41,9 +41,9 @@ function global_link_histogram(m::Map{A,D}) where {A,D}
     return histogram
 end
 
-function count_global_links(edge::EdgeMap)
+function count_global_links(path)
     link_count = 0
-    for v in vertices(edge.path)
+    for v in vertices(path)
         if isgloballink(v)
             link_count += 1
         end

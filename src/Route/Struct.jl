@@ -121,8 +121,7 @@ function record(m::Map, r::RoutingStruct)
         sources         = getsources(taskgraph_edge)
         sinks           = getsinks(taskgraph_edge)
 
-        metadata = Dict("sources" => sources, "sinks" => sinks,)
-        mapping[i] = EdgeMap(routing_path, metadata = metadata)
+        mapping[i] = routing_path
     end
     return nothing
 end

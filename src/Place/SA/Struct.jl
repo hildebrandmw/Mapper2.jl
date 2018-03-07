@@ -409,8 +409,8 @@ function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
     for (task_name, nodemap) in m.mapping.nodes
         # Get the address for the node
-        address         = nodemap.path.address
-        component_path  = nodemap.path.path
+        address         = nodemap.address
+        component_path  = nodemap.path
         # Get the index of the component from the component table
         component = findfirst(x -> x == component_path, sa.component_table[address])
         # Get the index to assign
@@ -447,8 +447,7 @@ function record(m::Map{A,D}, sa::SAStruct) where {A,D}
         component_path = sa.component_table[address][component_index]
         task_node_name  = task_table_rev[index]
         # Create an entry in the "Mapping" data structure
-        nodemap         = mapping.nodes[task_node_name]
-        nodemap.path    = AddressPath(address, component_path)
+        mapping.nodes[task_node_name] = AddressPath(address, component_path)
     end
     return nothing
 end

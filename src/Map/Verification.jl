@@ -40,8 +40,8 @@ function check_ports(m::Map{A}) where A
         tg_sources = getsources(tg_edge)
         tg_sinks   = getsinks(tg_edge)
 
-        routing_sources = Set(source_vertices(edge.path))
-        routing_sinks   = Set(sink_vertices(edge.path))
+        routing_sources = Set(source_vertices(edge))
+        routing_sinks   = Set(sink_vertices(edge))
 
         # Check that source ports are valid for the location of the placed tasks.
         for source in tg_sources
@@ -109,7 +109,7 @@ function check_capacity(m::Map{A}) where A <: AbstractArchitecture
 
     # categorize edges
     for (i,edge) in enumerate(edges)
-        for v in vertices(edge.path)
+        for v in vertices(edge)
             add_to_dict(times_resource_used, v)
             push_to_dict(resource_to_edge, v, i)
         end
@@ -148,8 +148,7 @@ function check_architecture_connectivity(m::Map)
 
     success = true
     for edge in edges
-        g = edge.path
-        for i in vertices(g), j in outneighbors(g, i)
+        for i in vertices(edge), j in outneighbors(edge, i)
             if !isconnected(arch, i, j)
                 success = false
             end
@@ -164,8 +163,7 @@ function check_routing_connectivity(m::Map)
     success = true
     # Construct a lightgraph from the sparsegraph
     for (i,edge) in enumerate(edges)
-        path = edge.path
-        g, d = make_lightgraph(path)
+        g, d = make_lightgraph(edge)
 
         # Check for weakconnectivity
         if !is_weakly_connected(g)
@@ -175,8 +173,8 @@ function check_routing_connectivity(m::Map)
             success = false
         end
         # Check paths from source to destination.
-        sources = source_vertices(path)
-        sinks   = sink_vertices(path)
+        sources = source_vertices(edge)
+        sinks   = sink_vertices(edge)
         for src in sources, snk in sinks
             if !has_path(g, d[src], d[snk])
                 @error """
@@ -196,8 +194,7 @@ function check_architecture_resources(m::Map{A}) where A
     success = true
     for (i, edge) in enumerate(edges)
         tg_edge = getedge(m.taskgraph, i) 
-        path = edge.path
-        for v in vertices(path)
+        for v in vertices(edge)
             # Checking routing
             if !canuse(A, arch[v], tg_edge)
                 success = false
