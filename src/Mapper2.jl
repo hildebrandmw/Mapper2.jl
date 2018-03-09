@@ -1,20 +1,38 @@
 module Mapper2
 
+const is07 = VERSION > v"0.7.0-"
+
 const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
 using Reexport
 
-using MicroLogging
-
-function set_logging(level)
-    modules = (Mapper2.Helper,
-               Mapper2.MapperCore,
-               Mapper2.Place,
-               Mapper2.SA,
-               Mapper2.Routing,
-              )
-    for m in modules
-        configure_logging(m, min_level=level)
+if is07
+    using Logging
+    function set_logging(level) 
+        if level == :debug
+            disable_logging(Logging.Debug-10)
+        elseif level == :info
+            disable_logging(Logging.Info-10)
+        elseif level == :warn
+            disable_logging(Logging.Warn-10)
+        elseif level == :error
+            disable_logging(Logging.Error-10)
+        else
+            throw(KeyError(level))
+        end
+    end
+else
+    using MicroLogging
+    function set_logging(level)
+        modules = (Mapper2.Helper,
+                   Mapper2.MapperCore,
+                   Mapper2.Place,
+                   Mapper2.SA,
+                   Mapper2.Routing,
+                  )
+        for m in modules
+            configure_logging(m, min_level=level)
+        end
     end
 end
 

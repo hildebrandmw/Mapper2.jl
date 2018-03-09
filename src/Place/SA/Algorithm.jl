@@ -103,7 +103,7 @@ function place(
     num_edges = length(sa.edges)
 
     # Get the largest address
-    max_addresses = ind2sub(sa.component_table, endof(sa.component_table))
+    @compat max_addresses = last((CartesianIndices(sa.component_table))).I
     largest_address = maximum(max_addresses)
 
     # Initialize structure to help during placement.

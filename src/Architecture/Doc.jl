@@ -128,20 +128,21 @@ Return `true` if path `p` points to a global routing link.
     isglobalport(p::AbstractPath)
 
 Return `true` if path `p` points to a global routing port.
-"""
+""" isglobalport
 
 @doc """
     length(p::AbstractPath)
 
 Return the total number of hops in path `p`.
-"""
+""" length
 
 @doc """
     prefix(p::AbstractPath) 
 
 Return a path of all but the last item in `p`. If `p` has only an address,
 return an empty address path.
-"""
+""" prefix
+
 @doc """
     push(c::ComponentPath, val::String)
 

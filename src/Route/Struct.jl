@@ -148,7 +148,7 @@ function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchit
     maprev = rev_dict(rg.map)
 
     # Initialize this to any. We'll clean it up later.
-    routing_links_any = Vector{Any}(nv(rg.graph))
+    @compat routing_links_any = Vector{Any}(uninitialized, nv(rg.graph))
 
     for (i, path) in maprev
         routing_links_any[i] = annotate(A, arch[path])

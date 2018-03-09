@@ -108,8 +108,7 @@ function getlocations(m::AbstractMapTable{D}, node::Int) where D
     if isnormal(class)
         locations = ltype(m)[]
         table = m.normal_lut[class]
-        for i in eachindex(table)
-            address = CartesianIndex(ind2sub(table, i))
+        @compat for address in CartesianIndices(table)
             append!(locations, getlocations(m, table, address))
         end
         return locations
@@ -398,7 +397,12 @@ flat_transform(A) = [map(x -> length(x) >= 1, i) for i in A]
 
 Set all entries in `sa.grid` to 0.
 """
-cleargrid(sa::SAStruct) = sa.grid .= 0
+function cleargrid(sa::SAStruct) 
+    for i in eachindex(sa.grid)
+        sa.grid[i] = 0
+    end
+end
+
 
 """
     preplace(m::Map, sa::SAStruct)
@@ -412,7 +416,7 @@ function preplace(m::Map, sa::SAStruct)
         address         = nodemap.address
         component_path  = nodemap.path
         # Get the index of the component from the component table
-        component = findfirst(x -> x == component_path, sa.component_table[address])
+        component = Compat.findfirst(x -> x == component_path, sa.component_table[address])
         # Get the index to assign
         index = sa.task_table[task_name]
         # Assign the nodes
@@ -528,7 +532,7 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
     @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
     # integer ID for what class it belongs to.
-    nodeclasses = Vector{Int64}(length(getnodes(taskgraph)))
+    @compat nodeclasses = Vector{Int64}(uninitialized, length(getnodes(taskgraph)))
     # Allocate empty vectors to serve as representatives for the normal and
     # special classes.
     normal_node_reps  = TaskgraphNode[]
@@ -537,8 +541,8 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
     for (index,node) in enumerate(getnodes(taskgraph))
         if isspecial(A, node)
             # Check if this node has an equivalent in the special node reps.
-            i = findfirst(x -> isequivalent(A, x, node), special_node_reps)
-            if i == 0
+            i = Compat.findfirst(x -> isequivalent(A, x, node), special_node_reps)
+            if i == nothing
                 # If there is no representative, i == 0 - add this node to the
                 # to end of the represtatives list.
                 push!(special_node_reps, node)
@@ -551,8 +555,8 @@ function equivalence_classes(::Type{A}, taskgraph) where {A <: AbstractArchitect
             nodeclasses[index] = -i
         else
             # Check if this node has an equivalent in the special node reps.
-            i = findfirst(x -> isequivalent(A, x, node), normal_node_reps)
-            if i == 0
+            i = Compat.findfirst(x -> isequivalent(A, x, node), normal_node_reps)
+            if i == nothing
                 push!(normal_node_reps, node)
                 i = length(normal_node_reps)
             end
@@ -579,7 +583,7 @@ end
 function build_normal_lut(arch::TopLevel{A,D}, nodes, component_table) where {A,D}
     maptype = Int64
     # Preallocate map table
-    maptable = Vector{Array{Vector{maptype},D}}(length(nodes))
+    maptable = Array{Vector{maptype},D}[]
 
     for (index,node) in enumerate(nodes)
         # Pre-allocate the map table with empty arrays.
@@ -597,7 +601,7 @@ function build_normal_lut(arch::TopLevel{A,D}, nodes, component_table) where {A,
             this_table[address] = component_list
          end
          # Add the map table to the vector of tables.
-         maptable[index] = this_table
+         push!(maptable, this_table)
     end
     intern(maptable)
     return maptable
@@ -607,7 +611,7 @@ function build_special_lut(arch::TopLevel{A,D}, nodes, component_table) where {A
 
     # Pre-allocate the table.
 
-    addresstables = Vector{Vector{Location{D}}}(length(nodes))
+    addresstables = Vector{Location{D}}[]
     # Iterate through each node - then through each address.
     for (index,node) in enumerate(nodes)
         this_table = Location{D}[]
@@ -618,7 +622,7 @@ function build_special_lut(arch::TopLevel{A,D}, nodes, component_table) where {A
                 canmap(A, node, c) && push!(this_table, Location(address,i))
             end
         end
-        addresstables[index] = this_table
+        push!(addresstables, this_table)
     end
     return addresstables
 end

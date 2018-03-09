@@ -184,13 +184,17 @@ end
 ################################################################################
 
 @doc """
-    add_port(c::Component, name, class, number)
+    add_port(c::Component, name, class, number; metadata = emptymeta())
 
 Add `number` ports with the given `name` and `class`. Ports names will be the
 provided suffix with bracket-vector notation.
 
 For example, the function call `add_port(c, "test", "input", 3)` should add
 3 `input` ports to component `c` with names: `test[2], test[1], test[0]`.
+
+If `metadata` is given, it will be assigned to each instantiated port. If 
+`metadata` is a vector with `length(metadata) == number`, than entries of
+`metadata` will be sequentially assigned to each instantiated port.
 """ add_port
 
 @doc """

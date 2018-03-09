@@ -1,5 +1,7 @@
 module SA
 
+const is07 = VERSION > v"0.7.0-"
+
 using ..Mapper2.Helper
 using ..Mapper2.MapperCore
 using ..Mapper2.Place
@@ -7,7 +9,9 @@ using ..Mapper2.Place
 using LightGraphs
 using DataStructures
 using Formatting
-using MicroLogging
+using Compat
+
+is07 ? (using Logging) : (using MicroLogging)
 
 export  SAStruct,
         getaddress,

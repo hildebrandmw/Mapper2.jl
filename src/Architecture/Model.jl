@@ -94,6 +94,9 @@ const AbsPath = AbstractPath
 #-------------------------------------------------------------------------------
 # PATH METHODS
 #-------------------------------------------------------------------------------
+getaddress(p::AddressPath)      = p.address
+getaddress(p::ComponentPath)    = nothing
+getaddress(p::AbstractPath)     = getaddress(p.path)
 
 constructor(::LinkPath) = LinkPath
 constructor(::PortPath) = PortPath
@@ -162,9 +165,13 @@ Base.:(==)(a::T, b::T) where T <: AbsPath = (a.name == b.name) && (a.path == b.p
 end
 
 # string and showing
-Base.string(c::ComPath) = join(c.path, ".")
-Base.string(a::AddPath)   = join((a.address.I, string(a.path)), ".")
-Base.string(p::AbsPath)  = join((string(p.path), p.name), ".")
+Base.string(c::ComPath)   = join(c.path, ".")
+function Base.string(a::AddPath) 
+    iszero(a.address) ? (p = "global") : (p = string(a.address.I))
+    return join((p,string(a.path)),".")
+end
+Base.string(p::AbsPath)   = join((string(p.path), p.name), ".")
+
 typestring(p::AbstractComponentPath)    = "Component"
 typestring(p::PortPath)                 = "Port"
 typestring(p::LinkPath)                 = "Link"
@@ -385,7 +392,7 @@ function walk_children(c::Component)
     components = [ComponentPath()]
     queue = [ComponentPath([id]) for id in keys(c.children)]
     while !isempty(queue)
-        path = shift!(queue)
+        @compat path = popfirst!(queue)
         push!(components, path)
         # Need to push child the child name to the component path to get the
         # component path relative to c.

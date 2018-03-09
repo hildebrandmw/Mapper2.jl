@@ -8,7 +8,7 @@ function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
     # Pre-allocate a table of the right dimensions.
     dims = dim_max(addresses(architecture))
     # Replicate the dimensions once to get a 2D sized LUT.
-    distance = Array{dtype}(dims..., dims...)
+    distance = fill(typemax(dtype), dims..., dims...)
     # Get the neighbor table for finding adjacent components in the top level.
     neighbor_table = build_neighbor_table(architecture)
 
@@ -54,12 +54,12 @@ function bfs!(distance::Array{U,N}, architecture::TopLevel{A,D},
 end
 
 function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    dims = Int64.(dim_max(addresses(architecture)))
     @debug "Building Neighbor Table"
     # Get the connected component dictionary
     cc = MapperCore.connected_components(architecture)
     # Create a big list of lists
-    neighbor_table = Array{Vector{CartesianIndex{D}}}(dims)
+    #neighbor_table = Array{Vector{CartesianIndex{D}}}(dims)
+    neighbor_table = Dict{CartesianIndex{D},Vector{CartesianIndex{D}}}()
     for (address, set) in cc
         neighbor_table[address] = collect(set)
     end
