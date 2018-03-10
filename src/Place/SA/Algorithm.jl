@@ -85,7 +85,7 @@ end
 function place(
         sa::SAStruct;
         # Number of moves before doing a parameter update.
-        move_attempts       = 20_000,
+        move_attempts       = 30_000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
         # Parameters for high-level control

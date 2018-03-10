@@ -289,7 +289,7 @@ function route(p::Pathfinder, rs::RoutingStruct)
             end
         end
         # Debug update
-        @debug """
+        @info """
             On iteration $i of $(p.iteration_limit).
             Number of congested links: $ncongested.
             """

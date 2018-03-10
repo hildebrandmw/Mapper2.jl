@@ -15,8 +15,17 @@ using LightGraphs
 emptymeta() = Dict{String,Any}()
 
 include("Taskgraphs.jl")
+
+# Architecture includes
 include("Architecture/Architecture.jl")
+include("Architecture/Methods.jl")
+include("Architecture/Constructors.jl")
+include("Architecture/Doc.jl")
+
+# Map Includes
 include("Map/Map.jl")
+include("Map/Verification.jl")
+include("Map/Inspection.jl")
 
 #-------------------------------------------------------------------------------
 # Mapping methods
@@ -38,6 +47,7 @@ getcapacity(::Type{A}, item) where A <: AA              = 1
 
 is_source_port(::Type{<:AA}, port::Port, edge::TE)      = true
 is_sink_port(::Type{<:AA}, port::Port, edge::TE)        = true
+
 
 #-------------------------------------------------------------------------------
 # Exports
@@ -73,7 +83,10 @@ export  # Types
         out_edges,
         in_edges,
         hasnode,
-        out_nodes
+        out_node_names,
+        in_node_names,
+        out_nodes,
+        in_nodes
 
 ### Architecture Exports ###
 export  AbstractArchitecture,

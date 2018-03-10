@@ -104,6 +104,7 @@ function route(m::Map{A,D}) where {A,D}
     route(algorithm, routing_struct)
     # Record the final results.
     record(m, routing_struct)
+    check_routing(m)
     return m
 end
 

@@ -88,6 +88,15 @@ struct Taskgraph
     adjacency_out   ::Dict{String, Vector{TaskgraphEdge}}
     adjacency_in    ::Dict{String, Vector{TaskgraphEdge}}
 
+    function Taskgraph(name = "noname")
+        new(name,
+            Dict{String,TaskgraphNode}(),
+            TaskgraphEdge[],
+            Dict{String,Vector{TaskgraphEdge}}(),
+            Dict{String,Vector{TaskgraphEdge}}(),
+        )
+    end
+
     function Taskgraph(name, node_container, edge_container)
         if eltype(node_container) != TaskgraphNode
             typer = TypeError(
@@ -213,23 +222,31 @@ Return `Vector{TaskgraphEdge}` for which `task` is a sink.
 Return `true` if `t` has a task named `node`.
 """ hasnode
 
-"""
+@doc """
     out_nodes(t::Taskgraph, node)
 
 Return a collection of nodes from `t` for which are the sink of an edge starting
 at `node`.
-"""
-function out_nodes(t::Taskgraph, node)
-    # Check for empty adjacency lists
-    if length(out_edges(t, node)) == 0
-        return TaskgraphNode[]
-    end
+""" out_nodes
 
-    # Sink node iterators
-    sink_name_iters = (e.sinks for e in out_edges(t, node))
-    # Flatten the sink iterators and get the distinct results.
-    distinct_sink_names = distinct(Base.Iterators.flatten(sink_name_iters))
-    # Finally, pipe this into a generator to return the actual node object.
-    nodes = (getnode(t, n) for n in distinct_sink_names)
-    return nodes
+function adjacent_crawl(t::Taskgraph, node::String, f::T, g::U) where {T,U}
+    # If the adjacency is empty, return an empty array
+    length(f(t,node)) == 0 && (return TaskgraphNode[])
+    # Search through out_edges or in_edges
+    name_iters = (getfield(e, g) for e in f(t,node))
+    # Get distinct names
+    distinct_names = collect(distinct(Base.Iterators.flatten(name_iters)))
+    return distinct_names
+end
+
+out_node_names(t::Taskgraph, node) = adjacent_crawl(t, node, out_edges, :sinks)
+function out_nodes(t::Taskgraph, node)
+    names = out_node_names(t, node)
+    return (getnode(t,n) for n in names)
+end
+
+in_node_names(t::Taskgraph, node) = adjacent_crawl(t, node, in_edges, :sources)
+function in_nodes(t::Taskgraph, node)
+    names = in_node_names(t, node)
+    return (getnode(t,n) for n in names)
 end

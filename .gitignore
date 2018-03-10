@@ -2,5 +2,6 @@
 *.jl.*.cov
 *.jl.mem
 *.swp
+*.json
 docs/build/
 docs/site/

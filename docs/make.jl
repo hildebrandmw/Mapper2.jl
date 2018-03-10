@@ -8,12 +8,9 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Manual" => Any[
-            "man/placeholder.md",
-            "man/placement.md",
-            "man/sa.md",
-            ],
-        "Developer" => Any[
-            "dev/overview.md",
+                "Architecture Modeling" => Any[
+                    "man/architecture.md",
+                   ]
             ],
         "Internal Documentation" => Any[
                 "lib/internal.md",

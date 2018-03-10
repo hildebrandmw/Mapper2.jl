@@ -7,6 +7,7 @@ const PKGDIR = dirname(SRCDIR)
 using Reexport
 
 if is07
+    # v0.7 hack
     using Logging
     function set_logging(level) 
         if level == :debug
@@ -22,6 +23,7 @@ if is07
         end
     end
 else
+    # v0.6 logging
     using MicroLogging
     function set_logging(level)
         modules = (Mapper2.Helper,

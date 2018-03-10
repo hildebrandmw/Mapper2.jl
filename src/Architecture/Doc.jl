@@ -2,99 +2,6 @@
 # PATHS
 ################################################################################
 
-# Documentation for path types and their verious methods
-
-#-------------------------------------------------------------------------------
-# ComponentPath
-#-------------------------------------------------------------------------------
-@doc """
-Data type for pointing to `Components` in a component hierarchy where the
-top-most data type is a `Component`.
-
-See also: `AddressPath`.
-
-# Fields
-* `path::Vector{String}` - Sequential instance ID's specificying which children
-    to use to get to the final component.
-
-# Constructors
-```julia
-julia> ComponentPath() == ComponentPath(String[]) == ComponentPath("")
-true
-
-julia> ComponentPath("a.b.c") == ComponentPath(["a","b","c"])
-true
-```
-""" ComponentPath
-
-#-------------------------------------------------------------------------------
-# AddressPath
-#-------------------------------------------------------------------------------
-@doc """
-Data type for pointing to `Components` in a component hierarchy where the
-top-most data type is a `TopLevel`.
-
-See also: `ComponentPath`.
-
-# Fields
-* `address::CartesianIndex{D}` - The address in the `TopLevel` of the first component
-    in the path.
-* `path::ComponentPath` - The path to the final component after the component
-    at `address` has been retrieved.
-
-# Constructors
-```julia
-julia> AddressPath{D}() == AddressPath{D}(zero(CartesianIndex{D}), ComponentPath())
-true
-```
-""" AddressPath
-
-#-------------------------------------------------------------------------------
-# PortPath
-#-------------------------------------------------------------------------------
-@doc """
-    PortPath{P <: AbstractComponentPath} <: AbstractPath
-
-Path to a `Port` type through a component hierarchy. Parameterized by whether
-it is means to work on a `TopLevel` or `Component`.
-
-# Fields
-* `name::String` - The instance name of the port to retrieve.
-* `path::P` - Path to the component containing the desired port.
-
-# Constructors
-```julia
-julia> PortPath("a.b.c.port")
-Port a.b.c.port
-
-julia PortPath("a.b.c.port", CartesianIndex(0,0))
-Port CartesianIndex(0, 0).a.b.c.port
-```
-""" PortPath
-
-#-------------------------------------------------------------------------------
-# LinkPath
-#-------------------------------------------------------------------------------
-@doc """
-    LinkPath{P <: AbstractComponentPath} <: AbstractPath
-
-Path to a `Link` type through a component hierarchy. Parameterized by whether
-it is means to work on a `TopLevel` or `Component`.
-
-# Fields
-* `name::String` - The instance name of the port to retrieve.
-* `path::P` - Path to the component containing the desired port.
-
-# Constructors
-```julia
-julia> LinkPath("a.b.c.link")
-Port a.b.c.link
-
-julia PortPath("a.b.c.link", CartesianIndex(0,0))
-Port CartesianIndex(0, 0).a.b.c.link
-```
-""" LinkPath
-
 #-------------------------------------------------------------------------------
 # Methods
 #-------------------------------------------------------------------------------
@@ -103,13 +10,13 @@ Port CartesianIndex(0, 0).a.b.c.link
     constructor(p::Union{PortPath,LinkPath})
 
 Return a constructor function for the `ComponentPath` parameterized version of `p`.
-"""
+""" constructor
 
 @doc """
     last(p::AbstractPath)
 
 Return the last step in path `p`.
-"""
+""" last
 
 @doc """
     istop(p::PortPath)
@@ -133,7 +40,8 @@ Return `true` if path `p` points to a global routing port.
 @doc """
     length(p::AbstractPath)
 
-Return the total number of hops in path `p`.
+Return the total number of hops in path `p`. Zero addresses do not contribute to
+length.
 """ length
 
 @doc """
@@ -323,22 +231,33 @@ ports of its own.
 
 Parameter `D` is the dimensionality of the `TopLevel`.
 
-A `TopLevel{A,D}` may be indexed using: `AddressPath{D}`,
-`PortPath{AddressPath{D}}`, and `LinkPath{AddressPath{D}}`.
+A `TopLevel{A,D}` may be indexed using: 
+[`AddressPath{D}`](@ref AddressPath),
+[`PortPath{AddressPath{D}}`](@ref PortPath), and 
+[`LinkPath{AddressPath{D}}`](@ref LinkPath).
 
 # Constructor
-    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where
-        {A <: AbstractArchitecture,D}
+    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A <: AbstractArchitecture,D}
 
-Return a `TopLevel` with the given name and `metadata`.
+Return an empty `TopLevel` with the given name and `metadata`.
+
+# Constructor functions
+The following functions may be used to add subcomponents and connect 
+subcomponents together:
+
+$(make_ref_list(_toplevel_constructions))
+
+# Analysis routines for TopLevel
+
+$(make_ref_list(_toplevel_analysis))
 
 # Fields
 * `name::String` - The name of the TopLevel.
-* `children::Dict{Address{D},Component}` - Record of the subcomponents accessed
+* `children::Dict{CartesinIndex{D},Component}` - Record of the subcomponents accessed
     by address.
 * `links::Dict{String,Link{AddressPath{D}}}` - Record of links between ports of
     immediate children.
-* `port_link::Dict{PortPath{AddressPath{D}},String} - Look up giving the `Link`
+* `port_link::Dict{PortPath{AddressPath{D}},String}` - Look up giving the `Link`
     in the `links` field connected to the provided port.
 * `metadata::Dict{String,Any}()` - Any extra data associated with the
     data structure.
