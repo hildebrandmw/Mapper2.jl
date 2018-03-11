@@ -45,6 +45,20 @@ include("Place/Place.jl")
 include("Place/SA/SA.jl")
 include("Route/Route.jl")
 
+# exports from Helper.
+export  SparseDiGraph,
+        has_vertex,
+        add_vertex!,
+        add_edge!,
+        vertices,
+        outneighbors,
+        inneighbors,
+        nv,
+        source_vertices,
+        sink_vertices,
+        linearize,
+        make_lightgraph
+
 # Use submodules to make exports visible.
 @reexport using .MapperCore
 

@@ -25,6 +25,7 @@ export  make_ref_list,
         nv,
         source_vertices,
         sink_vertices,
+        linearize,
         make_lightgraph
 
 function make_ref_list(v)
@@ -188,6 +189,32 @@ LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
 
 source_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(inneighbors(g,v)) == 0]
 sink_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(outneighbors(g,v)) == 0]
+
+
+"""
+    linearize(g::SparseDiGraph{T}) where T
+
+Return a Vector{T} of vertices of `g` in linearized traversal order if `g` is
+linear. Throw error if `g` is not linear.
+"""
+function linearize(g::SparseDiGraph{T}) where T
+    sv = source_vertices(g)
+    length(sv) != 1 && error("Expected 1 source vertex. Found $(length(sv)).")
+
+    vertices = [sv]
+    neighbors = outneighbors(g, sv)
+    while length(neighbors) > 0
+        if length(neighbors) > 1 
+            error("""
+                  Vertex $(last(vertices)) has $(length(neighbors)) neighbors.
+                  Expected 1.
+                  """)
+        end
+        push!(vertices, first(neighbors))
+        neighbors = outneighbors(g, last(vertices))
+    end
+    return vertices
+end
 
 ################################################################################
 # Verification routines for graphs
