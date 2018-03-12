@@ -39,6 +39,7 @@ else
 end
 
 include("Helper.jl")
+using .Helper
 include("MapperCore.jl")
 
 include("Place/Place.jl")

@@ -234,7 +234,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         end
 
         if success == false
-            throw(ErrorException("Shortest Path failed."))
+            throw(ErrorException("Shortest Path failed on channel index $channel."))
         end
         # Do a back-trace from the last vertex to determine the path that
         # this connection took through the graph.

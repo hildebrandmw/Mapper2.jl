@@ -171,7 +171,7 @@ end
 
 Build a mux with the specified number of inputs and outputs.
 """
-function build_mux(inputs, outputs, metadata = emptymeta())
+function build_mux(inputs, outputs; metadata = emptymeta())
     name = "mux_" * string(inputs) * "_" * string(outputs)
     component = Component(name, primitive = "mux", metadata = metadata)
     add_port(component, "in", "input", inputs, metadata = metadata)
