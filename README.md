@@ -37,4 +37,4 @@ directory and run the command
 julia --color=yes make.jl
 ```
 
-Then, navigate into *docs/build* and open `index.html`.
+Then, navigate into *docs/build* and open `index.html`. Note: Docs are a WIP.

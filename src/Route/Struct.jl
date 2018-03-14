@@ -32,7 +32,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     # Unpack some fields from the map
     architecture = m.architecture
     taskgraph    = m.taskgraph
-    @info "Building Resource Graph"
+    @debug "Building Resource Graph"
 
     graph = routing_graph(architecture)
     # Annotate the links in the routing graph with the custom structure defined
@@ -144,7 +144,7 @@ end
 # Routing Link Annotation
 ################################################################################
 function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchitecture
-    @info "Annotating Graph Links"
+    @debug "Annotating Graph Links"
     maprev = rev_dict(rg.map)
 
     # Initialize this to any. We'll clean it up later.

@@ -319,7 +319,8 @@ function SAStruct(m::Map{A,D};
                   enable_flattness = true,
                   kwargs...
                  ) where {A,D}
-    @info "Building Placement Structure\n"
+
+    @debug "Building SA Placement Structure\n"
 
     architecture  = m.architecture
     taskgraph     = m.taskgraph
@@ -333,7 +334,7 @@ function SAStruct(m::Map{A,D};
     else
         isflat = false
     end
-    isflat && @info "Applying Flat Architecture Optimization"
+    isflat && @debug "Applying Flat Architecture Optimization"
 
     nodes      = setup_node_build(A, taskgraph, D, isflat) 
     task_table = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
@@ -643,7 +644,7 @@ function verify_placement(m::Map{A,D}, sa::SAStruct{A}) where A where D
     # Routine passes check if length of bad_nodes is 0
     passed = length(bad_nodes) == 0
     if passed
-        @info "Placement Verified"
+        @debug "Placement Verified"
     else
         @error begin
             bad_dict = Dict{Int64, String}()

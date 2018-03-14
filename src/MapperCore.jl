@@ -20,7 +20,6 @@ include("Taskgraphs.jl")
 include("Architecture/Architecture.jl")
 include("Architecture/Methods.jl")
 include("Architecture/Constructors.jl")
-include("Architecture/Doc.jl")
 
 # Map Includes
 include("Map/Map.jl")

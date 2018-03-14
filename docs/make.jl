@@ -9,7 +9,9 @@ makedocs(
         "Home" => "index.md",
         "Manual" => Any[
                 "Architecture Modeling" => Any[
-                    "man/architecture.md",
+                    "man/arch/architecture.md",
+                    "man/arch/constructors.md",
+                    "man/arch/analysis.md",
                    ]
             ],
         "Internal Documentation" => Any[
@@ -19,6 +21,6 @@ makedocs(
                 "lib/internals/sa.md",
                 "lib/internals/routing.md",
                 "lib/internals/helper.md",
-            ],
+            ]),
         ]
     )
