@@ -46,9 +46,8 @@ mutable struct SAState
         # This is a hack to "cleanly" determine if we should display updates
         # or not.
         display_updates = false
-        @info begin
+        if MicroLogging.Info >= MicroLogging._min_enabled_level[]
             display_updates = true
-            "Initializing SA State"
         end
 
         SAStateUpdateInterval = 5
@@ -81,6 +80,15 @@ mutable struct SAState
     end
 end
 
+function reset!(s::SAState)
+    s.recent_move_attempts     = 0
+    s.recent_successful_moves  = 0
+    s.recent_accepted_moves    = 0
+    s.recent_deviation         = 0.0
+
+    s.warming = true
+end
+
 function update!(state::SAState)
     # Update the global counters
     state.total_moves       += state.recent_move_attempts
@@ -90,7 +98,7 @@ function update!(state::SAState)
     state.moves_per_second = state.successful_moves / (time() - state.start_time)
     # Update the exponential moving average of the objective function differnce.
     alpha = 0.2
-    state.deviation = alpha * state.recent_deviation + 
+    state.deviation = alpha * state.recent_deviation +
                         (1.0 - alpha) * state.deviation
     # Determine whether or not to print out results
     current_time = time()
@@ -110,7 +118,7 @@ function to generalize this to other state objects.
 """
     show_stats(state::SAState, first = false)
 
-Print out stats about the SAState object in columns. If `first = true`, will 
+Print out stats about the SAState object in columns. If `first = true`, will
 print a header outlining the contents of eath column.
 """
 function show_stats(state::SAState, first = false)
@@ -126,17 +134,18 @@ function show_stats(state::SAState, first = false)
      The space occupied by the field name and the subsequent printed values
      will scale depending on the length of the string conversion of the
      field name. Thus, if the fields are printed out in a different order,
-     everything should still look good.    
+     everything should still look good.
      =#
      fields = (
-        :temperature,
+        #:temperature,
         :objective,
         #:total_moves,
-        #:successful_moves,
+        :successful_moves,
         #:accepted_moves,
         :moves_per_second,
         #:deviation,
         :run_time,
+        #:distance_limit,
     )
 
     #=

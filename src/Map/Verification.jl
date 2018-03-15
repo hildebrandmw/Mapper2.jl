@@ -3,26 +3,28 @@ passfail(b::Bool) = b ? "passed" : "failed"
 ################################################################################
 # Routing Checks
 ################################################################################
-function check_routing(m::Map)
+function check_routing(m::Map, quiet = false)
     port_okay = check_ports(m)
     capacity_okay = check_capacity(m)
     graph_okay = check_routing_connectivity(m)
     arch_okay = check_architecture_connectivity(m)
     resource_okay = check_architecture_resources(m)
 
-    @info """
-        Routing Summary
-        ---------------
-        Congestion Check:   $(passfail(capacity_okay))
+    if !quiet
+        @info """
+            Routing Summary
+            ---------------
+            Congestion Check:   $(passfail(capacity_okay))
 
-        Port Check:         $(passfail(port_okay))
+            Port Check:         $(passfail(port_okay))
 
-        Graph Connectivity: $(passfail(graph_okay))
+            Graph Connectivity: $(passfail(graph_okay))
 
-        Architecture Check: $(passfail(arch_okay))
+            Architecture Check: $(passfail(arch_okay))
 
-        Resource Check:     $(passfail(resource_okay))
-        """
+            Resource Check:     $(passfail(resource_okay))
+            """
+    end
 
     return foldl(&, (capacity_okay, port_okay, graph_okay, arch_okay, resource_okay))
 end

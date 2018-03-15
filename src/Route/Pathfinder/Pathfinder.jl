@@ -28,7 +28,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         historical_cost         = ones(Float64, num_vertices)
         current_cost_factor     = 3.0
         historical_cost_factor  = 3.0
-        iteration_limit         = 200
+        iteration_limit         = 100
         links_to_route = 1:num_edges(m.taskgraph)
 
         # Initialized all nodes as undiscovered
@@ -288,11 +288,13 @@ function route(p::Pathfinder, rs::RoutingStruct)
                 ncongested += 1
             end
         end
-        # Debug update
-        @info """
-            On iteration $i of $(p.iteration_limit).
-            Number of congested links: $ncongested.
-            """
+        # information update
+        if mod(i, 10) == 0
+            @info """
+                On iteration $i of $(p.iteration_limit).
+                Number of congested links: $ncongested.
+                """
+        end
         ncongested == 0 && break
     end
     return nothing

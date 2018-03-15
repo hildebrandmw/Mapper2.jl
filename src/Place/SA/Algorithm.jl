@@ -2,6 +2,7 @@
 Simulated Annealing placement.
 =#
 
+
 ################################################################################
 # Type to keep track of previous moves.
 ################################################################################
@@ -32,6 +33,7 @@ end
 
 # Warming schedules
 abstract type AbstractSAWarm end
+
 """
 Default warming schedule. On each invocation, will increase the temperature of
 the anneal by `multiplier`. When the acceptance ratio rises above `ratio`, 
@@ -50,6 +52,7 @@ struct TrueSAWarm <: AbstractSAWarm end
 
 # Cooling Schedules
 abstract type AbstractSACool end
+
 """
 Default cooling schedule. Each invocation, will multipkly the temperature
 of the anneal by the `alpha` paramter.
@@ -60,8 +63,9 @@ end
 
 # Distance limit updates
 abstract type AbstractSALimit end
+
 """
-Default deistnace limit updater. Will adjust the distance limit so approximate
+Default distance limit updater. Will adjust the distance limit so approximate
 `ratio` of moves are accepted. See VPR for algorithm.
 """
 struct DefaultSALimit <: AbstractSALimit
@@ -70,6 +74,7 @@ end
 
 # Finishing Schedules
 abstract type AbstractSADone end
+
 """
 Default end detection. Will return `true` when objective deviation is
 less than `atol`.
@@ -83,22 +88,23 @@ end
 ################################################################################
 
 function place(
-        sa::SAStruct;
+        sa::SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
-        move_attempts       = 30_000,
+        move_attempts       = 50_000,
+        move_gen            = SubRandomGenerator{D}(),
         initial_temperature = 1.0,
         supplied_state      = nothing,
         # Parameters for high-level control
-        warmer ::AbstractSAWarm  = DefaultSAWarm(0.9, 2.0, 0.95),
+        warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
         cooler ::AbstractSACool  = DefaultSACool(0.997),
         doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
         limiter::AbstractSALimit = DefaultSALimit(0.44),
         kwargs...
-       )
+       ) where {A,U,D}
+
+    @info "Running Simulated Annealing Placement."
 
     # Unpack SA
-    A = architecture(sa)
-    D = dimension(sa)
     num_nodes = length(sa.nodes)
     num_edges = length(sa.edges)
 
@@ -119,6 +125,7 @@ function place(
         state = SAState(initial_temperature, Float64(largest_address), cost)
     else
         state = supplied_state
+        reset!(state)
     end
 
     # Print out the header for the statistic columns.
@@ -143,7 +150,10 @@ function place(
         ############## 
         for i in 1:move_attempts
             # Try to generate a move. If it failed, try again.
-            generate_move(sa, cookie, distance_limit, max_addresses) || continue
+            if !generate_move(sa, cookie, move_gen, distance_limit, max_addresses)
+                continue
+            end
+
             successful_moves += 1
             # Get the cost of the move
             cost_of_move = cookie.cost_of_move
@@ -224,7 +234,7 @@ function limit(l::DefaultSALimit, state::SAState)
     acceptance_ratio = state.recent_accepted_moves /
                        state.recent_successful_moves
     # Update distance limit
-    temporary = (2 - l.ratio + acceptance_ratio)
+    temporary = (1 - l.ratio + acceptance_ratio)
     state.distance_limit = clamp(state.distance_limit * temporary, 1,
                                 state.max_distance_limit)
     return nothing
@@ -233,24 +243,6 @@ end
 ################################################################################
 # Movement related functions
 ################################################################################
-#function isvalid(sa::SAStruct, node::Int64, address::CartesianIndex, component)
-#function isvalid(sa::SAStruct, index::Int64, location::Location)
-#    address     = location[1]
-#    component   = location[2]
-#    # Get the class associated with this node.
-#    class = sa.nodeclass[index]
-#    # Get the map tables for the node. Check if the component is in the 
-#    # maptable.
-#    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
-#    return component in maptable[address]
-#end
-#
-#function isvalid(sa::SAStruct, index::Int64, location::CartesianIndex)
-#    class = sa.nodeclass[index]
-#    maptable = isnormal(class) ? sa.maptables[class] : sa.special_maptables[-class]
-#    return maptable[location]
-#end
-
 function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) where A
     node = sa.nodes[index]
     # Store the old information
@@ -306,9 +298,13 @@ end
 canmove(::Type{A}, x) where {A <: AbstractArchitecture} = true
 
 # Move generation in the general case.
-function generate_move(sa::SAStruct{A}, cookie, limit, upperbound) where {A <: AbstractArchitecture} 
+function generate_move(sa::SAStruct{A}, 
+                       cookie, 
+                       move_gen::AbstractMoveGenerator,
+                       limit, 
+                       upperbound) where {A <: AbstractArchitecture} 
     # Pick a random node
-    index = rand(1:length(sa.nodes))
+    index = getlinear(move_gen, length(sa.nodes))
     canmove(A, sa.nodes[index]) || return false
 
     old_address = getaddress(sa.nodes[index])
@@ -317,11 +313,15 @@ function generate_move(sa::SAStruct{A}, cookie, limit, upperbound) where {A <: A
     class = maptable.class[index]
     # Get the address and component to move this node to
     if isnormal(class)
-        address = standard_move(A, old_address, limit, upperbound)
+        # Generate offset and check bounds.
+        address = old_address + getoffset(move_gen, limit)
+        boundscheck(address, upperbound) || return false
+        # Now that we know our location is inbounds, find a component for it
+        # to live in.
         components = maptable.normal_lut[class][address]
-
-        length(components) == 0 && return false
-        component = rand(components)
+        lc = length(components)
+        lc == 0 && return false
+        component = components[getlinear(move_gen, lc)]
         new_location = Location(address, component)
     else
         new_location = rand(maptable.special_lut[-class])
@@ -332,28 +332,36 @@ function generate_move(sa::SAStruct{A}, cookie, limit, upperbound) where {A <: A
     return move_with_undo(sa::SAStruct, cookie, index, new_location)
 end
 
+function boundscheck(addr::CartesianIndex{N}, ub) where N
+    for i in 1:N
+        if !(1 <= addr.I[i] <= ub[i])
+            return false
+        end
+    end
+    return true
+end
 
-function generate_move(sa::SAStruct{A,U,D,D}, cookie, limit, upperbound) where {A <: AbstractArchitecture, U,D}
-    index = rand(1:length(sa.nodes))
+
+function generate_move(sa::SAStruct{A,U,D,D}, 
+                       cookie::MoveCookie, 
+                       move_gen::AbstractMoveGenerator, 
+                       limit, upperbound) where {A <: AbstractArchitecture, U,D}
+
+    #index = rand(1:length(sa.nodes))
+    index = getlinear(move_gen, length(sa.nodes))
     canmove(A, sa.nodes[index]) || return false
 
     old_address = getaddress(sa.nodes[index])
     maptable    = sa.maptable
-    class = maptable.class[index]
+    class       = maptable.class[index]
     if isnormal(class)
-        address = standard_move(A, old_address, limit, upperbound)
+        address = old_address + getoffset(move_gen, limit)
+        # Check if in-bounds.
+        boundscheck(address, upperbound) || return false
         # Check if this is an acceptable destination address
         maptable.normal_lut[class][address] || return false
     else
         address = rand(maptable.special_lut[-class])
     end
     return move_with_undo(sa::SAStruct, cookie, index, address)
-end
-
-function standard_move(::Type{A}, address, limit, ub) where {A <: AbstractArchitecture}
-    # Generate a new address based on the distance limit
-    move_ub = min.(address.I .+ limit, ub)
-    move_lb = max.(address.I .- limit, 1)
-    new_address = rand_cartesian(move_lb, move_ub)
-    return new_address
 end

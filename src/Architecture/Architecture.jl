@@ -68,7 +68,7 @@ See also: `ComponentPath`.
 
 # Constructors
 ```jldoctest
-julia> AddressPath{D}() == AddressPath{D}(zero(CartesianIndex{D}), ComponentPath())
+julia> AddressPath{2}() == AddressPath{2}(zero(CartesianIndex{2}), ComponentPath())
 true
 ```
 """ AddressPath
@@ -184,27 +184,73 @@ getaddress(p::AddressPath)      = p.address
 getaddress(p::ComponentPath)    = nothing
 getaddress(p::AbstractPath)     = getaddress(p.path)
 
+#-------------------------------------------------------------------------------
 constructor(::LinkPath) = LinkPath
 constructor(::PortPath) = PortPath
 
+@doc """
+    constructor(p::Union{PortPath,LinkPath})
+
+Return a callable constructor functor for the `ComponentPath` parameterized 
+version of `p`.
+""" constructor
+
+#-------------------------------------------------------------------------------
 Base.last(p::ComponentPath) = last(p.path)
 Base.last(p::AddressPath)   = length(p.path) > 0 ? last(p.path) : p.address
 Base.last(p::PortPath)      = p.name
 Base.last(p::LinkPath)      = p.name
 
+@doc """
+    last(p::AbstractPath)
+
+Return the last step in path `p`.
+""" last
+
+#-------------------------------------------------------------------------------
 istop(p::PPC) = length(p.path) == 0
 istop(p::PortPath{AddressPath{D}}) where D = false
 
+@doc """
+    istop(p::PortPath)
+
+Return `false` if the given port path belongs to a subcomponent of a certain
+component.
+""" istop
+
+#-------------------------------------------------------------------------------
 isgloballink(l::LinkPath) = iszero(l.path.address)
 isgloballink(::AbstractPath) = false
 
+@doc """
+    isgloballink(p::AbstractPath)
+
+Return `true` if path `p` points to a global routing link.
+""" isgloballink
+
+#-------------------------------------------------------------------------------
 isglobalport(p::PortPath) = length(p.path) == 1
 isglobalport(::AbstractPath) = false
 
+@doc """
+    isglobalport(p::AbstractPath)
+
+Return `true` if path `p` points to a global routing port.
+""" isglobalport
+
+#-------------------------------------------------------------------------------
 Base.length(c::ComponentPath) = length(c.path)
 Base.length(p::AddressPath) = (iszero(p.address) ? 0 : 1) + length(p.path)
 Base.length(p::AbstractPath) = 1 + length(p.path)
 
+@doc """
+    length(p::AbstractPath)
+
+Return the total number of hops in path `p`. Zero addresses do not contribute to
+length.
+""" length
+
+#-------------------------------------------------------------------------------
 prefix(p::AbstractPath) = p.path
 prefix(p::ComponentPath) = ComponentPath(p.path[1:end-1])
 function prefix(p::AddressPath{D}) where D
@@ -215,8 +261,24 @@ function prefix(p::AddressPath{D}) where D
     end
 end
 
+@doc """
+    prefix(p::AbstractPath) 
+
+Return a path of all but the last item in `p`. If `p` has only an address,
+return an empty address path.
+""" prefix
+
+#-------------------------------------------------------------------------------
 push(c::ComPath, val::AbstractString) = ComponentPath(vcat(c.path, val))
 
+@doc """
+    push(c::ComponentPath, val::String)
+
+Increase the depth of the ComponentPath downwards by appending the string `val`
+to the end of the path. Does not modify `c`.
+""" push
+
+#-------------------------------------------------------------------------------
 pushfirst(a::ComPath, b::AbstractString) = ComponentPath(vcat(b, a.path))
 pushfirst(a::ComPath, b::ComPath) = ComponentPath(vcat(b.path, a.path))
 pushfirst(a::ComPath, b::CartesianIndex) = AddressPath(b, a)
@@ -224,6 +286,24 @@ pushfirst(a::ComPath, b::AddPath) = AddressPath(b.address, pushfirst(a, b.path))
 pushfirst(a::PortPath, b) = PortPath(a.name, pushfirst(a.path, b))
 pushfirst(a::LinkPath, b) = LinkPath(a.name, pushfirst(a.path, b))
 
+@doc """
+    pushfirst(a::AbstractPath, b)
+
+Append `b` to the front of path `a`. Return types are defined when
+`typeof(a) == ComponentPath` as follows:
+
+| `typeof(b)`         | Return Type       |
+|------------------   | ----------------- |
+| `String`            | `ComponentPath`   |
+| `ComponentPath`     | `ComponentPath`   |
+| `CartesianIndex{D}` | `AddressPath{D}`  |
+| `AddressPath{D}`    | `AddressPath{D}`  |
+
+When `a <: PortPath` or `a <: LinkPath`, return type is determined automatically
+by calling `pushfirst` on the path portion of `a`.
+""" pushfirst
+
+#-------------------------------------------------------------------------------
 function Base.split(a::T, n::I = 1) where {T, I <: Integer}
     1 <= n <= length(a) || throw(DomainError())
     r = (constructor(a))(last(a))
@@ -235,11 +315,24 @@ function Base.split(a::T, n::I = 1) where {T, I <: Integer}
     return b,r
 end
 
+@doc """
+    split(a::T, n::I = 1) where {T <: Union{PortPath,LinkPath}, I <: Integer}
+
+Split the Port/Link path type `a`. Return a tuple of path types `(p,q)` where:
+
+- `a == pushfirst(q,p)`
+- `length(q) + length(p) == a`
+- `length(q) == n`.
+
+Throws `DomainError` if `n < 1` or `n > length(a)`.
+""" split
+
+#-------------------------------------------------------------------------------
 ##########################
 # Undocumented functions #
 ##########################
 
-# equality
+# equality - must define for new hash to work correctly.
 Base.:(==)(a::ComPath, b::ComPath) = a.path == b.path
 Base.:(==)(a::AddPath, b::AddPath) =(a.address == b.address) && (a.path == b.path)
 Base.:(==)(a::T, b::T) where T <: AbsPath = (a.name == b.name) && (a.path == b.path)
@@ -310,6 +403,36 @@ function checkclass(port::Port, dir::Symbol)
     throw(KeyError(dir))
 end
 
+############
+# Port Doc #
+############
+@doc """
+    mutable struct Port
+
+Port type for modeling input/output ports of a `Component`. Can be one of three
+classes: "input", "output", or "bidir".
+
+Ports may be connected to links only at the same level of hierarchy.
+
+# Fields
+* `name::String` - The name of this Port.
+* `class::String` - The directionality class of the Port.
+* `link::LinkPath{ComponentPath}` - Path to the link connected to this port.
+    This path is meant to be used to index the component to which the Port
+    belongs.
+* `metadata::Dict{String,Any}` - Any associated metadata to help with down
+    stream processing.
+
+# Constructors
+
+    function Port(name::String, class::String, metadata = Dict{String,Any}())
+
+Return a `Port` with the given `name`, `class`, and `metadata`. Connected link
+defaults to an empty `LinkPath`.
+
+Argument `class` must belong to one of "input", "output", or "bidir".
+""" Port
+
 ################################################################################
 #                                  LINK TYPE                                   #
 ################################################################################
@@ -331,11 +454,54 @@ end
 isaddresslink(::Link{AddressPath{D}}) where {D} = true
 isaddresslink(::Link{ComponentPath}) = false
 
+############
+# Link Doc #
+############
+@doc """
+    struct Link{P <: AbstractComponentPath}
+
+Link data type for describing which ports are connected. Can have multiple
+sources and multiple sinks.
+
+# Fields
+* `name::String` - THe name of the link. Can be autogenerated if it is not
+    impotant.
+* `directed::Bool` - Indicates if the Link is directed or bidirectional.
+* `sources::Vector{PortPath{P}}` - Collection of paths to the source ports of
+    the link. Meant to be used on the component to which the link belongs.
+* `sinks::Vector{PortPath{P}}`  - Collectino of paths to the sink ports of
+    the link. Meant to be used on the component to which the link belongs.
+* `metadata::Dict{String,Any}` - Any miscellaneous metadata to be used for
+    downstream processing.
+
+# Constructors
+
+    link(name::String,
+         directed::Bool,
+         sources::Vector{PortPath{P}},
+         sinks::Vector{PortPath{P}},
+         metadata) where P
+
+Returns a new `Link`.
+""" Link
+
+@doc """
+    isaddresslink(l::Link)
+
+Return `true` if `l` contains an `Address`. Otherwise, return `false`.
+""" isaddresslink
+
 ################################################################################
 #                               COMPONENT TYPES                                #
 ################################################################################
 
 # Master abstract type from which all component types will subtype
+"""
+Super type for all components.
+All types subtyping from AbstractComponent must have the following fields:
+
+- `children`: Some kind of associative with a keys and values.
+"""
 abstract type AbstractComponent end
 
 "Return an iterator for the children within a component."
@@ -378,8 +544,48 @@ struct Component <: AbstractComponent
         )
     end
 end
-# METHODS
 
+@doc """
+    Component
+
+Basic building block of architecture models. Can be used to construct
+hierarchical models.
+
+Components may be indexed using: `ComponentPath`, `PortPath{ComponentPath}`,
+and `LinkPath{ComponentPath}`.
+
+# Constructor
+
+    Component(name, children = Dict{String, Component}(), metadata = Dict{String, Any}())
+
+Return an orphan component with the given name. Can construct with the
+given `children` and `metadata`, otherwise those fields will be empty.
+
+# Fields
+
+* `name::String` - The name of this component.
+* `primitive::String` - A optional primitive identifier used for potentially
+    special treatment. Leave as empty "" if not needed.
+
+    Examples include "mux", which will result in a simpler routing graph for
+    mux type components.
+* `children::Dict{String,Component}` - Record of the sub components of this
+    component. Key corresponds to an instance name, allowing multiple of the
+    same component to be instantiated with different instance names.
+* `ports::Dict{String,Port}` - Record of all the IO ports for this component.
+    Does not include the IO components of children.
+* `links::Dict{String,Link{ComponentPath}}` - Record of all links for this
+    component. Links can go between component IO ports, and IO ports of
+    immediate children of this component.
+* `port_link::Dict{PortPath{ComponentPath},String}` - Reverse data structure
+    mapping what link is connected to the specified port. A `PortPath` is used
+    to disambiguate between ports of the component and ports of the component's
+    children.
+* `metadata::Dict{String,Any}` - Any extra data that is to be stored with the
+    component.
+""" Component
+
+#-------------------------------------------------------------------------------
 ports(c::Component) = values(c.ports)
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
@@ -389,6 +595,14 @@ function portnames(c::Component, classes)
 end
 
 connected_ports(a::AbstractComponent) = keys(a.port_link)
+
+@doc """
+    ports(c::Component, [classes])
+
+Return an iterator for all the ports of the given component. Ports of children
+are not given. If `classes` are provided, only ports matching the specified
+classes will be returned.
+""" ports
 
 #-------------------------------------------------------------------------------
 # TopLevel
@@ -581,3 +795,93 @@ function isfree(c::AbstractComponent, p::PortPath)
         return !haskey(c.port_link, p)
     end
 end
+
+################################################################################
+# Documentation for TopLevel
+################################################################################
+@doc """
+    TopLevel{A <: AbstractArchitecture, D}
+
+Top level component for an architecture mode. Main difference is between a
+`TopLevel` and a `Component` is that children of a `TopLevel` are accessed
+via address instead of instance name. A `TopLevel` also does not have any
+ports of its own.
+
+Parameter `D` is the dimensionality of the `TopLevel`.
+
+A `TopLevel{A,D}` may be indexed using: 
+[`AddressPath{D}`](@ref AddressPath),
+[`PortPath{AddressPath{D}}`](@ref PortPath), and 
+[`LinkPath{AddressPath{D}}`](@ref LinkPath).
+
+# Constructor
+    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A <: AbstractArchitecture,D}
+
+Return an empty `TopLevel` with the given name and `metadata`.
+
+# Constructor functions
+The following functions may be used to add subcomponents and connect 
+subcomponents together:
+
+$(make_ref_list(_toplevel_constructions))
+
+# Analysis routines for TopLevel
+
+$(make_ref_list(_toplevel_analysis))
+
+# Fields
+* `name::String` - The name of the TopLevel.
+* `children::Dict{CartesinIndex{D},Component}` - Record of the subcomponents accessed
+    by address.
+* `links::Dict{String,Link{AddressPath{D}}}` - Record of links between ports of
+    immediate children.
+* `port_link::Dict{PortPath{AddressPath{D}},String}` - Look up giving the `Link`
+    in the `links` field connected to the provided port.
+* `metadata::Dict{String,Any}()` - Any extra data associated with the
+    data structure.
+""" TopLevel
+
+@doc """
+    connected_components(tl::TopLevel{A,D})
+
+Return `d = Dict{CartesianIndex{D},Set{CartesianIndex{D}}` where key `k` is a 
+valid address of `tl` and where `d[k]` is the set of valid addresses of `tl` 
+whose components are the destinations of links originating at address `k`.
+""" connected_components
+
+@doc """
+    search_metadata(c::AbstractComponent, key, value, f::Function = ==)
+
+Search the metadata of field of `c` for `key`. If `c.metadata[key]` does not
+exist, return `false`. Otherwise, return `f(value, c.metadata[key])`.
+
+If `isempty(key) == true`, will return `true` regardless of `value` and `f`.
+""" search_metadata
+
+@doc """
+    search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
+
+Call `search_metadata` on each subcomponent of `c`. Return `true` if function
+call return `true` for any subcomponent.
+""" search_metadata!
+
+# Assertion Methods
+@doc """
+    assert_no_children(c::AbstractComponent)
+
+Return `true` if `c` has no children. Otherwise, return `false` and log an
+error.
+""" assert_no_children
+
+@doc """
+    assert_no_intrarouting(c::AbstractComponent)
+
+Return `true` if `c` has not internal links. Otherwise, return `false` and
+log an error.
+""" assert_no_intrarouting
+
+@doc """
+    isfree(c::AbstractComponent, p::PortPath)
+
+Return `true` if portpath `p` is assigned a link in component `c`.
+""" isfree

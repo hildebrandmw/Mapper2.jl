@@ -78,5 +78,4 @@ Place.placement_routine(::Type{<:AbstractArchitecture}) = SA.place
 ###########
 @reexport using .Routing
 
-
 end #module Mapper2

@@ -11,7 +11,7 @@ function add_port(c::Component, name, class, number; metadata = emptymeta())
             add_port(c, Port(port_name, class, metadata[i]))
         else
             add_port(c, Port(port_name, class, metadata))
-        end 
+        end
     end
     return nothing
 end
@@ -43,20 +43,22 @@ end
 # Link constructors
 #--------------------------------------------------------------------------------
 
+# Convenience functions allowing add_link to be called with
+#   - String, vector of string, PortPath, vector of PortPath and have
+#   everything just work correctly. Maps all of these to a vector of portpaths.
 portpath_promote(s::Vector{PortPath{P}}) where P = identity(s)
 portpath_promote(s::PortPath)                    = [s]
 portpath_promote(s::String)                      = [PortPath(s)]
 portpath_promote(s::Vector{String})              = PortPath.(s)
 
-
 function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
-    
+
     sources = portpath_promote(src_any)
     sinks = portpath_promote(dest_any)
     # Check port directions
     for src in sources
         if istop(src)
-            if !checkclass(c[src], :sink) 
+            if !checkclass(c[src], :sink)
                 error("$src is not a valid top-level source port.")
             end
         else
@@ -99,10 +101,10 @@ function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
     c.links[linkname] = newlink
     # Create a path for this link
     linkpath = LinkPath(linkname)
-    
+
     # Assign the link to all top level ports.
     for port in chain(sources, sinks)
-        if istop(port) 
+        if istop(port)
             c[port].link = linkpath
         end
         # Register the link in the port_link dictionary
@@ -135,15 +137,15 @@ function connection_rule(tl::TopLevel,
             @assert typeof(src_port) <: String
             @assert typeof(dst_port) <: String
 
-            # Check destination address 
+            # Check destination address
             dst_address = src_address + offset
             haskey(tl.children, dst_address) || continue
             # check destination component
             dst = tl.children[dst_address]
             dst_rule(dst) || continue
-            
+
             # check port existence
-            if !(haskey(src.ports, src_port) && haskey(dst.ports, dst_port)) 
+            if !(haskey(src.ports, src_port) && haskey(dst.ports, dst_port))
                 continue
             end
 
@@ -166,11 +168,6 @@ end
 ##############################
 #           MUXES
 ##############################
-"""
-    build_mux(inputs, outputs)
-
-Build a mux with the specified number of inputs and outputs.
-"""
 function build_mux(inputs, outputs; metadata = emptymeta())
     name = "mux_" * string(inputs) * "_" * string(outputs)
     component = Component(name, primitive = "mux", metadata = metadata)
@@ -192,7 +189,7 @@ provided suffix with bracket-vector notation.
 For example, the function call `add_port(c, "test", "input", 3)` should add
 3 `input` ports to component `c` with names: `test[2], test[1], test[0]`.
 
-If `metadata` is given, it will be assigned to each instantiated port. If 
+If `metadata` is given, it will be assigned to each instantiated port. If
 `metadata` is a vector with `length(metadata) == number`, than entries of
 `metadata` will be sequentially assigned to each instantiated port.
 """ add_port
@@ -200,6 +197,39 @@ If `metadata` is given, it will be assigned to each instantiated port. If
 @doc """
     add_child(c::Component, child::Component, name, number = 1)
 
-Add a child component with the given instance name to a component. If number > 1,
-vectorize instantiation names.
+Add a child component with the given instance `name` to a component. If
+number > 1, vectorize instantiation names. Throw error if `name` is already
+used as an instance name for a child.
 """ add_child
+
+@doc """
+    add_link(c::Component, src, dest; metadata = emptymeta(), linkname = "")
+
+Construct a link with the given metadata from the source ports to the 
+destination ports. 
+
+Arguments `src` and `dst` may of type `String`, `Vector{String}`, `PortPath`, 
+or `Vector{PortPath}`. If keyword argument `linkname` is given, the instantiated
+link will be assigned that name. Otherwise, a unique name for the link will be
+generated.
+
+An error is raised if:
+* Port classes are incorrect for the direction of the link.
+* Ports in `src` or `dest` are already assigned to a link.
+* A link with the given name already exists in `c`.
+""" add_link
+
+@doc """
+    build_mux(inputs, outputs; metadata = Dict{String,Any}())
+
+Build a mux with the specified number of inputs and outputs. Inputs and outputs
+will be named `in[0], in[1], … , in[inputs-1]` and outputs will be named
+`out[0], out[1], … , out[outputs-1]`.
+
+If `metdata` is supplied, the dictionary will be attached to the mux component
+itself as well as all ports and links in the mux component.
+""" build_mux
+
+@doc """
+TODO
+""" connection_rule
