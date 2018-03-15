@@ -6,6 +6,9 @@ const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
 using Reexport
 
+const Address = CartesianIndex
+export Address
+
 if is07
     # v0.7 hack
     using Logging

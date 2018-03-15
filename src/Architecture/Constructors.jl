@@ -27,7 +27,9 @@ function add_child(c::AbstractComponent, child::AbstractComponent, name)
     if haskey(c.children, name)
         error("Component $(c.name) already has a child named $name")
     end
-    c.children[name] = child
+    # Perform a softcopy so the instantiated children can all have different
+    # metadata if needed.
+    c.children[name] = softcopy(child)
 end
 
 function add_child(c::AbstractComponent, child::AbstractComponent, name, number)

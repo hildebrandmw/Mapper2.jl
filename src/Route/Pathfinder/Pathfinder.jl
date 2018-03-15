@@ -6,8 +6,6 @@ end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
-
-
 mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     historical_cost         ::Vector{Float64}
     current_cost_factor     ::Float64

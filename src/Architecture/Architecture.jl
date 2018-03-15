@@ -520,29 +520,28 @@ struct Component <: AbstractComponent
     links       ::Dict{String, Link{ComponentPath}}
     port_link   ::Dict{PPC,String}
     metadata    ::Dict{String, Any}
+end
 
-    #-- Constructor
-    function Component(
-            name;
-            primitive   ::String = "",
-            metadata = Dict{String, Any}(),
-        )
-        # Add all component level ports to the ports of this component.
-        ports       = Dict{String, Port}()
-        links       = Dict{String, Link{ComponentPath}}()
-        port_link   = Dict{PPC, String}()
-        children    = Dict{String, Component}()
-        # Return the newly constructed type.
-        return new(
-            name,
-            primitive,
-            children,
-            ports,
-            links,
-            port_link,
-            metadata,
-        )
-    end
+function Component(
+        name;
+        primitive   ::String = "",
+        metadata = Dict{String, Any}(),
+    )
+    # Add all component level ports to the ports of this component.
+    ports       = Dict{String, Port}()
+    links       = Dict{String, Link{ComponentPath}}()
+    port_link   = Dict{PPC, String}()
+    children    = Dict{String, Component}()
+    # Return the newly constructed type.
+    return Component(
+        name,
+        primitive,
+        children,
+        ports,
+        links,
+        port_link,
+        metadata,
+    )
 end
 
 @doc """

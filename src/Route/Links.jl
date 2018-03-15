@@ -8,10 +8,10 @@ end
 RoutingLink(;cost = 1.0, capacity = 1) = RoutingLink(Int[], cost, capacity)
 
 # Accessor functions
-channels(a::AbstractRoutingLink)   = a.channels
-cost(a::AbstractRoutingLink)       = a.cost
-capacity(a::AbstractRoutingLink)   = a.capacity
-occupancy(a::AbstractRoutingLink)  = length(a.channels)
+@inline channels(a::AbstractRoutingLink)   = a.channels
+@inline cost(a::AbstractRoutingLink)       = a.cost
+@inline capacity(a::AbstractRoutingLink)   = a.capacity
+@inline occupancy(a::AbstractRoutingLink)  = length(a.channels)
 
 # Methods
 iscongested(a::AbstractRoutingLink) = occupancy(a) > capacity(a)

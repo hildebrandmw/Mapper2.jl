@@ -1,3 +1,16 @@
+function softcopy(c::T) where T <: AbstractComponent
+    ex = map(fieldnames(T)) do f
+        if f == :children
+            return Dict(k => softcopy(v) for (k,v) in getfield(c,f))
+        elseif f == :metadata
+            return deepcopy(getfield(c,f))
+        else
+            return getfield(c,f)
+        end
+    end
+    return T(ex...)
+end
+
 function check(c::AbstractComponent)
     # If there are no children, don't check for unconnected ports.
     if length(c.children) == 0

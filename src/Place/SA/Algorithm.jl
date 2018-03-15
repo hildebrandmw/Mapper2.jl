@@ -90,7 +90,7 @@ end
 function place(
         sa::SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
-        move_attempts       = 50_000,
+        move_attempts       = 40_000,
         move_gen            = SubRandomGenerator{D}(),
         initial_temperature = 1.0,
         supplied_state      = nothing,
@@ -148,7 +148,7 @@ function place(
         ############## 
         # Inner Loop #
         ############## 
-        for i in 1:move_attempts
+        while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
             if !generate_move(sa, cookie, move_gen, distance_limit, max_addresses)
                 continue
