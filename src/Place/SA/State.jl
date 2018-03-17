@@ -45,10 +45,10 @@ mutable struct SAState
     function SAState(temperature, distance_limit, objective)
         # This is a hack to "cleanly" determine if we should display updates
         # or not.
-        display_updates = false
-        if MicroLogging.Info >= MicroLogging._min_enabled_level[]
-            display_updates = true
-        end
+        display_updates = true
+        # if MicroLogging.Info >= MicroLogging._min_enabled_level[]
+        #     display_updates = true
+        # end
 
         SAStateUpdateInterval = 5
         return new(
