@@ -61,7 +61,9 @@ export  SparseDiGraph,
         source_vertices,
         sink_vertices,
         linearize,
-        make_lightgraph
+        make_lightgraph,
+        dim_max,
+        dim_min
 
 # Use submodules to make exports visible.
 @reexport using .MapperCore

@@ -85,10 +85,10 @@ export  # Types
         out_node_names,
         in_node_names,
         out_nodes,
-        in_nodes
+        in_nodes,
 
-### Architecture Exports ###
-export  AbstractArchitecture,
+        ### Architecture Exports ###
+        AbstractArchitecture,
         # Path Types
         AbstractPath,
         AbstractComponentPath,
@@ -97,6 +97,7 @@ export  AbstractArchitecture,
         PortPath,
         LinkPath,
         # Path Methods
+        getaddress,
         istop,
         prefix,
         push,
@@ -144,10 +145,10 @@ export  AbstractArchitecture,
         check,
         # Analysis methods
         build_distance_table,
-        build_component_table
+        build_component_table,
 
-### Map ###
-export  Map,
+        ### Map ###
+        Map,
         Mapping,
         NewMap,
         NodeMap,

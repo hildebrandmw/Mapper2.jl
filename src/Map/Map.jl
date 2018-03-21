@@ -16,6 +16,7 @@ getpath(m::Mapping, nodename::String) = m.nodes[nodename]
 getpath(m::Mapping, i::Integer)       = m.edges[i]
 Base.setindex!(m::Mapping, v, i::Integer) = setindex!(m.edges, v, i)
 
+
 """
 Top level data structure. Summary of parameters:
 
@@ -64,6 +65,13 @@ end
 ################################################################################
 getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
 getpath(m::Map, i::Integer) = getpath(m.mapping, i)
+
+function isused(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
+    for path in values(m.mapping.nodes)
+        getaddress(path) == addr && return true
+    end
+    return false
+end
 
 ################################################################################
 # Saving/loading

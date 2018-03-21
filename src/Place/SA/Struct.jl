@@ -46,9 +46,9 @@ Location{D}() where D = Location(zero(CartesianIndex{D}), 0)
 Base.getindex(a::Array, l::Location) = a[l.component, l.address]
 Base.setindex!(a::Array, x, l::Location) = a[l.component, l.address] = x
 
-getaddress(l::Location)         = l.address
-getcomponent(l::Location)       = l.component
-getaddress(c::CartesianIndex)   = c
+MapperCore.getaddress(l::Location) = l.address
+getcomponent(l::Location)          = l.component
+MapperCore.getaddress(c::CartesianIndex)   = c
 getcomponent(c::CartesianIndex) = 1
 
 ################################################################################
@@ -229,10 +229,10 @@ mutable struct BasicNode{T} <: Node
 end
 
 # Node Interface
-location(n::Node)       = n.location
-assign(n::Node, l)      = (n.location = l)
-getaddress(n::Node)     = getaddress(n.location)
-getcomponent(n::Node)   = getcomponent(n.location) 
+location(n::Node)               = n.location
+assign(n::Node, l)              = (n.location = l)
+MapperCore.getaddress(n::Node)  = getaddress(n.location)
+getcomponent(n::Node)           = getcomponent(n.location) 
 
 
 # -------------
