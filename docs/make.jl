@@ -21,6 +21,6 @@ makedocs(
                 "lib/internals/sa.md",
                 "lib/internals/routing.md",
                 "lib/internals/helper.md",
-            ]),
+            ],
         ]
     )

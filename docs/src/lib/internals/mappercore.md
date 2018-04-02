@@ -7,4 +7,5 @@ end
 ```
 ```@autodocs
 Modules = [Mapper2.MapperCore]
+Public  = false
 ```

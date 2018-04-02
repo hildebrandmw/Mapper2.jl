@@ -2,7 +2,8 @@ module Helper
 
 using LightGraphs
 
-export  make_ref_list,
+export  emptymeta,
+        make_ref_list,
         wrap_vector,
         typeunion,
         push_to_dict,
@@ -27,6 +28,9 @@ export  make_ref_list,
         sink_vertices,
         linearize,
         make_lightgraph
+
+
+emptymeta() = Dict{String,Any}()
 
 function make_ref_list(v)
     ref_strings = ["[`$(string(i))`](@ref)" for i in v]

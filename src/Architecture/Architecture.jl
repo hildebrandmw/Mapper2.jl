@@ -53,6 +53,7 @@ end
 
 #-- Constructors
 AddressPath{D}() where D = AddressPath{D}(zero(CartesianIndex{D}), ComponentPath())
+AddressPath{D}(c::CartesianIndex{D}) where D = AddressPath{D}(c, ComponentPath())
 
 @doc """
 Data type for pointing to `Components` in a component hierarchy where the
@@ -345,6 +346,9 @@ end
 
 # string and showing
 Base.string(c::ComPath)   = join(c.path, ".")
+
+# convert zero addresses to the keyword "global" to make the printing
+# a little prettier.
 function Base.string(a::AddPath) 
     iszero(a.address) ? (p = "global") : (p = string(a.address.I))
     return join((p,string(a.path)),".")
@@ -593,7 +597,7 @@ function portnames(c::Component, classes)
     return [k for (k,v) in c.ports if v.class in classes]
 end
 
-connected_ports(a::AbstractComponent) = keys(a.port_link)
+connected_ports(a::AbstractComponent) = collect(keys(a.port_link))
 
 @doc """
     ports(c::Component, [classes])
@@ -606,22 +610,6 @@ classes will be returned.
 #-------------------------------------------------------------------------------
 # TopLevel
 #-------------------------------------------------------------------------------
-
-const _toplevel_constructions = (:add_child, :add_link, :connection_rule)
-const _toplevel_analysis = (:walk_children,
-                            :connected_components,
-                            :search_metadata,
-                            :search_metadata!,
-                            :check,
-                            :build_distance_table,
-                            :build_neighbor_table,
-                            :connected_link,
-                            :connected_ports,
-                            :isconnected)
-
-
-
-
 mutable struct TopLevel{A <: AbstractArchitecture,D} <: AbstractComponent
     name        ::String
     children    ::Dict{CartesianIndex{D}, Component}

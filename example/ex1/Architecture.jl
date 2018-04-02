@@ -159,8 +159,7 @@ function build_routing_tile()
         add_port(tile, "$(dir)_out", "output")
         add_child(tile, build_mux(1,1), "mux_$(dir)", 2)
 
-        add_link(tile,
-                      "$(dir)_in",
+        add_link(tile, "$(dir)_in",
                       ["mux_$(dir)[0].in[0]", "mux_$(dir)[1].in[0]"],
                       metadata = metadata)
 

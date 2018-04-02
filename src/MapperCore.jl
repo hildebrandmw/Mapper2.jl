@@ -12,7 +12,34 @@ is07 && (using Serialization)
 
 using LightGraphs
 
-emptymeta() = Dict{String,Any}()
+
+
+const _arch_types = (
+        :AbstractArchitecture,
+        :TopLevel,
+        :Component,
+        :Port,
+        :Link,
+    )
+
+const _toplevel_constructions = (
+        :add_child, 
+        :add_link, 
+        :connection_rule
+    )
+
+const _toplevel_analysis = (
+        :walk_children,
+        :connected_components,
+        :search_metadata,
+        :search_metadata!,
+        :check,
+        :build_distance_table,
+        :build_neighbor_table,
+        :connectedlink,
+        :connectedports,
+        :isconnected
+    )
 
 include("Taskgraphs.jl")
 
@@ -155,4 +182,14 @@ export  # Types
         EdgeMap,
         save,
         load
+
+################################################################################
+# Functions for public documentation.
+################################################################################
+
+# const _mappercore_public_api = union(
+#         _arch_types,
+#         _toplevel_constructions,
+#         _toplevel_analysis,
+#     )
 end
