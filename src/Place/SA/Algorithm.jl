@@ -160,7 +160,11 @@ function place(
             if cost_of_move <= zero(typeof(cost_of_move)) ||
                     rand() < exp(-cost_of_move * one_over_T)
                accepted_moves += 1
-               sum_cost_difference += abs(cost_of_move)
+
+               if cost_of_move > 0
+                   sum_cost_difference += cost_of_move
+               end
+
                objective += cost_of_move
             else
                undo_move(sa, cookie)

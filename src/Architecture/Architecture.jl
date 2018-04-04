@@ -635,7 +635,7 @@ end
 Return an iterator of all addresses with subcomponents of `t`.
 """
 addresses(t::TopLevel) = keys(t.children)
-
+Base.isassigned(t::TopLevel, a::CartesianIndex) = haskey(t.children, a)
 
 #-------------------------------------------------------------------------------
 # Various overloadings of the method "getindex"

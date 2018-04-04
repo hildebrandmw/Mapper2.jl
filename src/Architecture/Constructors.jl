@@ -53,11 +53,7 @@ portpath_promote(s::PortPath)                    = [s]
 portpath_promote(s::String)                      = [PortPath(s)]
 portpath_promote(s::Vector{String})              = PortPath.(s)
 
-function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
-
-    sources = portpath_promote(src_any)
-    sinks = portpath_promote(dest_any)
-    # Check port directions
+function check_directions(c, sources, sinks) 
     for src in sources
         if istop(src)
             if !checkclass(c[src], :sink)
@@ -80,11 +76,18 @@ function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
             end
         end
     end
+end
+
+function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), linkname = "")
+    sources = portpath_promote(src_any)
+    sinks = portpath_promote(dest_any)
+    # Check port directions
+    check_directions(c, sources, sinks)
 
     # check if port is available for a new link
     for port in chain(sources, sinks)
         if !isfree(c, port)
-            error("$port already has a connection.")
+            safe ? (return false) : error("$port already has a connection.")
         end
     end
 
@@ -96,7 +99,7 @@ function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
     end
 
     if haskey(c.links, linkname)
-        error("Link name: $linkname already exists in component $(c.name)")
+        safe ? (return false) : error("Link name: $linkname already exists in component $(c.name)")
     end
     newlink = Link(linkname, true, sources, sinks, metadata)
     # Create a key for this link and add it to the component.
@@ -112,7 +115,7 @@ function add_link(c, src_any, dest_any; metadata = emptymeta(), linkname = "")
         # Register the link in the port_link dictionary
         c.port_link[port] = linkname
     end
-    return nothing
+    return true
 end
 
 
