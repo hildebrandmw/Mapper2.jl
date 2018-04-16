@@ -6,9 +6,6 @@ const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
 using Reexport
 
-const Address = CartesianIndex
-export Address
-
 if is07
     # v0.7 hack
     using Logging
@@ -43,6 +40,7 @@ end
 
 include("Helper.jl")
 using .Helper
+
 include("MapperCore.jl")
 
 include("Place/Place.jl")
@@ -50,7 +48,8 @@ include("Place/SA/SA.jl")
 include("Route/Route.jl")
 
 # exports from Helper.
-export  SparseDiGraph,
+export  Address,
+        SparseDiGraph,
         has_vertex,
         add_vertex!,
         add_edge!,

@@ -7,8 +7,8 @@
 Flexible data structure recording the mapping of nodes and edges in the taskgraph
 to elements in the top level.
 """
-mutable struct Mapping{D}
-    nodes::Dict{String,AddressPath{D}}
+mutable struct Mapping
+    nodes::Dict{String,Path{Component}}
     edges::Vector{SparseDiGraph{Any}}
 end
 
@@ -48,7 +48,7 @@ function NewMap(architecture::TopLevel{A,D},
 
     # Create a new Mapping data type for the new map
     # Get the node names
-    nodes = Dict(n => AddressPath{D}() for n in nodenames(taskgraph))
+    nodes = Dict(n => Path{Component}() for n in nodenames(taskgraph))
     edges = [SparseDiGraph{Any}() for i in 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)
     return Map(
@@ -68,7 +68,7 @@ getpath(m::Map, i::Integer) = getpath(m.mapping, i)
 
 function isused(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
     for path in values(m.mapping.nodes)
-        getaddress(path) == addr && return true
+        getaddress(m.architecture, path) == addr && return true
     end
     return false
 end

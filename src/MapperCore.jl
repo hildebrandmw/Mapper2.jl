@@ -118,23 +118,22 @@ export  # Types
         AbstractArchitecture,
         # Path Types
         AbstractPath,
-        AbstractComponentPath,
-        ComponentPath,
+        Path,
         AddressPath,
-        PortPath,
-        LinkPath,
-        # Path Methods
-        getaddress,
-        istop,
-        prefix,
-        push,
-        pushfirst,
-        #typestring,
+        catpath,
+        striplast,
+        splitpath,
+        stripfirst,
+
         # Architecture stuff
         Port,
         Link,
+        # Port Methods
+        invert,
         # Link Methods
         isaddresslink,
+        sources,
+        dests,
         # Components
         AbstractComponent,
         TopLevel,
@@ -157,6 +156,8 @@ export  # Types
         isfree,
         isgloballink,
         isglobalport,
+        getaddress,
+        getchild,
         # Asserts
         assert_no_children,
         assert_no_intrarouting,

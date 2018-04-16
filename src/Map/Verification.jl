@@ -4,11 +4,11 @@ passfail(b::Bool) = b ? "passed" : "failed"
 # Routing Checks
 ################################################################################
 function check_routing(m::Map, quiet = false)
-    port_okay = check_ports(m)
-    capacity_okay = check_capacity(m)
-    graph_okay = check_routing_connectivity(m)
-    arch_okay = check_architecture_connectivity(m)
-    resource_okay = check_architecture_resources(m)
+    port_okay       = check_ports(m)
+    capacity_okay   = check_capacity(m)
+    graph_okay      = check_routing_connectivity(m)
+    arch_okay       = check_architecture_connectivity(m)
+    resource_okay   = check_architecture_resources(m)
 
     if !quiet
         @info """
@@ -51,7 +51,7 @@ function check_ports(m::Map{A}) where A
             sourcepath = getpath(m, source)
             found = false
             for rs in routing_sources
-                if prefix(rs) == sourcepath && is_source_port(A, arch[rs], tg_edge)
+                if striplast(rs) == sourcepath && is_source_port(A, arch[rs], tg_edge)
                     found = true
                     delete!(routing_sources, rs)
                     break
@@ -77,7 +77,7 @@ function check_ports(m::Map{A}) where A
             sinkpath = getpath(m, sink)
             found = false
             for rs in routing_sinks
-                if prefix(rs) == sinkpath && is_sink_port(A, arch[rs], tg_edge)
+                if striplast(rs) == sinkpath && is_sink_port(A, arch[rs], tg_edge)
                     found = true
                     delete!(routing_sinks, rs)
                     break
