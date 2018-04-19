@@ -44,6 +44,7 @@ const _toplevel_analysis = (
 include("Taskgraphs.jl")
 
 # Architecture includes
+include("Architecture/Paths.jl")
 include("Architecture/Architecture.jl")
 include("Architecture/Methods.jl")
 include("Architecture/Constructors.jl")
