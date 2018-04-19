@@ -6,11 +6,11 @@ function add_port(c::Component, name, class, number; metadata = emptymeta())
     number < 1 && throw(DomainError())
     for i in 1:number
         port_name = "$name[$(i-1)]"
-        # Choose whether to zip or not
-        if typeof(metadata) <: Array
-            add_port(c, Port(port_name, class, metadata[i]))
-        else
+        # Choose whether to iterate through metadata or not.
+        if typeof(metadata) <: Dict
             add_port(c, Port(port_name, class, metadata))
+        else
+            add_port(c, Port(port_name, class, metadata[i]))
         end
     end
     return nothing
@@ -23,21 +23,39 @@ function add_port(c::Component, port::Port)
     c.ports[port.name] = port
 end
 
-function add_child(c::AbstractComponent, child::AbstractComponent, name)
-    if haskey(c.children, name)
-        error("Component $(c.name) already has a child named $name")
-    end
-    # Perform a softcopy so the instantiated children can all have different
-    # metadata if needed.
-    c.children[name] = softcopy(child)
-end
-
-function add_child(c::AbstractComponent, child::AbstractComponent, name, number)
+function add_child(c::Component, child::Component, name::String, number)
     number < 1 && throw(DomainError())
     for i in 0:number-1
         subname = "$name[$i]"
         add_child(c, child, subname)
     end
+    return nothing
+end
+
+function add_child(c::Component, child::Component, name::String)
+    if haskey(c.children, name)
+        error("Component $(c.name) already has a child named $name.")
+    end
+    c.children[name] = child
+    return nothing
+end
+
+function add_child(t        ::TopLevel, 
+                   child    ::Component, 
+                   address  ::Address, 
+                   name     ::String = string(address))
+    
+    if haskey(t.children, name)
+        error("TopLevel $(t.name) already has a child named $name.")
+    end
+    if haskey(t.address_to_child, address)
+        error("TopLevel $(t.name) already has a child assigned to address $address.")
+    end
+
+    t.children[name]            = child
+    # Maintain cross references between child names and addresses
+    t.child_to_address[name]    = address
+    t.address_to_child[address] = name
     return nothing
 end
 
@@ -48,32 +66,22 @@ end
 # Convenience functions allowing add_link to be called with
 #   - String, vector of string, PortPath, vector of PortPath and have
 #   everything just work correctly. Maps all of these to a vector of portpaths.
-portpath_promote(s::Vector{PortPath{P}}) where P = identity(s)
-portpath_promote(s::PortPath)                    = [s]
-portpath_promote(s::String)                      = [PortPath(s)]
-portpath_promote(s::Vector{String})              = PortPath.(s)
+portpath_promote(s::Vector{Path{Port}}) = identity(s)
+portpath_promote(s::Path{Port})         = [s]
+portpath_promote(s::String)             = [Path{Port}(s)]
+portpath_promote(s::Vector{String})     = [Path{Port}(i) for i in s]
 
 function check_directions(c, sources, sinks) 
     for src in sources
-        if istop(src)
-            if !checkclass(c[src], :sink)
-                error("$src is not a valid top-level source port.")
-            end
-        else
-            if !checkclass(c[src], :source)
-                error("$src is not a valid source port.")
-            end
+        port = get_relative_port(c, src)
+        if !checkclass(port, :source)
+            error("$src is not a valid source port for component $(c.name).")
         end
     end
     for snk in sinks
-        if istop(snk)
-            if !checkclass(c[snk], :source)
-                error("$snk is not a valid top-level sink port.")
-            end
-        else
-            if !checkclass(c[snk], :sink)
-                error("$snk is not a valid sink port.")
-            end
+        port = get_relative_port(c, snk)
+        if !checkclass(port, :sink)
+            error("$snk is not a valid sink port for component $(c.name).")
         end
     end
 end
@@ -101,19 +109,13 @@ function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), li
     if haskey(c.links, linkname)
         safe ? (return false) : error("Link name: $linkname already exists in component $(c.name)")
     end
-    newlink = Link(linkname, true, sources, sinks, metadata)
+    newlink = Link(linkname, sources, sinks, metadata)
     # Create a key for this link and add it to the component.
     c.links[linkname] = newlink
-    # Create a path for this link
-    linkpath = LinkPath(linkname)
-
     # Assign the link to all top level ports.
     for port in chain(sources, sinks)
-        if istop(port)
-            c[port].link = linkpath
-        end
-        # Register the link in the port_link dictionary
-        c.port_link[port] = linkname
+        # Register the link in the portlink dictionary
+        c.portlink[port] = newlink
     end
     return true
 end
@@ -124,7 +126,7 @@ function connection_rule(tl::TopLevel,
                          src_rule,
                          dst_rule;
                          metadata = emptymeta(),
-                         valid_addresses = keys(tl.children),
+                         valid_addresses = addresses(tl),
                          invalid_addresses = CartesianIndex[],
                         )
     # Count variable for verification - reports the number of links created.
@@ -132,7 +134,7 @@ function connection_rule(tl::TopLevel,
 
     for src_address in setdiff(valid_addresses, invalid_addresses)
         # Get the source component
-        src = tl.children[src_address]
+        src = getchild(tl, src_address)
         # Check if the source component fulfills the requirement.
         src_rule(src) || continue
         # Apply all the offsets to the current address
@@ -144,9 +146,9 @@ function connection_rule(tl::TopLevel,
 
             # Check destination address
             dst_address = src_address + offset
-            haskey(tl.children, dst_address) || continue
+            haskey(tl.address_to_child, dst_address) || continue
             # check destination component
-            dst = tl.children[dst_address]
+            dst = getchild(tl, dst_address)
             dst_rule(dst) || continue
 
             # check port existence
@@ -156,8 +158,10 @@ function connection_rule(tl::TopLevel,
 
             # Build the name for these ports at the top level. If they are
             # free - connect them.
-            src_port_path = PortPath(src_port, src_address)
-            dst_port_path = PortPath(dst_port, dst_address)
+            src_prefix = tl.address_to_child[src_address]
+            dst_prefix = tl.address_to_child[dst_address]
+            src_port_path = Path{Port}(src_prefix, src_port)
+            dst_port_path = Path{Port}(dst_prefix, dst_port)
             if isfree(tl, src_port_path) && isfree(tl, dst_port_path)
                 # level ports container. If not, initialize them.
                 add_link(tl, src_port_path, [dst_port_path])

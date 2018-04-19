@@ -2,7 +2,8 @@ module Helper
 
 using LightGraphs
 
-export  emptymeta,
+export  Address,
+        emptymeta,
         make_ref_list,
         wrap_vector,
         typeunion,
@@ -29,6 +30,7 @@ export  emptymeta,
         linearize,
         make_lightgraph
 
+const Address = CartesianIndex
 
 emptymeta() = Dict{String,Any}()
 

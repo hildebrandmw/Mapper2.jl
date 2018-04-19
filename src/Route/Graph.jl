@@ -1,7 +1,7 @@
 struct RoutingGraph{G}
     graph   ::G
-    map     ::Dict{AbstractPath, Int64}
-    function RoutingGraph{G}(graph::G, map::Dict{P,Int64}) where {G,P <: AbstractPath}
+    map     ::Dict{Path, Int64}
+    function RoutingGraph{G}(graph::G, map::Dict{P,Int64}) where {G,P <: Path}
 
         #= Make sure that all of the values in the port map are valid. =#
         num_vertices = nv(graph)
@@ -10,12 +10,12 @@ struct RoutingGraph{G}
                 error("Map value $v greater than number of vertices: $(nv(graph))")
             end
         end
-        m = Dict{AbstractPath,Int}(map)
+        m = Dict{Path,Int}(map)
         return new{G}(graph, m)
     end
 end
 
-RoutingGraph(g::G, m::Dict{P,Int64}) where {G,P <: AbstractPath} = RoutingGraph{G}(g,m)
+RoutingGraph(g::G, m::Dict{P,Int64}) where {G,P <: Path} = RoutingGraph{G}(g,m)
 getmap(r::RoutingGraph) = r.map
 
 """
@@ -32,14 +32,14 @@ function build_routing_mux(c::Component)
 
     g = DiGraph(length(c.ports) + 1)
     # Create a path for node #1, the node in the middle of the mux
-    m = Dict{AbstractPath,Int}(ComponentPath() => 1)
+    m = Dict{Path,Int}(Path{Component}() => 1)
 
     for (i,(p,v)) in enumerate(c.ports)
-        m[PortPath(p)] = i+1 
+        m[Path{Port}(p)] = i+1 
 
-        if v.class == "output"
+        if v.class == :output
             add_edge!(g, 1, i+1)
-        elseif v.class == "input"
+        elseif v.class == :input
             add_edge!(g, i+1, 1)
         else
             throw(KeyError(v.class))
@@ -62,12 +62,16 @@ function build_routing_blackbox(c::Component)
     # Instantiate the number of vertices equal to the number of ports.
     g = DiGraph(length(ports))
     # Sequentially assign port mappings.
-    m = Dict(PortPath(p) => i for (i,p) in enumerate(ports))
+    if length(ports) == 0
+        m = Dict{Path,Int}()
+    else
+        m = Dict{Path,Int}(Path{Port}(p) => i for (i,p) in enumerate(ports))
+    end
     return RoutingGraph(g,m)
 end
 
 const __ROUTING_DICT = Dict(
-    "mux"   => build_routing_mux,
+    "mux" => build_routing_mux,
 )
 
 # Constructor dispatch based on primitive type. Default to BlackBox
@@ -79,14 +83,14 @@ end
 function routing_skeleton(tl::TopLevel{A,D}) where {A,D}
     # Return an empty graph
     g = DiGraph(0)
-    m = Dict{AbstractComponentPath,eltype(g)}()
+    m = Dict{Path,Int}()
     return RoutingGraph(g,m)
 end
 
 function record!(new_dict::Dict, old_dict::Dict, offset::Integer, extension)
     for (path,index) in old_dict
         # Update path
-        new_path  = pushfirst(path,extension)
+        new_path  = catpath(extension, path)
         # Update index
         new_index = index + offset
         # Record the new item.
@@ -112,9 +116,6 @@ function add_subgraphs!(top::RoutingGraph, prefixes, subgraphs::Vector{<:Routing
     return nothing
 end
 
-make_link_path(::AbstractComponent, str) = LinkPath(str)
-make_link_path(::TopLevel{A,D}, str) where {A,D} = LinkPath(str, zero(CartesianIndex{D}))
-
 function add_links!(top, c::AbstractComponent)
     # Iterate through all links for the component.
     for (key,link) in c.links
@@ -122,19 +123,17 @@ function add_links!(top, c::AbstractComponent)
         add_vertex!(top.graph)
         link_index = nv(top.graph)
         # Create an entry in the link table
-        linkpath = make_link_path(c, key)
+        linkpath = Path{Link}(key)
         top.map[linkpath] = link_index
         # Connect the link to all its attached ports by looking through the
         # PortPaths in the link and getting the reference vertex in the graph
         # from the portmap
-        for port in link.sources
+        for port in sources(link)
             src = top.map[port]
-            #src = top.portmap[port]
             add_edge!(top.graph, src, link_index)
         end
-        for port in link.sinks
+        for port in dests(link)
             dst = top.map[port]
-            #dst = top.portmap[port]
             add_edge!(top.graph, link_index, dst)
         end
     end
@@ -173,7 +172,7 @@ safety_check(::Component, g) = nothing
 function safety_check(::TopLevel, g) 
     maprev = rev_dict_safe(g.map)
     for (k,v) in maprev
-        length(v) > 1  && throw(ErrorException("$k => $v"))
+        length(v) > 1 && throw(ErrorException("$k => $v"))
     end
     @debug routing_graph_info(g)
 end

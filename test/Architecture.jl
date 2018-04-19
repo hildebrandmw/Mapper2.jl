@@ -1,52 +1,66 @@
 @testset "Testing Path Types" begin
     using Mapper2.MapperCore
-    # Test Component Path Constructors
+    # Path Constructors
     let
-        # Test some empty constructor notations
-        empty = ComponentPath(String[])
-        @test ComponentPath() == empty
-        @test ComponentPath("") == empty
-        
-        # Test the automatic splitting along dots
-        C = ComponentPath("a.b.c")
-        @test C == ComponentPath(["a","b","c"])
-        @test length(ComponentPath("a.b.c")) == 3
-        @test prefix(C) == ComponentPath(["a","b"])
+        # Empty constructors
+        ref = Path{Void}(String[])
+        @test ref == Path{Void}()
+        @test ref == Path{Void}("")
 
-        # Some address path tests
-        A = AddressPath(CartesianIndex(1), ComponentPath(""))
-        @test length(A) == 1
-        @test MapperCore.typestring(C) == "Component"
-        @test MapperCore.typestring(A) == "Component"
+        # Various constructors.
+        ref = Path{Void}(["a", "b", "c"])
+        @test ref == Path{Void}("a.b.c")
+        # Test fallback inequality
+        @test Path{Void}("a.b.c") != Path{Int}("a.b.c")
+
+        @test first(Path{Void}("a.b.c")) == "a"
+        @test first(Path{Void}("a")) == "a"
     end
-    # Testing Port Paths
+    # Length tests
     let
-        # Build a Port Path from scratch
-        c = ComponentPath("a.b.c")
-        name = "name"
-
-        @test PortPath("a.b.c.name") == PortPath(name, c)
-        @test isglobalport(c) == false
-        @test isgloballink(c) == false
-
-        a = AddressPath(CartesianIndex(1,1,1), c)
-        @test PortPath("a.b.c.name", CartesianIndex(1,1,1)) == PortPath(name, a)
-        @test isglobalport(a) == false
-        @test isgloballink(a) == false
-
-        b = PortPath("a", CartesianIndex(1,1))
-        @test isglobalport(b) == true
-        @test isgloballink(b) == false
+        @test length(Path{Void}("a.b.c")) == 3
+        @test length(Path{Void}("a.b")) == 2
+        @test length(Path{Void}("a")) == 1
+        @test length(Path{Void}()) == 0
     end
-    # Test Link Paths
-    
+    # Test dictionaries
+    let
+        paths = [
+            Path{Void}("a.b.c"),
+            Path{Int}("a.b.c"),
+            Path{Void}("r"),
+        ]
+
+        d = Dict(paths[i] => i for i in 1:length(paths))
+
+        for i in 1:length(paths)
+            @test d[paths[i]] == i
+        end
+    end
 end
+
+@testset "Testing Ports" begin
+    name = "test"
+    meta = Dict("bob" => 10)
+    p = Port(name, :input, meta)
+    @test checkclass(p, :source) == true
+    @test checkclass(p, :sink) == false
+
+    pi = MapperCore.invert(p)
+    @test pi.name == name
+    @test pi.class == :output
+    @test pi.metadata == meta
+
+    # Error with incorrect class
+    @test_throws Exception Port(name, :not_a_class)
+
+    # Invert an output
+    @test MapperCore.invert(MapperCore.invert(p)) == p
+end
+
 
 @testset "Testing Architecture Modeling" begin
     using Example1
-
-    # Some poor error handling checks
-    @test_throws Exception Port("test", :not_a_class)
 
     # Test General primitive
     let
@@ -114,3 +128,4 @@ end
         @test search_metadata!(t, "task", "general") == true
     end
 end
+
