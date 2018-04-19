@@ -10,11 +10,14 @@
         # Various constructors.
         ref = Path{Void}(["a", "b", "c"])
         @test ref == Path{Void}("a.b.c")
+        @test ref == Path{Void}("a", "b", "c")
         # Test fallback inequality
         @test Path{Void}("a.b.c") != Path{Int}("a.b.c")
 
         @test first(Path{Void}("a.b.c")) == "a"
         @test first(Path{Void}("a")) == "a"
+        @test last(Path{Void}("a.b.c")) == "c"
+        @test last(Path{Void}("c")) == "c"
     end
     # Length tests
     let
