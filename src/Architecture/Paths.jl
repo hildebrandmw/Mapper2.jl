@@ -53,4 +53,4 @@ function splitpath(a::Path{T}, i::Integer) where T
 end
 
 Base.show(io::IO, p::Path) = print(io, string(p))
-Base.string(c::Path{T}) where T = "Path $T $(join(c.steps, "."))"
+Base.string(c::Path{T}) where T = "Path{$(string(T))} $(join(c.steps, "."))"

@@ -1,15 +1,14 @@
 """
-    RoutingStruct(RG,L,C}
+    RoutingStruct(L,C}
 
 Central type for routing.
 
 # Parameter Restrictions:
-* `RG <: RoutingGraph`
 * `L <: AbstractRoutingLink`
 * `c <: AbstractRoutingChannel`
 
 # Fields
-* `graph::RG` - Graph encoding the architecture connectivity.
+* `graph::RoutingGraph` - Graph encoding the architecture connectivity.
 * `links::Vector{L}` - Link annotations for each vertex in `graph`.
 * `paths::Vector{SparseDiGraph{Int}}` - Routings taken by each channel.
 * `channels::Vector{C}` - Routing taskgraph.
@@ -21,8 +20,8 @@ Central type for routing.
 
 $(make_ref_list((:RoutingGraph, :AbstractRoutingLink, :AbstractRoutingChannel)))
 """
-struct RoutingStruct{RG <: RoutingGraph, L <: ARL, C <: ARC}
-    graph   ::RG
+struct RoutingStruct{L <: ARL, C <: ARC}
+    graph   ::RoutingGraph
     links   ::Vector{L}
     paths   ::Vector{SparseDiGraph{Int}}
     channels::Vector{C}

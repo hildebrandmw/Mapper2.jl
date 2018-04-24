@@ -29,29 +29,39 @@ function check_routing(m::Map, quiet = false)
     return foldl(&, (capacity_okay, port_okay, graph_okay, arch_okay, resource_okay))
 end
 
+"""
+    check_ports(m::Map{A}) where A
+
+Check the source and destination ports for each task in `m`. Perform the 
+following checks:
+
+* Each source and destination port for each task channel is valid.
+* All sources and destinations for each task channel has been assigned to
+    a port.
+"""
 function check_ports(m::Map{A}) where A
     edges = m.mapping.edges
     arch  = m.architecture
     tg    = m.taskgraph
 
     success = true
-    for (i,edge) in enumerate(edges)
+    for (i,routing_graph) in enumerate(edges)
         # Get the taskgraph sources and sinks
-        tg_edge = getedge(tg, i) 
+        channel = getedge(tg, i) 
 
-        tg_sources = getsources(tg_edge)
-        tg_sinks   = getsinks(tg_edge)
+        taskgraph_sources = getsources(channel)
+        taskgraph_sinks   = getsinks(channel)
 
-        routing_sources = Set(source_vertices(edge))
-        routing_sinks   = Set(sink_vertices(edge))
+        routing_sources = Set(source_vertices(routing_graph))
+        routing_sinks   = Set(sink_vertices(routing_graph))
 
         # Check that source ports are valid for the location of the placed tasks.
-        for source in tg_sources
+        for source in taskgraph_sources
             # Get the mapped component path
             sourcepath = getpath(m, source)
             found = false
             for rs in routing_sources
-                if striplast(rs) == sourcepath && is_source_port(A, arch[rs], tg_edge)
+                if striplast(rs) == sourcepath && is_source_port(A, arch[rs], channel)
                     found = true
                     delete!(routing_sources, rs)
                     break
@@ -72,12 +82,12 @@ function check_ports(m::Map{A}) where A
                 """
         end
 
-        for sink in tg_sinks
+        for sink in taskgraph_sinks
             # Get the mapped component path
             sinkpath = getpath(m, sink)
             found = false
             for rs in routing_sinks
-                if striplast(rs) == sinkpath && is_sink_port(A, arch[rs], tg_edge)
+                if striplast(rs) == sinkpath && is_sink_port(A, arch[rs], channel)
                     found = true
                     delete!(routing_sinks, rs)
                     break
@@ -102,7 +112,15 @@ function check_ports(m::Map{A}) where A
     return success
 end
 
-function check_capacity(m::Map{A}) where A <: AbstractArchitecture
+"""
+    check_capacity(m::Map) 
+
+Performs the following checks:
+
+* The number of channels assigned to each routing resource in `m.architecture`
+    does not exceed the stated capacity of that resource.
+"""
+function check_capacity(m::Map{A}) where A
     arch    = m.architecture
     edges   = m.mapping.edges
 
@@ -140,8 +158,10 @@ end
 """
     check_architecture_connectivity(m::Map)
 
-Traverse each routing. Get the underlying architecture components and make sure
-that the routing does not violate any connectings in the architecture.
+Traverse the routing for each channel in `m.taskgraph`. Check:
+
+* The nodes on each side of an edge in the routing graph are actually connected
+    in the underlying architecture.
 """
 function check_architecture_connectivity(m::Map)
     # Get the edge mapping
@@ -159,6 +179,16 @@ function check_architecture_connectivity(m::Map)
     return success
 end
 
+"""
+    check_routing_connectivity(m::Map)
+
+Perform the following check:
+
+* Check that the routing graph for each channel in `m.taskgraph` is weakly 
+    connected.
+* Ensure there is a valid path from each source of the routing graph to each
+    destination of the routing graph.
+"""
 function check_routing_connectivity(m::Map)
     edges = m.mapping.edges
 
@@ -189,6 +219,13 @@ function check_routing_connectivity(m::Map)
     return success
 end
 
+"""
+    check_architecture_resources(m::Map)
+
+Traverse the routing graph for each channel in `m.taskgraph`. Check:
+
+* The routing resources used by each channel are valid for that type of channel.
+"""
 function check_architecture_resources(m::Map{A}) where A
     edges = m.mapping.edges
     arch  = m.architecture

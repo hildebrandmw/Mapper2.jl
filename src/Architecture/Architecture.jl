@@ -281,6 +281,10 @@ isgloballink(p::Path) = false
 isglobalport(p::Path{Port}) = length(p) == 2
 isglobalport(p::Path) = false
 
+Base.string(::Type{Component})  = "Component"
+Base.string(::Type{Port})       = "Port"
+Base.string(::Type{Link})       = "Link"
+
 """
     addresses(t::TopLevel)
 

@@ -1,7 +1,8 @@
-struct RoutingGraph{G}
-    graph   ::G
-    map     ::Dict{Path, Int64}
-    function RoutingGraph{G}(graph::G, map::Dict{P,Int64}) where {G,P <: Path}
+const PPLC = Union{Path{Port},Path{Link},Path{Component}}
+struct RoutingGraph
+    graph   ::typeof(DiGraph(0))
+    map     ::Dict{PPLC, Int64}
+    function RoutingGraph(graph::AbstractGraph, map::Dict{P,Int64}) where {P <: Path}
 
         #= Make sure that all of the values in the port map are valid. =#
         num_vertices = nv(graph)
@@ -10,12 +11,11 @@ struct RoutingGraph{G}
                 error("Map value $v greater than number of vertices: $(nv(graph))")
             end
         end
-        m = Dict{Path,Int}(map)
-        return new{G}(graph, m)
+        m = Dict{PPLC,Int}(map)
+        return new(graph, m)
     end
 end
 
-RoutingGraph(g::G, m::Dict{P,Int64}) where {G,P <: Path} = RoutingGraph{G}(g,m)
 getmap(r::RoutingGraph) = r.map
 
 """
@@ -35,12 +35,14 @@ function build_routing_mux(c::Component)
     m = Dict{Path,Int}(Path{Component}() => 1)
 
     for (i,(p,v)) in enumerate(c.ports)
-        m[Path{Port}(p)] = i+1 
+        # Add 1 to i to account for the Path{Component}() we already added.
+        node_index = i+1
+        m[Path{Port}(p)] = node_index
 
         if v.class == :output
-            add_edge!(g, 1, i+1)
+            add_edge!(g, 1, node_index)
         elseif v.class == :input
-            add_edge!(g, i+1, 1)
+            add_edge!(g, node_index, 1)
         else
             throw(KeyError(v.class))
         end
