@@ -1,3 +1,7 @@
+function getoffset(a::TopLevel{A,D}) where {A,D} 
+    return one(Address{D}) - Address(dim_min(addresses(a)))
+end
+
 """
     check(c::AbstractComponent)
 
@@ -59,75 +63,6 @@ end
 Return `Vector{PortPath}` of the ports of `a` and the ports of the children of `a`.
 """ get_visible_ports
 
-################################################################################
-# BFS Routines for building the distance look up table
-################################################################################
-function build_distance_table(architecture::TopLevel{A,D}) where {A,D}
-    # The data type for the LUT
-    dtype = UInt8
-    # Pre-allocate a table of the right dimensions.
-    # Replicate the dimensions once to get a 2D sized LUT.
-    dims = dim_max(addresses(architecture))
-    distance = fill(typemax(dtype), dims..., dims...)
-
-    neighbor_table = build_neighbor_table(architecture)
-
-    @debug "Building Distance Table"
-    # Run a BFS for each starting address
-    for address in addresses(architecture)
-        bfs!(distance, address, neighbor_table)
-    end
-    return distance
-end
-
-#=
-Simple data structure for keeping track of costs associated with addresses
-Gets put the the queue for the BFS.
-=#
-struct CostAddress{U,D}
-    cost::U
-    address::CartesianIndex{D}
-end
-
-# Implementation note:
-# This function is only correct if the cost of each link is 1. If cost can vary,
-# will have to code this using some kind of shortest path formulation.
-function bfs!(distance::Array{U,N}, source::CartesianIndex{D}, neighbor_table) where {U,N,D}
-    # Create a queue for visiting addresses. Add source to get into the loop.
-    q = Queue(CostAddress{U,D})
-    enqueue!(q, CostAddress(zero(U), source))
-
-    # Create a set of visited items to avoid visiting the same address twice.
-    seen = Set{CartesianIndex{D}}()
-    push!(seen, source)
-
-    # Basic BFS.
-    while !isempty(q)
-        u = dequeue!(q)
-        distance[source, u.address] = u.cost
-        for v in neighbor_table[u.address]
-            in(v, seen) && continue
-
-            enqueue!(q, CostAddress(u.cost + one(U), v))
-            push!(seen, v)
-        end
-    end
-
-    return nothing
-end
-
-function build_neighbor_table(architecture::TopLevel{A,D}) where {A,D}
-    @debug "Building Neighbor Table"
-    # Get the connected component dictionary
-    cc = MapperCore.connected_components(architecture)
-    # Create a big list of lists
-    #neighbor_table = Array{Vector{CartesianIndex{D}}}(dims)
-    neighbor_table = Dict{CartesianIndex{D},Vector{CartesianIndex{D}}}()
-    for (address, set) in cc
-        neighbor_table[address] = collect(set)
-    end
-    return neighbor_table
-end
 
 ################################################################################
 # Connectedness methods.

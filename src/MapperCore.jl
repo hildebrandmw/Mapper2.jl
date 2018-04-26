@@ -102,6 +102,8 @@ export  # Types
         getedges,
         getnode,
         getedge,
+        getoffset,
+        getdims,
         nodenames,
         num_nodes,
         num_edges,

@@ -4,8 +4,8 @@
 # Keeps track of where nodes in the taskgraph are mapped to the architecture
 # as well as any applicable metadata.
 """
-Flexible data structure recording the mapping of nodes and edges in the taskgraph
-to elements in the top level.
+Data structure recording the mapping of nodes and edges in the taskgraph
+to elements in the TopLevel.
 """
 mutable struct Mapping
     nodes::Dict{String,Path{Component}}
@@ -95,7 +95,6 @@ function load(m::Map, filepath)
     f = open(makejls(filepath), "r")
     mapping = deserialize(f)
     close(f)
-
-    # rebind deserialized result
+    # bind deserialized result
     m.mapping = mapping
 end

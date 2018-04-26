@@ -1,3 +1,4 @@
+# AbstractMoveGenerator interface
 const _AMV_API = (:getlinear, :getoffset)
 
 """
@@ -34,18 +35,16 @@ Naive implementation. Simply uses `rand` to satisfy the required API.
 """
 struct RandomGenerator{D} <:AbstractMoveGenerator{D} end
 
-
 # Use rand() on the range 1:ub.
 getlinear(::RandomGenerator, ub::Int) = rand(1:ub)
 
 # Use rand() for each component of the returned vector
-@generated function getoffset(::RandomGenerator{D}, limit) where D
+@generated function MapperCore.getoffset(::RandomGenerator{D}, limit) where D
     ex = [:(rand(-limit:limit)) for i in 1:D]
     return quote
         CartesianIndex{D}($(ex...))
     end
 end
-
 
 ################################################################################
 # SubRandomGenerator
@@ -103,7 +102,6 @@ function getlinear(m::SubRandomGenerator, ub::Int)
     return ceil(Int64, ub*new_value)
 end
 
-
 # Helper expression generation function for getoffset.
 function splat_update(n)
     return map(1:n) do i
@@ -120,7 +118,7 @@ end
 # This basically does the same thing as the linear operation, but after the
 # multiplicative size scaling subtracts an offset to get a result on the
 # range [-limit, limit].
-@generated function getoffset(m::SubRandomGenerator{D}, limit::Int) where D
+@generated function MapperCore.getoffset(m::SubRandomGenerator{D}, limit::Int) where D
     val_update = splat_update(D)
     ret_val = create_offset(D)
     return quote

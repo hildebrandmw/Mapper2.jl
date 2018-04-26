@@ -27,6 +27,7 @@ function place(m::Map{A}; kwargs...) where {A <: AbstractArchitecture}
     return m
 end
 
+include("MapTables.jl")
 include("Struct.jl")
 include("Methods.jl")
 include("InitialPlacement.jl")

@@ -296,6 +296,9 @@ Base.isassigned(t::TopLevel, a::Address) = haskey(t.address_to_child, a)
 getaddress(t::TopLevel, p::Path) = getaddress(t, first(p))
 getaddress(t::TopLevel, s::String) = t.child_to_address[s]
 getchild(t::TopLevel, a::Address) = t.children[t.address_to_child[a]]
+function getdims(t::TopLevel{A,D}) where {A,D} 
+    return dim_max(addresses(t)) .- dim_min(addresses(t)) .+ Tuple(1 for _ in 1:D)
+end
 
 #-------------------------------------------------------------------------------
 # Various overloadings of the method "getindex"

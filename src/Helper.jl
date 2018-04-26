@@ -160,8 +160,8 @@ end
 # Subgraph for for lightgraphs
 ################################################################################
 struct AdjList{T}
-    adjin ::Vector{T}
-    adjout::Vector{T}
+    neighbors_in ::Vector{T}
+    neighbors_out::Vector{T}
 end
 
 AdjList{T}() where T = AdjList(T[], T[])
@@ -183,14 +183,14 @@ end
 function LightGraphs.add_edge!(g::SparseDiGraph, src, snk)
     has_vertex(g, src) || throw(KeyError(src))
     has_vertex(g, snk) || throw(KeyError(snk))
-    push!(g.vertices[src].adjout, snk)
-    push!(g.vertices[snk].adjin,  src)
+    push!(g.vertices[src].neighbors_out, snk)
+    push!(g.vertices[snk].neighbors_in,  src)
     return nothing
 end
 
 LightGraphs.vertices(g::SparseDiGraph) = keys(g.vertices)
-LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].adjout
-LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].adjin
+LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].neighbors_out
+LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].neighbors_in
 LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
 
 source_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(inneighbors(g,v)) == 0]
@@ -220,10 +220,6 @@ function linearize(g::SparseDiGraph{T}) where T
     end
     return vertices
 end
-
-################################################################################
-# Verification routines for graphs
-################################################################################
 
 """
     make_lightgraph(s::SparseDiGraph)

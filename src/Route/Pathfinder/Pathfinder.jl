@@ -125,7 +125,6 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
     return nothing
 end
 
-
 """
     shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
 
@@ -149,6 +148,11 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         throw(ErrorException("""
             Pathfinder cannot run for channels with more than one source component.
             """))
+    end
+    # Iterate through the list of possible starting points for this channel and
+    # add it to the priority queue.
+    for node in shuffle(first(start_vectors))
+        push!(pq, CostVertex(node))
     end
 
     task = getchannel(r, channel)
@@ -179,8 +183,8 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
                 discovered[j] = true
                 # Add all the neighbors of these nodes to the priority queue.
                 for u in outneighbors(graph, j)
-                    link_type = getlink(r,u)
-                    if !discovered[u] && canuse(A, link_type, task)
+                    link = getlink(r,u)
+                    if !discovered[u] && canuse(A, link, task)
                         new_cost = linkcost(p,r,u)
                         push!(pq, CostVertex(new_cost,u,j))
                     end
@@ -195,9 +199,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         stopnodes = Int64[]
         for i in eachindex(stop_vectors)
             stop_mask[i] || continue
-            for j in stop_vectors[i]
-                push!(stopnodes, j)
-            end
+            append!(stopnodes, stop_vectors[i])
         end
 
         # Initialize search variables
