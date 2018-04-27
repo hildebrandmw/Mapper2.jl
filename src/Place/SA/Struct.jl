@@ -111,8 +111,6 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 # Basis SA Node
 ################################################################################
 
-abstract type AbstractFastNode <: Node end
-
 mutable struct BasicNode{T} <: Node
     location ::T
     out_edges::Vector{Int64}
@@ -123,7 +121,7 @@ end
 location(n::Node)               = n.location
 assign(n::Node, l)              = (n.location = l)
 MapperCore.getaddress(n::Node)  = getaddress(n.location)
-getcomponent(n::Node)           = getcomponent(n.location) 
+getcomponent(n::Node)           = getcomponent(n.location)
 
 # -------------
 # Construction
@@ -198,7 +196,28 @@ end
 ################################################################################
 
 struct EmptyAddressData <: AddressData end
-build_address_data(::Type{<:AbstractArchitecture}, arch, taskgraph) = EmptyAddressData()
+"""
+    build_address_data(::Type{A}, arch::TopLevel, component_table) where A <: AbstractArchitecture
+
+Default constructor for address data. Creates an array with a similar structure
+to `component_table`. For each path in `component_table`, calls:
+```
+build_address_data(A, component)
+```
+"""
+function build_address_data(::Type{A}, arch::TopLevel, component_table) where A <: AbstractArchitecture
+    map(component_table) do paths
+        call_address_data(arch, paths)
+    end
+end
+
+# Define two methods to correctly handle the flat architecture case where the
+# elements of `component_table` are just Path{Component} instead of 
+# Vector{Path{Component}}
+call_address_data(arch::TopLevel{A}, path::Path) where A = build_address_data(A, arch[path])
+function call_address_data(arch::TopLevel{A}, paths::Vector{<:Path}) where A
+    return [build_address_data(A, arch[path]) for path in paths]
+end
 
 ################################################################################
 # Constructor for the SA Structure
@@ -206,7 +225,10 @@ build_address_data(::Type{<:AbstractArchitecture}, arch, taskgraph) = EmptyAddre
 
 function SAStruct(m::Map{A,D};
                   distance = build_distance_table(m.architecture),
+                  # Enable the flat-architecture optimization.
                   enable_flattness = true,
+                  # Enable address-specific data.
+                  enable_address = false,
                   kwargs...
                  ) where {A,D}
 
@@ -226,7 +248,7 @@ function SAStruct(m::Map{A,D};
     end
     isflat && @debug "Applying Flat Architecture Optimization"
 
-    nodes      = setup_node_build(A, taskgraph, D, isflat) 
+    nodes      = setup_node_build(A, taskgraph, D, isflat)
     task_table = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
 
     #------------------------------#
@@ -254,7 +276,11 @@ function SAStruct(m::Map{A,D};
         grid = zeros(Int64, max_num_components, size(component_table)...)
     end
 
-    address_data = build_address_data(A, arch, taskgraph)
+    if enable_address
+        address_data = build_address_data(A, arch, component_table)
+    else
+        address_data = EmptyAddressData()
+    end
 
     sa = SAStruct{A,                    # Architecture Type
                   typeof(distance),     # Encoding of Tile Distance
@@ -373,8 +399,8 @@ function build_component_table(arch::TopLevel{A,D}) where {A,D}
 
     for (name, component) in arch.children
         # Collect full paths for all components that are mappable.
-        paths = [catpath(name, p) 
-                 for p in walk_children(component) 
+        paths = [catpath(name, p)
+                 for p in walk_children(component)
                  if ismappable(A, component[p])
                 ]
         # Account for architecture to array address offset
@@ -649,7 +675,7 @@ function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
         if !canmap(A, m_node, component)
             push!(bad_nodes, index)
             @warn """
-                Node index $index incorrectly assigned to architecture 
+                Node index $index incorrectly assigned to architecture
                 node $(m_node.name).
                 """
         end

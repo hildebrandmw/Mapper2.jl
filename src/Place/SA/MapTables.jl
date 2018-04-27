@@ -13,7 +13,7 @@ Base.setindex!(a::Array, x, l::Location) = a[l.component, l.address] = x
 
 MapperCore.getaddress(l::Location) = l.address
 getcomponent(l::Location)          = l.component
-MapperCore.getaddress(c::CartesianIndex)   = c
+MapperCore.getaddress(c::CartesianIndex) = c
 getcomponent(c::CartesianIndex) = 1
 
 ################################################################################

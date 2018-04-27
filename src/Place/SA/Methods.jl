@@ -150,4 +150,5 @@ function node_pair_cost(::Type{A}, sa::SAStruct, i,j) where {A <: AbstractArchit
     return cost
 end
 
-address_cost(node::Node, ::EmptyAddressData) = zero(Float64)
+@inline address_cost(node::Node, ::EmptyAddressData) = zero(Float64)
+@inline address_cost(node::Node, data::Array) = address_cost(node, data[location(node)])

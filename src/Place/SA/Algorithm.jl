@@ -299,7 +299,7 @@ end
 ################################################################################
 # DEFAULT MOVE GENERATION
 ################################################################################
-canmove(::Type{A}, x) where {A <: AbstractArchitecture} = true
+canmove(::Type{A}, ::Node) where {A <: AbstractArchitecture} = true
 
 # Move generation in the general case.
 function generate_move(sa::SAStruct{A}, 
