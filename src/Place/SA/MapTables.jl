@@ -8,8 +8,18 @@ end
 
 Location{D}() where D = Location(zero(CartesianIndex{D}), 0)
 
+# Overloads for accessing arrays of dimension D+1
 Base.getindex(a::Array, l::Location) = a[l.component, l.address]
 Base.setindex!(a::Array, x, l::Location) = a[l.component, l.address] = x
+
+# Overloads for accessing Dicts of vectors.
+function Base.getindex(a::Dict{Address{D},Vector{T}}, l::Location{D}) where {D,T}
+    return a[l.address][l.component]
+end
+
+function Base.setindex!(a::Dict{Address{D},Vector{T}}, x, l::Location{D}) where {D,T}
+    a[l.address][l.component] = x
+end
 
 MapperCore.getaddress(l::Location) = l.address
 getcomponent(l::Location)          = l.component
