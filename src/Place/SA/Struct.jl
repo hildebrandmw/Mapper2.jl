@@ -87,7 +87,7 @@ Data structure specialized for Simulated Annealing placement.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable, T <: AddressData}
+struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable,T}
 
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
@@ -205,9 +205,21 @@ to `component_table`. For each path in `component_table`, calls:
 build_address_data(A, component)
 ```
 """
-function build_address_data(::Type{A}, arch::TopLevel, component_table) where A <: AbstractArchitecture
-    map(component_table) do paths
-        call_address_data(arch, paths)
+function build_address_data(
+        ::Type{A}, 
+        arch::TopLevel, 
+        component_table;
+        isflat = false
+       ) where A <: AbstractArchitecture
+
+    if isflat
+        map(component_table) do paths
+            build_address_data(A, arch[first(paths)])
+        end
+    else
+        map(component_table) do paths
+            [build_address_data(A, arch[path]) for path in paths]
+        end
     end
 end
 
@@ -228,7 +240,7 @@ function SAStruct(m::Map{A,D};
                   # Enable the flat-architecture optimization.
                   enable_flattness = true,
                   # Enable address-specific data.
-                  enable_address = false,
+                  enable_address = true,
                   kwargs...
                  ) where {A,D}
 
@@ -277,7 +289,7 @@ function SAStruct(m::Map{A,D};
     end
 
     if enable_address
-        address_data = build_address_data(A, arch, component_table)
+        address_data = build_address_data(A, arch, component_table, isflat = isflat)
     else
         address_data = EmptyAddressData()
     end

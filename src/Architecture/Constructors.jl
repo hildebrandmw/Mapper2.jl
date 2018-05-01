@@ -36,7 +36,7 @@ function add_child(c::Component, child::Component, name::String)
     if haskey(c.children, name)
         error("Component $(c.name) already has a child named $name.")
     end
-    c.children[name] = child
+    c.children[name] = deepcopy(child)
     return nothing
 end
 
@@ -52,7 +52,7 @@ function add_child(t        ::TopLevel,
         error("TopLevel $(t.name) already has a child assigned to address $address.")
     end
 
-    t.children[name]            = child
+    t.children[name]            = deepcopy(child)
     # Maintain cross references between child names and addresses
     t.child_to_address[name]    = address
     t.address_to_child[address] = name
