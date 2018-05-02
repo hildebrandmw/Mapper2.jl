@@ -328,7 +328,7 @@ Base.getindex(c::AbstractComponent, p::Path{Component}) = descend(c, p.steps, le
 Return `Vector{ComponentPath}` enumerating paths to all the children of `c`.
 Paths are returned relative to `c`.
 """
-function walk_children(c::Component)
+function walk_children(c::AbstractComponent)
     # This is performed as a dfs walk through the sub-component hierarchy of c.
     components = [Path{Component}()]
     queue = [Path{Component}(id) for id in keys(c.children)]
@@ -368,9 +368,9 @@ end
 # METHODS FOR NAVIGATING THE HIERARCHY
 ################################################################################
 function search_metadata(c::AbstractComponent, key, value, f::Function = ==)::Bool
-    isempty(key) && return true
     return haskey(c.metadata, key) ? f(value, c.metadata[key]) : false
 end
+search_metadata(c::AbstractComponent, key) = haskey(c.metadata, key)
 
 function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
     # check top component

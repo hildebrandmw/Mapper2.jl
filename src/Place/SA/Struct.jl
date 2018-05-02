@@ -54,7 +54,8 @@ Data structure specialized for Simulated Annealing placement.
 * `D1` - `D + 1`.
 * `N` - Task node type.
 * `L` - Edge node type.
-* `T <: AddressData`` - The AddressData type.
+* `T` - The AddressData type.
+* `Q` - The type of auxiliary data.
 
 # Fields
 * `nodes::Vector{N}` - Taskgraph Nodes specialized for placement.
@@ -82,12 +83,13 @@ Data structure specialized for Simulated Annealing placement.
     Accessed via `grid[i,a]`. Returns `0` is no task is mapped to the component.
 * `address_data::T` - Custom address specific datatype for implementing custom
     objective functions.
+* `aux::Q` - Free auxiliary data that can be attached to the structure.
 * `component_table::Array{Vector{Path{Component}},D}` - Mapping from the `SAStruct`
     to the parent `Map` type.
 * `task_table::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
     `Map` type.
 """
-struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable, T <: AddressData}
+struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable,T,Q}
 
     nodes                   ::Vector{N}
     edges                   ::Vector{L}
@@ -95,6 +97,7 @@ struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable, T <: AddressData}
     distance                ::U
     grid                    ::Array{Int64,D1}
     address_data            ::T
+    aux                     ::Q
     # Map back fields
     component_table ::Array{Vector{Path{Component}}, D}
     task_table      ::Dict{String,Int64}
@@ -106,6 +109,7 @@ architecture(::SAStruct{A})   where {A} = A
 nodetype(s::SAStruct) = typeof(s.nodes)
 edgetype(s::SAStruct) = typeof(s.edges)
 distancetype(::SAStruct{A,U}) where {A,U} = U
+
 
 ################################################################################
 # Basis SA Node
@@ -205,9 +209,25 @@ to `component_table`. For each path in `component_table`, calls:
 build_address_data(A, component)
 ```
 """
-function build_address_data(::Type{A}, arch::TopLevel, component_table) where A <: AbstractArchitecture
-    map(component_table) do paths
-        call_address_data(arch, paths)
+function build_address_data(
+        ::Type{A}, 
+        arch::TopLevel{A,D}, 
+        component_table;
+        isflat = false
+       ) where {A,D}
+
+    comp(a) = [build_address_data(A, arch[path]) for path in component_table[a]]
+    @compat address_data = Dict(
+        a => comp(a) 
+        for a in CartesianIndices(component_table)
+        if length(component_table[a]) > 0
+    )
+    # If the flat optimization is turned on - remove the vectors from the values
+    # in the dictionary.
+    if isflat
+        return Dict(k => first(v) for (k,v) in address_data)
+    else
+        return address_data
     end
 end
 
@@ -229,6 +249,7 @@ function SAStruct(m::Map{A,D};
                   enable_flattness = true,
                   # Enable address-specific data.
                   enable_address = false,
+                  aux = nothing,
                   kwargs...
                  ) where {A,D}
 
@@ -277,26 +298,29 @@ function SAStruct(m::Map{A,D};
     end
 
     if enable_address
-        address_data = build_address_data(A, arch, component_table)
+        address_data = build_address_data(A, arch, component_table, isflat = isflat)
     else
         address_data = EmptyAddressData()
     end
 
-    sa = SAStruct{A,                    # Architecture Type
-                  typeof(distance),     # Encoding of Tile Distance
-                  D,                    # Dimensionality of the Architecture
-                  ndims(grid),          # Architecture Dimensionality + 1
-                  eltype(nodes),        # Type of the taskgraph nodes
-                  eltype(edges),        # Type of the taskgraph edges
-                  typeof(maptable),
-                  typeof(address_data)  # Type of address data
-                 }(
+    sa = SAStruct{
+        A,                    # Architecture Type
+        typeof(distance),     # Encoding of Tile Distance
+        D,                    # Dimensionality of the Architecture
+        ndims(grid),          # Architecture Dimensionality + 1
+        eltype(nodes),        # Type of the taskgraph nodes
+        eltype(edges),        # Type of the taskgraph edges
+        typeof(maptable),
+        typeof(address_data),  # Type of address data
+        typeof(aux),
+     }(
         nodes,
         edges,
         maptable,
         distance,
         grid,
         address_data,
+        aux,
         component_table,
         task_table,
     )

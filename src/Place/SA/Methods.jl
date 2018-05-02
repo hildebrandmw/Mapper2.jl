@@ -85,22 +85,16 @@ function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChan
     return cost
 end
 
-#=
-NOTE: for the functions "map_cost" and "node_code", we do the funky schenanigans
-with the "first" bool to make sure that "cost" is the correct return type
-to make this code fast.
+address_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, node::Node) = zero(Float64)
 
-TODO: Think of a better way to make this code generic.
-=#
-
-map_cost(sa::SAStruct) = map_cost(architecture(sa), sa)
+map_cost(sa::SAStruct{A}) where A = map_cost(A, sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
     cost = 0.0
     for i in eachindex(sa.edges)
         cost += edge_cost(A, sa, i)
     end
     for n in sa.nodes
-        cost += address_cost(n, sa.address_data)
+        cost += address_cost(A, sa, n)
     end
     return cost
 end
@@ -115,7 +109,7 @@ function node_cost(::Type{A}, sa::SAStruct, index::Integer) where {A <: Abstract
     for edge in n.in_edges
         cost += edge_cost(A, sa, edge)
     end
-    cost += address_cost(n, sa.address_data)
+    cost += address_cost(A, sa, n)
     return cost
 end
 
@@ -146,9 +140,6 @@ function node_pair_cost(::Type{A}, sa::SAStruct, i,j) where {A <: AbstractArchit
             cost += edge_cost(A, sa, edge)
         end
     end
-    cost += address_cost(b, sa.address_data)
+    cost += address_cost(A, sa, b)
     return cost
 end
-
-@inline address_cost(node::Node, ::EmptyAddressData) = zero(Float64)
-@inline address_cost(node::Node, data::Array) = address_cost(node, data[location(node)])
