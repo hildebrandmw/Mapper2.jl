@@ -46,8 +46,8 @@ struct TaskgraphEdge
     metadata::Dict{String,Any}
 
     function TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
-        sources = typeof(source)   <: Vector ? source : [source]
-        sinks   = typeof(sink)     <: Vector ? sink   : [sink]
+        sources = wrap_vector(source)
+        sinks   = wrap_vector(sink)
         return new(sources, sinks, metadata)
     end
 end
@@ -67,10 +67,10 @@ Data structure encoding tasks and their relationships.
 * `nodes::Dict{String, TaskgraphNode}` - Tasks within the taskgraph. Keys are
     the instance names of the node, value is the data structure.
 * `edges::Vector{TaskgraphEdge}` - Collection of edges between `TaskgraphNode`s.
-* `adjacency_out::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
+* `node_edges_out::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
     Given a task name, returns a collection of `TaskgraphEdge` that have the
     corresponding task as a source.
-* `adjacency_in::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
+* `node_edges_in::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
     Given a task name, returns a collection of `TaskgraphEdge` that have the
     corresponding task as a sink.
 
@@ -85,8 +85,8 @@ struct Taskgraph
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
     edges           ::Vector{TaskgraphEdge}
-    adjacency_out   ::Dict{String, Vector{TaskgraphEdge}}
-    adjacency_in    ::Dict{String, Vector{TaskgraphEdge}}
+    node_edges_out   ::Dict{String, Vector{TaskgraphEdge}}
+    node_edges_in    ::Dict{String, Vector{TaskgraphEdge}}
 
     function Taskgraph(name = "noname")
         new(name,
@@ -123,15 +123,15 @@ struct Taskgraph
         # the values to empty arrays of edges so down-stream algortihms won't
         # have to check if an adjacency list exists for a node.
         edges = collect(edge_container)
-        adjacency_out = Dict(name => TaskgraphEdge[] for name in keys(nodes))
-        adjacency_in  = Dict(name => TaskgraphEdge[] for name in keys(nodes))
+        node_edges_out = Dict(name => TaskgraphEdge[] for name in keys(nodes))
+        node_edges_in  = Dict(name => TaskgraphEdge[] for name in keys(nodes))
         # Iterate through all edges - grow adjacency lists correctly.
         for edge in edges
             for source in edge.sources
-                push!(adjacency_out[source], edge)
+                push!(node_edges_out[source], edge)
             end
             for sink in edge.sinks
-                push!(adjacency_in[sink], edge)
+                push!(node_edges_in[sink], edge)
             end
         end
         # Return the data structure
@@ -139,8 +139,8 @@ struct Taskgraph
             name,
             nodes,
             edges,
-            adjacency_out,
-            adjacency_in,
+            node_edges_out,
+            node_edges_in,
         )
     end
 end
@@ -170,8 +170,8 @@ function add_node(t::Taskgraph, task::TaskgraphNode)
     end
     t.nodes[task.name] = task
     # Create adjacency list entries for the new nodes
-    t.adjacency_out[task.name] = TaskgraphEdge[]
-    t.adjacency_in[task.name]  = TaskgraphEdge[]
+    t.node_edges_out[task.name] = TaskgraphEdge[]
+    t.node_edges_in[task.name]  = TaskgraphEdge[]
     return nothing
 end
 
@@ -186,23 +186,23 @@ function add_edge(t::Taskgraph, edge::TaskgraphEdge)
     push!(t.edges, edge)
     # Update the adjacency lists.
     for source in edge.sources
-        push!(t.adjacency_out[source], edge)
+        push!(t.node_edges_out[source], edge)
     end
     for sink in edge.sinks
-        push!(t.adjacency_in[sink], edge)
+        push!(t.node_edges_in[sink], edge)
     end
     return nothing
 end
 
 
 # Methods for accessing the adjacency lists
-out_edges(tg::Taskgraph, task::String) = tg.adjacency_out[task]
-out_edges(tg::Taskgraph, task::TaskgraphNode) = out_edges(tg, task.name)
+out_edges(t::Taskgraph, task::String) = t.node_edges_out[task]
+out_edges(t::Taskgraph, task::TaskgraphNode) = out_edges(t, task.name)
 
-in_edges(tg::Taskgraph, task::String) = tg.adjacency_in[task]
-in_edges(tg::Taskgraph, task::TaskgraphNode) = in_edges(tg, task.name)
+in_edges(t::Taskgraph, task::String) = t.node_edges_in[task]
+in_edges(t::Taskgraph, task::TaskgraphNode) = in_edges(t, task.name)
 
-hasnode(tg::Taskgraph, node::String) = haskey(tg.nodes, node)
+hasnode(t::Taskgraph, node::String) = haskey(t.nodes, node)
 
 @doc """
     out_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
@@ -223,30 +223,44 @@ Return `true` if `t` has a task named `node`.
 """ hasnode
 
 @doc """
-    out_nodes(t::Taskgraph, node)
+    outneighbors(t::Taskgraph, node)
 
 Return a collection of nodes from `t` for which are the sink of an edge starting
 at `node`.
-""" out_nodes
+""" outnodes
 
-function adjacent_crawl(t::Taskgraph, node::String, f::T, g::U) where {T,U}
-    # If the adjacency is empty, return an empty array
-    length(f(t,node)) == 0 && (return TaskgraphNode[])
-    # Search through out_edges or in_edges
-    name_iters = (getfield(e, g) for e in f(t,node))
-    # Get distinct names
-    distinct_names = collect(distinct(Base.Iterators.flatten(name_iters)))
-    return distinct_names
+@doc """
+    inneighbors(t::Taskgraph, node)
+
+    Return a collection of nodes from `t` for which are the source of an edge ending
+at `node`.
+""" innodes
+
+function outnode_names(t::Taskgraph, node)
+    edges = out_edges(t, node)
+    node_names = Set{String}()
+    for edge in edges
+        union!(node_names, getsinks(edge))
+    end
+    return node_names
 end
 
-out_node_names(t::Taskgraph, node) = adjacent_crawl(t, node, out_edges, :sinks)
-function out_nodes(t::Taskgraph, node)
-    names = out_node_names(t, node)
-    return (getnode(t,n) for n in names)
+function outnodes(t::Taskgraph, node)
+    names = outnode_names(t, node)
+    return [getnode(t, name) for name in names]
 end
 
-in_node_names(t::Taskgraph, node) = adjacent_crawl(t, node, in_edges, :sources)
-function in_nodes(t::Taskgraph, node)
-    names = in_node_names(t, node)
-    return (getnode(t,n) for n in names)
+function innode_names(t::Taskgraph, node)
+    edges = in_edges(t, node)
+    node_names = Set{String}()
+    for edge in edges
+        union!(node_names, getsources(edge))
+    end
+    return node_names
 end
+
+function innodes(t::Taskgraph, node)
+    names = innode_names(t, node)
+    return [getnode(t, name) for name in names]
+end
+

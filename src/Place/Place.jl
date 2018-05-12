@@ -1,6 +1,7 @@
 module Place
 
 using ..Mapper2.MapperCore
+using MicroLogging
 
 export  place,
         placement_routine
@@ -17,7 +18,9 @@ for `m`. Any keyword arguments for the placement algorithm can be passed via
 
 Return a `Map` with the placement recorded.
 """
-function place(m::Map{A}; kwargs...) where {A <: AA}
+function place(m::Map{A}; seed = rand(UInt64), kwargs...) where {A <: AA}
+    @info "Using Seed: $seed"
+    srand(seed)
     f = placement_routine(A)
     return f(m; kwargs...)
 end

@@ -14,12 +14,12 @@
     y = sa.task_table["task2"]
 
     # make sure their class matches
-    cx = sa.maptable.class[x]
-    cy = sa.maptable.class[y]
+    cx = sa.maptable.task_classes[x]
+    cy = sa.maptable.task_classes[y]
     @test cx == cy
     @test cx > 0
 
-    address_array = sa.maptable.normal_lut[cx]
+    address_array = sa.maptable.normal_class_map[cx]
     # Get the first index with a primitive vector greater than zero
     i = findfirst(x -> length(x) > 0, address_array)
     # Convert this into a cartesian index
@@ -58,7 +58,7 @@
     ### Zero a node in the grid
     SA.initial_placement!(sa)
     addr = SA.getaddress(sa.nodes[x])
-    c = SA.getcomponent(sa.nodes[x])
+    c = SA.getpathindex(sa.nodes[x])
     sa.grid[c,addr] = 0
     @test !SA.verify_placement(m, sa)
 end

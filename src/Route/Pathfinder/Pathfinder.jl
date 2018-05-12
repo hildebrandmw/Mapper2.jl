@@ -19,7 +19,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
 
     # Constructor
     function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
-        rg = rs.graph
+        rg = getgraph(rs)
         num_vertices = nv(rg.graph)
         # Initialize a vector with the number of vertices in the routing resouces
         # graph.
@@ -27,7 +27,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
         current_cost_factor     = 3.0
         historical_cost_factor  = 3.0
         iteration_limit         = 100
-        links_to_route = 1:num_edges(m.taskgraph)
+        links_to_route = 1:length(rs.channels)
 
         # Initialized all nodes as undiscovered
         discovered  = falses(num_vertices)
@@ -66,8 +66,8 @@ function links_to_route(p::Pathfinder, r::RoutingStruct, iteration)
     else
         iter = [link for link in p.links_to_route if iscongested(r,link)]
     end
-    # Sort according to relationship among routing taskgraph nodes.
-    lt = ((x,y) -> isless(getchannel(r,x), getchannel(r,y)))
+
+    lt = (x,y) -> isless(getchannel(r, x), getchannel(r, y))
     sort!(iter, lt = lt)
 
     return iter
@@ -137,12 +137,12 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
     soft_reset(p)
 
     # Unpack the certain variables.
-    graph       = r.graph.graph
+    graph       = getgraph(r).graph
     pq          = p.pq
     discovered  = p.discovered
     predecessor = p.predecessor
     # Add all the start nodes to the priority queue.
-    start_vectors = start(r, channel)
+    start_vectors = start_vertices(r, channel)
 
     if length(start_vectors) > 1
         throw(ErrorException("""
@@ -158,7 +158,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
     task = getchannel(r, channel)
 
     # Get the stop nodes for this channel
-    stop_vectors = stop(r, channel)
+    stop_vectors = stop_vertices(r, channel)
     stop_mask    = trues(length(stop_vectors))
 
     # Path type that we will store the final paths in.
@@ -269,7 +269,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         end
     end
     # Wrap the path in an edge path and add it to the RoutingStruct.
-    set_route(r, paths, channel)
+    setroute(r, paths, channel)
     return nothing
 end
 

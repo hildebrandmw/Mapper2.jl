@@ -21,10 +21,11 @@ Central type for routing.
 $(make_ref_list((:RoutingGraph, :AbstractRoutingLink, :AbstractRoutingChannel)))
 """
 struct RoutingStruct{L <: ARL, C <: ARC}
-    graph   ::RoutingGraph
-    links   ::Vector{L}
-    paths   ::Vector{SparseDiGraph{Int}}
-    channels::Vector{C}
+    architecture_graph      ::RoutingGraph
+    graph_vertex_annotations::Vector{L}
+    routings                ::Vector{SparseDiGraph{Int}}
+    channels                ::Vector{C}
+    channel_index_to_taskgraph_index::Dict{Int,Int}
 end
 
 function RoutingStruct(m::Map{A,D}) where {A,D}
@@ -33,42 +34,44 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     taskgraph    = m.taskgraph
     @debug "Building Resource Graph"
 
-    graph = routing_graph(architecture)
+    architecture_graph = routing_graph(architecture)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
-    links = annotate(architecture, graph)
-    # Initialize the paths variable.
-    paths = [SparseDiGraph{Int}() for i in 1:num_edges(taskgraph)]
+    graph_vertex_annotations = annotate(architecture, architecture_graph)
     # Get start and stop nodes for each taskgraph.
-    channels = build_routing_taskgraph(m, graph)
+    channels, channel_dict = build_routing_taskgraph(m, architecture_graph)
+    # Initialize the paths variable.
+    routings = [SparseDiGraph{Int}() for i in 1:length(channels)]
 
     return RoutingStruct(
-        graph,
-        links,
-        paths,
+        architecture_graph,
+        graph_vertex_annotations,
+        routings,
         channels,
+        channel_dict,
     )
 end
 #-- Accessors
-allpaths(rs::RoutingStruct) = rs.paths
-getpath(rs::RoutingStruct, i::Integer) = rs.paths[i]
-setpath(rs::RoutingStruct, path::SparseDiGraph, i::Integer) = rs.paths[i] = path
+allroutes(r::RoutingStruct) = r.routings
+getroute(r::RoutingStruct, i::Integer) = r.routings[i]
+#setroute(r::RoutingStruct, route::SparseDiGraph, i::Integer) = r.routings[i] = route
 
-alllinks(rs::RoutingStruct) = rs.links
-getlink(rs::RoutingStruct, i::Integer) = rs.links[i]
+alllinks(r::RoutingStruct) = r.graph_vertex_annotations
+getlink(r::RoutingStruct, i::Integer) = r.graph_vertex_annotations[i]
 
-Base.start(rs::RoutingStruct, i::Integer) = start(rs.channels[i])
-stop(rs::RoutingStruct, i::Integer) = stop(rs.channels[i])
+start_vertices(r::RoutingStruct, i::Integer) = start_vertices(r.channels[i])
+stop_vertices(r::RoutingStruct, i::Integer) = stop_vertices(r.channels[i])
 
-getchannel(rs::RoutingStruct, i::Integer) = rs.channels[i]
+getchannel(r::RoutingStruct, i::Integer) = r.channels[i]
 
-getmap(r::RoutingStruct) = getmap(r.graph)
+getmap(r::RoutingStruct) = getmap(r.architecture_graph)
+getgraph(r::RoutingStruct) = r.architecture_graph
 
 #---------#
 # Methods #
 #---------#
-iscongested(rs::RoutingStruct) = iscongested(rs.links)
-iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getpath(rs, path))
+iscongested(rs::RoutingStruct) = iscongested(rs.graph_vertex_annotations)
+iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getroute(rs, path))
 
 function iscongested(rs::RoutingStruct, path::SparseDiGraph{Int})
     for i in vertices(path)
@@ -89,40 +92,31 @@ function clear_route(rs::RoutingStruct, channel::Integer)
         from that link info.
     3. Set the path to an empty set.
     =#
-    path = getpath(rs, channel)
+    path = getroute(rs, channel)
     for i in vertices(path)
         remchannel(getlink(rs, i), channel)
     end
     # Clear the path variable
-    setpath(rs, SparseDiGraph{Int}(), channel)
+    rs.routings[channel] = SparseDiGraph{Int}()
     return nothing
 end
 
-function set_route(rs::RoutingStruct, path::SparseDiGraph, channel::Integer)
+function setroute(rs::RoutingStruct, route::SparseDiGraph, channel::Integer)
     # This should always be the case - this assertion is to catch bugs.
-    @assert nv(getpath(rs, channel)) == 0
-    for i in vertices(path)
+    @assert nv(getroute(rs, channel)) == 0
+    for i in vertices(route)
         addchannel(getlink(rs, i), channel)
     end
-    setpath(rs, path, channel)
+    rs.routings[channel] = route
 end
 
 function record(m::Map, r::RoutingStruct)
-    architecture    = m.architecture
-    mapping         = m.mapping
-
-    maprev = rev_dict(getmap(r))
-    for (i,path) in enumerate(allpaths(r))
-
-        routing_path = get_routing_path(architecture, path, maprev)
-        # Extract the sources and destinations for this edges of the taskgraph.
-        taskgraph_edge  = getedge(m.taskgraph, i)
-        sources         = getsources(taskgraph_edge)
-        sinks           = getsinks(taskgraph_edge)
-
-        mapping[i] = routing_path
+    # Get the dictionary mapping channel indices back to taskgraph edge indices.
+    channel_dict = r.channel_index_to_taskgraph_index
+    routes = translate_routes(getgraph(r), allroutes(r))
+    for (i,route) in enumerate(routes)
+        m.mapping[channel_dict[i]] = route
     end
-    return nothing
 end
 
 function get_routing_path(arch::TopLevel{A,D}, g, maprev) where {A,D}
@@ -168,8 +162,15 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Abstrac
     # Unpack map
     taskgraph = m.taskgraph
     arch      = m.architecture
-    # Decode the routing task type for this architecture
-    channels = map(getedges(taskgraph)) do edge
+
+    # Get the list of channels that need routing.
+    edges = getedges(taskgraph)
+    edge_indices_to_route = [i for (i,e) in enumerate(edges) if needsrouting(A, e)]
+
+    # Create routing channels for all edges that need routing.
+    channels = map(edge_indices_to_route) do index
+        # Unpack the edge
+        edge = edges[index]
         # Get source and destination nodes paths
         sources = MapperCore.getpath.(m, getsources(edge))
         sinks   = MapperCore.getpath.(m, getsinks(edge))
@@ -179,8 +180,13 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Abstrac
         # Build the routing channel type
         return routing_channel(A, start, stop, edge)
     end
+
+    # Create a dictionary mapping indices in the "channels" vector to indices
+    # in the original vector of edges.
+    channel_dict = Dict(i => edge_indices_to_route[i] for i in 1:length(channels))
+
     # Return the collection of channels
-    return channels
+    return channels, channel_dict
 end
 
 function collect_nodes(arch::TopLevel{A,D},

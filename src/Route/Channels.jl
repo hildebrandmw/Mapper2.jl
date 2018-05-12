@@ -1,16 +1,16 @@
 const ARC = AbstractRoutingChannel
 
 struct RoutingChannel <: ARC
-    start::Vector{Vector{Int64}}
-    stop ::Vector{Vector{Int64}}
+    start_vertices::Vector{Vector{Int64}}
+    stop_vertices ::Vector{Vector{Int64}}
 end
 
 function routing_channel(::Type{A}, start, stop, edge) where {A<:AbstractArchitecture}
     RoutingChannel(start, stop)
 end
 
-Base.start(r::ARC)   = r.start
-stop(r::ARC)         = r.stop
+start_vertices(r::ARC) = r.start_vertices
+stop_vertices(r::ARC) = r.stop_vertices
 
 # Fallback for choosing links to give priority to during routing.
 Base.isless(::ARC, ::ARC) = false

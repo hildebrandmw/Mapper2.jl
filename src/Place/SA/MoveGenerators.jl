@@ -16,13 +16,14 @@ abstract type AbstractMoveGenerator{D} end
 @doc """
     getlinear(a::AbstractMoveGenerator{D}, ub::Int)
 
-Return a "random" number from 1 to `ub`.
+Return a "random" number uniformly distributed from 1 to `ub`.
 """ getlinear
 
 @doc """
     getoffset(a::AbstractMoveGenerator{D}, limit::Int)
 
-Return a `D` dimensional CartesianIndex where each entry is in `[-limit,limit]`
+Return a `D` dimensional CartesianIndex where each entry is uniformaly
+distributed in `[-limit,limit]`
 """
 
 ################################################################################

@@ -29,8 +29,8 @@
     end
 
     for nn in nodenames(t)
-        a = out_nodes(t, nn)
-        b = out_nodes(q, nn)
+        a = MapperCore.outnodes(t, nn)
+        b = MapperCore.outnodes(q, nn)
         # Get the names of these nodes
         a_names = [i.name for i in a]
         b_names = [i.name for i in b]

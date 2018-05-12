@@ -90,26 +90,27 @@ end
 function place(
         sa::SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
-        move_attempts       = 40_000,
+        move_attempts       = 10000,
         move_gen            = SubRandomGenerator{D}(),
         initial_temperature = 1.0,
         supplied_state      = nothing,
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
-        cooler ::AbstractSACool  = DefaultSACool(0.997),
+        cooler ::AbstractSACool  = DefaultSACool(0.999),
         doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
         limiter::AbstractSALimit = DefaultSALimit(0.44),
         kwargs...
        ) where {A,U,D}
 
     @info "Running Simulated Annealing Placement."
+    # Set the random number generator for repeatable results.
 
     # Unpack SA
     num_nodes = length(sa.nodes)
     num_edges = length(sa.edges)
 
     # Get the largest address
-    @compat max_addresses = last((CartesianIndices(sa.component_table))).I
+    @compat max_addresses = last((CartesianIndices(sa.mappable_path_table))).I
     largest_address = maximum(max_addresses)
 
     # Initialize structure to help during placement.
@@ -249,6 +250,7 @@ end
 ################################################################################
 function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) where A
     node = sa.nodes[index]
+
     # Store the old information
     old_location = location(node)
     cookie.index_of_moved_node = index
@@ -306,7 +308,8 @@ function generate_move(sa::SAStruct{A},
                        cookie, 
                        move_gen::AbstractMoveGenerator,
                        limit, 
-                       upperbound) where {A <: AbstractArchitecture} 
+                       upperbound
+                      ) where {A <: AbstractArchitecture} 
     # Pick a random node
     index = getlinear(move_gen, length(sa.nodes))
     canmove(A, sa.nodes[index]) || return false
@@ -314,7 +317,7 @@ function generate_move(sa::SAStruct{A},
     old_address = getaddress(sa.nodes[index])
     maptable = sa.maptable
     # Get the equivalent class of the node
-    class = maptable.class[index]
+    class = maptable.task_classes[index]
     # Get the address and component to move this node to
     if isnormal(class)
         # Generate offset and check bounds.
@@ -322,13 +325,13 @@ function generate_move(sa::SAStruct{A},
         boundscheck(address, upperbound) || return false
         # Now that we know our location is inbounds, find a component for it
         # to live in.
-        components = maptable.normal_lut[class][address]
+        components = maptable.normal_class_map[class][address]
         lc = length(components)
         lc == 0 && return false
         component = components[getlinear(move_gen, lc)]
         new_location = Location(address, component)
     else
-        new_location = rand(maptable.special_lut[-class])
+        new_location = rand(maptable.special_class_map[-class])
     end
     # Perform the move and record enough information to undo the move. The
     # function "move_with_undo" will return false if the move is a swap and
@@ -346,26 +349,33 @@ function boundscheck(addr::CartesianIndex{N}, ub) where N
 end
 
 
-function generate_move(sa::SAStruct{A,U,D,D}, 
-                       cookie::MoveCookie, 
-                       move_gen::AbstractMoveGenerator, 
-                       limit, upperbound) where {A <: AbstractArchitecture, U,D}
+function generate_move(
+               sa       ::SAStruct{A,U,D,D}, 
+               cookie   ::MoveCookie, 
+               move_gen ::AbstractMoveGenerator, 
+               limit, 
+               upperbound
+              ) where {A <: AbstractArchitecture, U,D}
 
-    #index = rand(1:length(sa.nodes))
     index = getlinear(move_gen, length(sa.nodes))
     canmove(A, sa.nodes[index]) || return false
 
     old_address = getaddress(sa.nodes[index])
     maptable    = sa.maptable
-    class       = maptable.class[index]
+    class       = maptable.task_classes[index]
     if isnormal(class)
         address = old_address + getoffset(move_gen, limit)
         # Check if in-bounds.
         boundscheck(address, upperbound) || return false
         # Check if this is an acceptable destination address
-        maptable.normal_lut[class][address] || return false
+        maptable.normal_class_map[class][address] || return false
+
     else
-        address = rand(maptable.special_lut[-class])
+        # TODO: move this into the move generator. The initial attempt did not
+        # seem to have a good distrubution among, probably due to interaction
+        # with the call to "getlinear" above.
+        address = rand(maptable.special_class_map[-class])
     end
+
     return move_with_undo(sa::SAStruct, cookie, index, address)
 end

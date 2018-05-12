@@ -31,33 +31,14 @@ end
 @testset "Testing Example 2" begin
     using Example2
 
-    local m
-    makemap     = true 
-    placement   = true
-    routing     = true
     # Try making a map
-    try
-        m = Example2.make_map()
-    catch
-        makemap = false
-    end
-    @test makemap
+    m = Example2.make_map()
 
     # Try placement
-    try
-        m = Example2.place(m)
-    catch
-        placement = false
-    end
-    @test placement
+    m = Example2.place(m)
 
     # Try routing
-    try
-        m = Example2.route(m)
-    catch
-        routing = false
-    end
-    @test routing
+    m = Example2.route(m)
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)

@@ -12,8 +12,6 @@ is07 && (using Serialization)
 
 using LightGraphs
 
-
-
 const _arch_types = (
         :AbstractArchitecture,
         :TopLevel,
@@ -74,6 +72,7 @@ getcapacity(::Type{A}, item) where A <: AA              = 1
 
 is_source_port(::Type{<:AA}, port::Port, edge::TE)      = true
 is_sink_port(::Type{<:AA}, port::Port, edge::TE)        = true
+needsrouting(::Type{A}, edge::TE) where A <: AA         = true
 
 
 #-------------------------------------------------------------------------------
@@ -87,7 +86,8 @@ export  isspecial,
         canuse,
         is_sink_port,
         is_source_port,
-        getcapacity
+        getcapacity,
+        needsrouting
 
 ### Taskgraph Exports###
 
@@ -112,8 +112,8 @@ export  # Types
         out_edges,
         in_edges,
         hasnode,
-        out_node_names,
-        in_node_names,
+        outnode_names,
+        innode_names,
         out_nodes,
         in_nodes,
 
@@ -161,6 +161,7 @@ export  # Types
         isglobalport,
         getaddress,
         getchild,
+        getname,
         # Asserts
         assert_no_children,
         assert_no_intrarouting,
@@ -186,14 +187,4 @@ export  # Types
         EdgeMap,
         save,
         load
-
-################################################################################
-# Functions for public documentation.
-################################################################################
-
-# const _mappercore_public_api = union(
-#         _arch_types,
-#         _toplevel_constructions,
-#         _toplevel_analysis,
-#     )
 end

@@ -15,8 +15,28 @@ struct RoutingGraph
         return new(graph, m)
     end
 end
-
 getmap(r::RoutingGraph) = r.map
+
+function translate_routes(r::RoutingGraph, graphs::Vector{<:SparseDiGraph})
+    map_reversed = rev_dict(r.map)
+
+    routes = map(graphs) do g
+        route = SparseDiGraph{PPLC}()
+        # Add vertices
+        for v in vertices(g)
+            path = map_reversed[v]
+            add_vertex!(route, path)
+        end
+        # Add edges
+        for src in vertices(g), dst in outneighbors(g, src)
+            add_edge!(route, map_reversed[src], map_reversed[dst])
+        end
+
+        return route
+    end
+
+    return routes
+end
 
 """
     build_routing_mux(c::Component)

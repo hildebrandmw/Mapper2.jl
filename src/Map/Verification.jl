@@ -44,8 +44,13 @@ function check_ports(m::Map{A}) where A
     arch  = m.architecture
     tg    = m.taskgraph
 
+    taskgraph_edges = getedges(tg)
+
     success = true
     for (i,routing_graph) in enumerate(edges)
+        # Skip this edge if it wasn't supposed to be routed.
+        needsrouting(A, taskgraph_edges[i]) || continue
+
         # Get the taskgraph sources and sinks
         channel = getedge(tg, i) 
 
@@ -163,13 +168,18 @@ Traverse the routing for each channel in `m.taskgraph`. Check:
 * The nodes on each side of an edge in the routing graph are actually connected
     in the underlying architecture.
 """
-function check_architecture_connectivity(m::Map)
+function check_architecture_connectivity(m::Map{A}) where A
     # Get the edge mapping
     arch  = m.architecture
     edges = m.mapping.edges
 
+    taskgraph_edges = getedges(m.taskgraph)
+
     success = true
-    for edge in edges
+    for (index, edge) in enumerate(edges)
+        # Skip if edge did not need to be routed.
+        needsrouting(A, taskgraph_edges[index]) || continue
+
         for i in vertices(edge), j in outneighbors(edge, i)
             if !isconnected(arch, i, j)
                 success = false
@@ -189,12 +199,17 @@ Perform the following check:
 * Ensure there is a valid path from each source of the routing graph to each
     destination of the routing graph.
 """
-function check_routing_connectivity(m::Map)
+function check_routing_connectivity(m::Map{A}) where A
     edges = m.mapping.edges
+
+    taskgraph_edges = getedges(m.taskgraph)
 
     success = true
     # Construct a lightgraph from the sparsegraph
     for (i,edge) in enumerate(edges)
+        # Skip edges that did not need to be routed.
+        needsrouting(A, taskgraph_edges[i]) || continue
+
         g, d = make_lightgraph(edge)
 
         # Check for weakconnectivity

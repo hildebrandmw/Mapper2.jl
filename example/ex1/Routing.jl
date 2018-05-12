@@ -20,8 +20,8 @@ end
 New RoutingTask type to allow classification of tasks by a class.
 """
 struct TypedRoutingChannel <: AbstractRoutingChannel
-    start::Vector{Vector{Int64}}
-    stop::Vector{Vector{Int64}}
+    start_vertices::Vector{Vector{Int64}}
+    stop_vertices::Vector{Vector{Int64}}
     class::String
 
     function TypedRoutingChannel(start, stop, edge)

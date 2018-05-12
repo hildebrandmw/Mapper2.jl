@@ -30,8 +30,10 @@ export  Address,
         linearize,
         make_lightgraph
 
+# Convenience mapping
 const Address = CartesianIndex
 
+"Return an empty `Dict{Sring,Any}()` for `metadata` fields."
 emptymeta() = Dict{String,Any}()
 
 function make_ref_list(v)
@@ -65,7 +67,6 @@ function push_to_dict(d, k, v)
     else
         d[k] = (valtype(d))([v])
     end
-    #haskey(d, k) ? push!(d[k], (v)) : d[k] = valtype(d)([v])
     return nothing
 end
 
@@ -204,6 +205,11 @@ Return a Vector{T} of vertices of `g` in linearized traversal order if `g` is
 linear. Throw error if `g` is not linear.
 """
 function linearize(g::SparseDiGraph{T}) where T
+    # Do a check for an empty graph.
+    if nv(g) == 0
+        return T[]
+    end
+
     sv = source_vertices(g)
     length(sv) != 1 && error("Expected 1 source vertex. Found $(length(sv)).")
     vertices = T[first(sv)]

@@ -7,9 +7,10 @@
 Data structure recording the mapping of nodes and edges in the taskgraph
 to elements in the TopLevel.
 """
+const PPLC = Union{Path{Link},Path{Port},Path{Component}}
 mutable struct Mapping
     nodes::Dict{String,Path{Component}}
-    edges::Vector{SparseDiGraph{Any}}
+    edges::Vector{SparseDiGraph{PPLC}}
 end
 
 getpath(m::Mapping, nodename::String) = m.nodes[nodename]
@@ -49,7 +50,7 @@ function NewMap(architecture::TopLevel{A,D},
     # Create a new Mapping data type for the new map
     # Get the node names
     nodes = Dict(n => Path{Component}() for n in nodenames(taskgraph))
-    edges = [SparseDiGraph{Any}() for i in 1:num_edges(taskgraph)]
+    edges = [SparseDiGraph{PPLC}() for i in 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)
     return Map(
         architecture,
