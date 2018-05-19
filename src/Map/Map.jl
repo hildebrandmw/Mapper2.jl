@@ -74,6 +74,15 @@ function isused(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
     return false
 end
 
+function gettask(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
+    for (taskname, path) in m.mapping.nodes
+        if getaddress(m.architecture, path) == addr
+            return  getnode(m.taskgraph, taskname)
+        end
+    end
+    return nothing
+end
+
 ################################################################################
 # Saving/loading
 ################################################################################

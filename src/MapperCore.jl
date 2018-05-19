@@ -154,6 +154,7 @@ export  # Types
         connected_components,
         search_metadata,
         search_metadata!,
+        get_metadata!,
         check_connectivity,
         get_connected_port,
         isfree,

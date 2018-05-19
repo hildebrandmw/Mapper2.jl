@@ -383,6 +383,21 @@ function search_metadata!(c::AbstractComponent, key, value, f::Function = ==)
     return false
 end
 
+function get_metadata!(c::AbstractComponent, key)
+    if haskey(c.metadata, key)
+        return c.metadata[key]
+    end
+
+    for child in values(c.children)
+        val = get_metadata!(child, key)
+        if val != nothing
+            return val
+        end
+    end
+
+    return nothing
+end
+
 ################################################################################
 # ASSERTION METHODS.
 ################################################################################
