@@ -178,7 +178,8 @@ function place(
         # Update cost for numerical stability reasons
         state.objective = map_cost(A, sa)
         # Sanity Check
-        if objective != state.objective
+
+        if !isapprox(objective, state.objective)
             @warn """
             Objective mismatch. 
             actual: $(state.objective). 
@@ -372,7 +373,7 @@ function generate_move(
 
     else
         # TODO: move this into the move generator. The initial attempt did not
-        # seem to have a good distrubution among, probably due to interaction
+        # seem to have a good distrubution, probably due to interaction
         # with the call to "getlinear" above.
         address = rand(maptable.special_class_map[-class])
     end

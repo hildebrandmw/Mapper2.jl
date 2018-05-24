@@ -294,6 +294,11 @@ function route(p::Pathfinder, rs::RoutingStruct)
                 On iteration $i of $(p.iteration_limit).
                 Number of congested links: $ncongested.
                 """
+
+            if ncongested > 0.9 * length(p.links_to_route)
+                @warn "Warning. Extreme congestion detected - aborting early."
+                break
+            end
         end
         ncongested == 0 && break
     end
