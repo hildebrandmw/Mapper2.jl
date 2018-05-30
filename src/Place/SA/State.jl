@@ -42,6 +42,9 @@ mutable struct SAState
     "Update Interval"
     dt::Float64
 
+    #= Auxiliary cost =#
+    aux_cost::Float64
+
     function SAState(temperature, distance_limit, objective)
         # This is a hack to "cleanly" determine if we should display updates
         # or not.
@@ -76,6 +79,9 @@ mutable struct SAState
             display_updates,
             time(),                     # Time of creation
             SAStateUpdateInterval,      # Default update interval
+
+            # auxiliary cost
+            0.0
          )
     end
 end
@@ -146,6 +152,7 @@ function show_stats(state::SAState, first = false)
         #:deviation,
         :run_time,
         #:distance_limit,
+        :aux_cost,
     )
 
     #=

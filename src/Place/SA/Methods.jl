@@ -1,10 +1,3 @@
-#=
-Authors
-    Mark Hildebrand
-
-A collection of methods for interacting with the SAStruct.
-=#
-
 """
     assign(sa::SAStruct, node, component, address)
 
@@ -26,7 +19,7 @@ Move `node` to the given `component` and `address`.
 function move(sa::SAStruct, index, spot)
     node = sa.nodes[index]
     sa.grid[location(node)] = 0
-    assign(node,spot)
+    assign(node, spot)
     sa.grid[location(node)] = index
 end
 
@@ -86,10 +79,11 @@ function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChan
 end
 
 address_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, node::Node) = zero(Float64)
+aux_cost(::Type{<:AbstractArchitecture}, sa::SAStruct) = zero(Float64)
 
 map_cost(sa::SAStruct{A}) where A = map_cost(A, sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
-    cost = 0.0
+    cost = aux_cost(A, sa)
     for i in eachindex(sa.edges)
         cost += edge_cost(A, sa, i)
     end
@@ -102,7 +96,7 @@ end
 function node_cost(::Type{A}, sa::SAStruct, index::Integer) where {A <: AbstractArchitecture}
     # Unpack node data type.
     n = sa.nodes[index]
-    cost = 0.0
+    cost = aux_cost(A, sa)
     for edge in n.out_edges
         cost += edge_cost(A, sa, edge)
     end

@@ -192,7 +192,8 @@ function place(
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
         state.recent_deviation          = sum_cost_difference / accepted_moves
-
+        state.aux_cost                  = aux_cost(A, sa)
+    
         # Adjust temperature
         state.warming ? warm(warmer, state) : cool(cooler, state)
         # Adjust distance limit

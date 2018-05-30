@@ -3,7 +3,7 @@ passfail(b::Bool) = b ? "passed" : "failed"
 ################################################################################
 # Routing Checks
 ################################################################################
-function check_routing(m::Map, quiet = false)
+function check_routing(m::Map; quiet = false)
     port_okay       = check_ports(m)
     capacity_okay   = check_capacity(m)
     graph_okay      = check_routing_connectivity(m)

@@ -7,7 +7,7 @@ be stored in the `metadata` field.
 
 # Fields:
 * `name::String` - The name of the task.
-* `metadata::Dict{String,Any}` - Flexible container for storing any additional
+* `metadata::Dict{String,Any}` - Container for storing any additional
     information with the type to build datastructure down stream.
 
 # Constructor
@@ -32,7 +32,7 @@ be stored in the `metadatea` field.
     this edge.
 * `sinks::Vector{String}` - Names of `TaskgraphNode`s that are destinations
     for this edge.
-* `metadata::Dict{String,Any}` - Flexible container for storing any additional
+* `metadata::Dict{String,Any}` - Container for storing any additional
     information with the type to build datastructure down stream.
 
 # Constructor
