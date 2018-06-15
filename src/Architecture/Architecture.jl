@@ -295,6 +295,9 @@ Base.isassigned(t::TopLevel, a::Address) = haskey(t.address_to_child, a)
 
 getaddress(t::TopLevel, p::Path) = getaddress(t, first(p))
 getaddress(t::TopLevel, s::String) = t.child_to_address[s]
+hasaddress(t::TopLevel, p::Path) = hasaddress(t, first(p))
+hasaddress(t::TopLevel, s::String) = haskey(t.child_to_address, s)
+
 getchild(t::TopLevel, a::Address) = t.children[t.address_to_child[a]]
 getname(t::TopLevel, a::Address) = t.address_to_child[a]
 function getdims(t::TopLevel{A,D}) where {A,D} 
@@ -322,6 +325,7 @@ function Base.getindex(c::AbstractComponent, p::Path{T}) where T <: Union{Port,L
 end
 
 Base.getindex(c::AbstractComponent, p::Path{Component}) = descend(c, p.steps, length(p))
+Base.getindex(c::AbstractComponent, s::Address) = c.children[c.address_to_child[s]]
 
 """
     walk_children(c::Component)

@@ -97,14 +97,35 @@ include("Pathfinder/Pathfinder.jl")
 # Routing dispatch
 function route(m::Map{A,D}) where {A,D}
     # Build the routing structure
-    routing_struct = RoutingStruct(m)
+    routing_struct, struct_time, struct_bytes, _, _  = @timed RoutingStruct(m)
     # Default to Pathfinder
     algorithm = routing_algorithm(m, routing_struct)
     # Run the routing algorithm.
-    route(algorithm, routing_struct)
+    routing_error = false
+    local route_time
+    local route_bytes
+    try
+        _, route_time, route_bytes, _, _ = @timed route(algorithm, routing_struct)
+    catch err
+        @error err
+        routing_error = true
+    end
+
     # Record the final results.
     record(m, routing_struct)
-    check_routing(m)
+    routing_passed = check_routing(m)
+
+    # Save all of this to metadata.
+    m.metadata["routing_struct_time"]   = struct_time
+    m.metadata["routing_struct_bytes"]  = struct_bytes
+    m.metadata["routing_passed"]        = routing_passed
+    m.metadata["routing_error"]         = routing_error
+    if !routing_error
+        m.metadata["routing_time"]      = route_time
+        m.metadata["routing_bytes"]     = route_bytes
+        m.metadata["routing_global_links"] = MapperCore.total_global_links(m)
+    end
+
     return m
 end
 

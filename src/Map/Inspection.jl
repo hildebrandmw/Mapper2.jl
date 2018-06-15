@@ -32,6 +32,14 @@ function report_routing_stats(m::Map{A,D}) where {A,D}
     return histogram
 end
 
+function total_global_links(m::Map{A,D}) where {A,D}
+    count = 0
+    for edge in m.mapping.edges
+        count += count_global_links(edge)
+    end
+    return count
+end
+
 function global_link_histogram(m::Map{A,D}) where {A,D}
     histogram = SortedDict{Int64,Int64}()
     for edge in m.mapping.edges

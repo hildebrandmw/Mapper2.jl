@@ -90,7 +90,7 @@ end
 function place(
         sa::SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
-        move_attempts       = 10000,
+        move_attempts       = 20000,
         move_gen            = SubRandomGenerator{D}(),
         initial_temperature = 1.0,
         supplied_state      = nothing,

@@ -143,7 +143,7 @@ function show_stats(state::SAState, first = false)
      everything should still look good.
      =#
      fields = (
-        #:temperature,
+        :temperature,
         :objective,
         #:total_moves,
         :successful_moves,

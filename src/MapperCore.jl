@@ -161,6 +161,7 @@ export  # Types
         isgloballink,
         isglobalport,
         getaddress,
+        hasaddress,
         getchild,
         getname,
         # Asserts

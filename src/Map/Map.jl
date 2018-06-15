@@ -66,6 +66,7 @@ end
 ################################################################################
 getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
 getpath(m::Map, i::Integer) = getpath(m.mapping, i)
+getaddress(m::Map, nodename::String) = getaddress(m.architecture, getpath(m, nodename))
 
 function isused(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
     for path in values(m.mapping.nodes)
