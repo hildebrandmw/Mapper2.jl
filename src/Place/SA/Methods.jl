@@ -49,27 +49,27 @@ end
 ################################################################################
 #=
 Right now, this first function is basically a dispatch method to handle the
-case when we have multiple edge types.
+case when we have multiple channel types.
 
 Ideas include:
 
 1. Allow type dispatch to do everything.
-2. Make this a "generated" function based on all the types of the edges and
+2. Make this a "generated" function based on all the types of the channels and
     build a "case" statement out of it.
 =#
-function edge_cost(::Type{A}, sa::SAStruct, i::Int) where {A <: AbstractArchitecture}
-    return edge_cost(A, sa, sa.edges[i])
+function channel_cost(::Type{A}, sa::SAStruct, i::Int) where {A <: AbstractArchitecture}
+    return channel_cost(A, sa, sa.channels[i])
 end
 
-function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::TwoChannel)
-    a = getaddress(sa.nodes[edge.source])
-    b = getaddress(sa.nodes[edge.sink])
+function channel_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, channel::TwoChannel)
+    a = getaddress(sa.nodes[channel.source])
+    b = getaddress(sa.nodes[channel.sink])
     return Float64(sa.distance[a,b])
 end
 
-function edge_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, edge::MultiChannel)
+function channel_cost(::Type{<:AbstractArchitecture}, sa::SAStruct, channel::MultiChannel)
     cost = 0.0
-    for src in edge.sources, snk in edge.sinks
+    for src in channel.sources, snk in channel.sinks
         # Get the source and sink addresses
         a = getaddress(sa.nodes[src])
         b = getaddress(sa.nodes[snk])
@@ -84,8 +84,8 @@ aux_cost(::Type{<:AbstractArchitecture}, sa::SAStruct) = zero(Float64)
 map_cost(sa::SAStruct{A}) where A = map_cost(A, sa)
 function map_cost(::Type{A}, sa::SAStruct) where {A <: AbstractArchitecture}
     cost = aux_cost(A, sa)
-    for i in eachindex(sa.edges)
-        cost += edge_cost(A, sa, i)
+    for i in eachindex(sa.channels)
+        cost += channel_cost(A, sa, i)
     end
     for n in sa.nodes
         cost += address_cost(A, sa, n)
@@ -97,11 +97,11 @@ function node_cost(::Type{A}, sa::SAStruct, index::Integer) where {A <: Abstract
     # Unpack node data type.
     n = sa.nodes[index]
     cost = aux_cost(A, sa)
-    for edge in n.out_edges
-        cost += edge_cost(A, sa, edge)
+    for channel in n.outchannels
+        cost += channel_cost(A, sa, channel)
     end
-    for edge in n.in_edges
-        cost += edge_cost(A, sa, edge)
+    for channel in n.inchannels
+        cost += channel_cost(A, sa, channel)
     end
     cost += address_cost(A, sa, n)
     return cost
@@ -124,14 +124,14 @@ function node_pair_cost(::Type{A}, sa::SAStruct, i,j) where {A <: AbstractArchit
     a = sa.nodes[i]
     b = sa.nodes[j]
 
-    for edge in b.out_edges
-        if !in(edge, a.in_edges)
-            cost += edge_cost(A, sa, edge)
+    for channel in b.outchannels
+        if !in(channel, a.inchannels)
+            cost += channel_cost(A, sa, channel)
         end
     end
-    for edge in b.in_edges
-        if !in(edge, a.out_edges)
-            cost += edge_cost(A, sa, edge)
+    for channel in b.inchannels
+        if !in(channel, a.outchannels)
+            cost += channel_cost(A, sa, channel)
         end
     end
     cost += address_cost(A, sa, b)

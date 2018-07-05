@@ -3,6 +3,27 @@ Test architectures for testing the Mapper as a whole.
 
 Strategy: Build a small 3x3 heterogenous array using a variety of nesting,
 and different primitives to test everything was written properly.
+
+-------------------------------------------------------------
+    IO Tile         |   General Tile    |   Double General  |
+                    |                   |                   |
+- Input Handler     |                   | - General Tile    |
+- Output Handler    |                   |                   |
+                    |                   |                   |
+-------------------------------------------------------------
+     Super Tile     |  Routing Tile     |    Super Tile     |
+                    |                   |                   |
+  - General Tile    |                   | - General Tile    |
+  - General Tile    |                   | - General Tile    |
+                    |                   |                   |
+-------------------------------------------------------------
+   Double General   |   General Tile    |    IO Tile        |
+                    |                   |                   |
+ - General Tile     |                   |- Input Handler    |
+                    |                   |- Output Handler   |
+                    |                   |                   |
+-------------------------------------------------------------
+
 =#
 
 ################################################################################

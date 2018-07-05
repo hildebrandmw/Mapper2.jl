@@ -9,6 +9,7 @@ mutable struct SAState
     objective           ::Float64
     "Current Distance Limit"
     distance_limit      ::Float64
+    distance_limit_int  ::Int64
     max_distance_limit  ::Float64
 
     "Current number of move attempts"
@@ -59,6 +60,7 @@ mutable struct SAState
             temperature,        # temperature
             Float64(objective), # objective
             distance_limit,     # distance_limit
+            floor(Int,distance_limit), # distance_limit_int
             distance_limit,     # max_distance_limit (set to initial)
             0,                  # recent_move_attempts
             0,                  # recent_successful_moves
@@ -112,9 +114,17 @@ function update!(state::SAState)
     if current_time > state.last_update_time + state.dt
         show_stats(state)
         state.last_update_time = time()
-        return true
     end
-    return false
+
+    # Compute the new distance limit integer and return "true" if it changed.
+    new_distance_limit_int = max(1, round(Int, state.distance_limit))
+
+    return_value = false
+    if new_distance_limit_int != state.distance_limit_int
+        return_value = true
+    end
+    state.distance_limit_int = new_distance_limit_int
+    return return_value
 end
 
 #=
@@ -145,13 +155,13 @@ function show_stats(state::SAState, first = false)
      fields = (
         :temperature,
         :objective,
-        #:total_moves,
+        :total_moves,
         :successful_moves,
-        #:accepted_moves,
+        :accepted_moves,
         :moves_per_second,
         #:deviation,
         :run_time,
-        #:distance_limit,
+        :distance_limit,
         :aux_cost,
     )
 

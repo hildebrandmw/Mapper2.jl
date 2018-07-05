@@ -1,134 +1,148 @@
-# AbstractMoveGenerator interface
-const _AMV_API = (:getlinear, :getoffset)
+# Control the move generation used by the Annealing scheme.
+abstract type AbstractMoveGenerator end
 
-"""
-    AbstractMoveGenerator{D}
+struct SearchMoveGenerator <: AbstractMoveGenerator end
+initialize!(::SearchMoveGenerator, args...) = nothing
+update!(::SearchMoveGenerator, args...) = nothing
 
-Generator type for selecting which processor index to attempt to move as well as
-generate an offset in a given dimension.
+@generated function genaddress(
+        address::CartesianIndex{D}, 
+        limit, 
+        upperbound
+    ) where D
 
-Parameter `D::Int` indicates the dimension of the Generator.
-
-Required API: $(make_ref_list(_AMV_API)).
-"""
-abstract type AbstractMoveGenerator{D} end
-
-@doc """
-    getlinear(a::AbstractMoveGenerator{D}, ub::Int)
-
-Return a "random" number uniformly distributed from 1 to `ub`.
-""" getlinear
-
-@doc """
-    getoffset(a::AbstractMoveGenerator{D}, limit::Int)
-
-Return a `D` dimensional CartesianIndex where each entry is uniformaly
-distributed in `[-limit,limit]`
-"""
-
-################################################################################
-#  RandomGenerator
-################################################################################
-"""
-    RandomGenerator{D}
-
-Naive implementation. Simply uses `rand` to satisfy the required API.
-"""
-struct RandomGenerator{D} <:AbstractMoveGenerator{D} end
-
-# Use rand() on the range 1:ub.
-getlinear(::RandomGenerator, ub::Int) = rand(1:ub)
-
-# Use rand() for each component of the returned vector
-@generated function MapperCore.getoffset(::RandomGenerator{D}, limit) where D
-    ex = [:(rand(-limit:limit)) for i in 1:D]
-    return quote
-        CartesianIndex{D}($(ex...))
+    ex = map(1:D) do i
+        :(rand(max(1,address.I[$i] - limit):min(upperbound[$i], address.I[$i] + limit)))
     end
+    return :(CartesianIndex{D}($(ex...)))
 end
 
-################################################################################
-# SubRandomGenerator
-################################################################################
-"""
-    SubRandomGenerator{D,V}
+# Move generation in the general case.
+function generate_move(
+        sa::SAStruct{A}, 
+        ::SearchMoveGenerator,
+        cookie, 
+        limit,
+        upperbound,
+    ) where {A <: AbstractArchitecture} 
 
-Generator for "subrandom" numbers, or a low-discrepancy sequency. Basically,
-numbers generated for a given interval will still be uniformly distributed, but
-will not exhibit the clustering that is common when using pure random algorithms.
+    # Pick a random node
+    index = rand(1:length(sa.nodes))
+    canmove(A, sa.nodes[index]) || return false
 
-This implementation generates numbers using the Additive sequence technique
-described at [https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Additive_recurrence].
-"""
-mutable struct SubRandomGenerator{D,V} <: AbstractMoveGenerator{D}
-    # For choosing which processor to move.
-    lin_adder   ::Float64 
-    lin_value   ::Float64 
-    # For picking a new address
-    adders::NTuple{D,Float64}
-    values::V
-end
+    node = sa.nodes[index]
+    old_address = getaddress(node)
+    maptable = sa.maptable
+    # Get the equivalent class of the node
+    class = getclass(node)
+    # Get the address and component to move this node to
+    if isnormal(class)
+        # Generate offset and check bounds.
+        address = genaddress(old_address, limit, upperbound)
+        # Now that we know our location is inbounds, find a component for it
+        # to live in.
+        isvalidaddress(maptable, class, address) || return false
+        new_location = genlocation(maptable, class, address)
 
-function SubRandomGenerator{D}() where D
-    # Initialize linear adder to random "irrational"
-    lin_adder = (sqrt(5)-1)/2
-    # Randomize the starting point.
-    lin_value = rand()
-
-    # We will use the first D primes as multipliers for D dimensional operations
-    p = [2]
-    while length(p) < D
-        push!(p, nextprime(1 + last(p)))
+    else
+        new_location = rand(maptable.special[-class])
     end
-    adders = Tuple(mod.(sqrt.(p),1))
-    values = MVector{D}(rand(D))
-
-    return SubRandomGenerator(
-        lin_adder,
-        lin_value,
-        adders,
-        values,
-    )
+    # Perform the move and record enough information to undo the move. The
+    # function "move_with_undo" will return false if the move is a swap and
+    # the moved node cannot be placed.
+    return move_with_undo(sa::SAStruct, cookie, index, new_location)
 end
 
-# Add the stored value to the additive value. Since we ensure that lin_value
-# is always between 0 and 1.0, we can perform the modularity check by simply
-# comparing the new value to 1.0 and subtracting 1.0 if it is greater.
-function getlinear(m::SubRandomGenerator, ub::Int)
-    temp = m.lin_value + m.lin_adder
-    new_value = temp > 1.0 ? temp - 1.0 : temp
-    m.lin_value = new_value
-    # Scale the new number from a range (0,1] to a range (0,ub] and take the 
-    # ceiling to get a number on [1,ub]
-    return ceil(Int64, ub*new_value)
+distancelimit(::SearchMoveGenerator, sa) = @compat maximum(last((CartesianIndices(sa.pathtable))).I)
+
+# The idea for this data structure is that the Locations or Addresses within
+# some distance D of each Location/Address is precomputed. When the distance
+# limit changes, this structure will have to be modified - hence why it's
+# mutable.
+
+mutable struct CachedMoveGenerator{T} <: AbstractMoveGenerator
+    moves :: Vector{Dict{T, Vector{T}}}
+    past_moves :: Dict{Int, Vector{Dict{T, Vector{T}}}}
+
+    CachedMoveGenerator{T}() where T = new{T}(
+        Dict{T,Vector{T}}[],
+        Dict{Int, Vector{Dict{T, Vector{T}}}}(),
+       )
 end
 
-# Helper expression generation function for getoffset.
-function splat_update(n)
-    return map(1:n) do i
-        :(temp = m.values[$i] + m.adders[$i];
-          m.values[$i] = temp > 1.0 ? temp - 1.0 : temp)
+# Configure the distance limit to be the maximum value in the distance table
+# to be sure that initially, a task may be moved anywhere on the proecessor
+# array.
+distancelimit(::CachedMoveGenerator, sa) = Float64(maximum(sa.distance))
+
+function initialize!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
+    # For each normal class, get all locations that can be used by that class 
+    # and then for each location, record the set of locations that are within
+    # the specified limit.
+    maptable = sa.maptable
+    num_classes = length(maptable.normal)
+
+    moves = map(1:num_classes) do class
+        # Get all locations that can be occupied by this class.
+        all_locations = getlocations(maptable, class)
+        
+        # Return a move dictionary for this class
+        return Dict(map(all_locations) do a
+            addr_a = getaddress(a)
+            destinations = [b for b in all_locations if sa.distance[addr_a,getaddress(b)] <= limit]
+            return a => destinations
+        end)
     end
+
+    # Reassign the cached moves.
+    c.moves = moves
+
+    # Record the set of moves for this limit.
+    c.past_moves[limit] = c.moves
+
+    return nothing
 end
 
-# Helper expression generation function for getoffset.
-function create_offset(n)
-    return [:(ceil(Int64, mul * m.values[$i]) - limit - 1) for i in 1:n]
-end
+# Here, we assume that limit only decreases. Iterate through the cached moves
+# and prune all the destinations that are now above the limit.
+function update!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
+    # Check to see if we have already computed the set of moves for this
+    # limit. If so, just use that.
+    if limit in keys(c.past_moves)
+        c.moves = c.past_moves[limit]
 
-# This basically does the same thing as the linear operation, but after the
-# multiplicative size scaling subtracts an offset to get a result on the
-# range [-limit, limit].
-@generated function MapperCore.getoffset(m::SubRandomGenerator{D}, limit::Int) where D
-    val_update = splat_update(D)
-    ret_val = create_offset(D)
-    return quote
-        # Add each value to its corresponding adder - resize to (0,1] if needed.
-        $(val_update...)
-        # We generate a number on [1,2*limit+1] using the technique for the
-        # linear number, then we subtract (limit+1) to turn this into a number
-        # on [-limit, limit]. Drop all of these into a CartesianIndex.
-        mul = 2*limit + 1
-        return CartesianIndex{D}($(ret_val...))
+    # Otherwise, compute the set of moves needed.
+    else
+        initialize!(c, sa, limit)
     end
+    return nothing
+end
+
+function generate_move(
+        sa::SAStruct{A}, 
+        c::CachedMoveGenerator,
+        cookie, 
+        limit,
+        upperbound,
+    ) where {A <: AbstractArchitecture} 
+
+    # Pick a random node
+    index = rand(1:length(sa.nodes))
+    canmove(A, sa.nodes[index]) || return false
+
+    node = sa.nodes[index]
+    old_location = location(node)
+    maptable = sa.maptable
+    # Get the equivalent class of the node
+    class = getclass(node)
+    # Get the address and component to move this node to
+    if isnormal(class)
+        new_location = rand(c.moves[class][old_location])
+    else
+        new_location = rand(maptable.special[-class])
+    end
+    # Perform the move and record enough information to undo the move. The
+    # function "move_with_undo" will return false if the move is a swap and
+    # the moved node cannot be placed.
+    return move_with_undo(sa::SAStruct, cookie, index, new_location)
 end

@@ -10,8 +10,12 @@ using LightGraphs
 using DataStructures
 using Formatting
 using Compat
-using StaticArrays
-using Primes
+using NamedTuples
+# using StaticArrays
+# using Primes
+
+import Base: getindex
+import ..Mapper2.MapperCore: getaddress
 
 is07 ? (using Logging) : (using MicroLogging)
 
@@ -43,6 +47,7 @@ include("Struct.jl")
 include("Methods.jl")
 include("InitialPlacement.jl")
 include("State.jl")
+#include("NumberGenerators.jl")
 include("MoveGenerators.jl")
 include("Algorithm.jl")
 

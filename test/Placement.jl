@@ -10,16 +10,16 @@
     ## copy two tasks into the same primitive
 
     # get the indices for two identical tasks
-    x = sa.task_table["task2"]
-    y = sa.task_table["task2"]
+    x = sa.tasktable["task2"]
+    y = sa.tasktable["task2"]
 
-    # make sure their class matches
-    cx = sa.maptable.task_classes[x]
-    cy = sa.maptable.task_classes[y]
+    # # make sure their class matches
+    cx = SA.getclass(sa.nodes[x])
+    cy = SA.getclass(sa.nodes[y])
     @test cx == cy
     @test cx > 0
 
-    address_array = sa.maptable.normal_class_map[cx]
+    address_array = sa.maptable.normal[cx]
     # Get the first index with a primitive vector greater than zero
     i = findfirst(x -> length(x) > 0, address_array)
     # Convert this into a cartesian index
@@ -51,14 +51,14 @@
 
     ### Move an input to an illegal location
     SA.initial_placement!(sa)
-    z = sa.task_table["input1"]
+    z = sa.tasktable["input1"]
     SA.swap(sa, x, z)
     @test !SA.verify_placement(m, sa)
 
     ### Zero a node in the grid
     SA.initial_placement!(sa)
     addr = SA.getaddress(sa.nodes[x])
-    c = SA.getpathindex(sa.nodes[x])
+    c = SA.getindex(sa.nodes[x])
     sa.grid[c,addr] = 0
     @test !SA.verify_placement(m, sa)
 end

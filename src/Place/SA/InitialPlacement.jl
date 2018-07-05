@@ -36,9 +36,9 @@ function build_graph(sa::SAStruct)
     graph = DiGraph(sourcesink_offset + length(node_dict))
     edges_added = 0
 
-    for i in 1:length(sa.nodes)
-        node_number = node_dict[i]
-        for key in getlocations(sa.maptable, i)
+    for (index, node) in enumerate(sa.nodes)
+        node_number = node_dict[index]
+        for key in getlocations(sa.maptable, getclass(node))
             if !haskey(component_dict, key)
                 add_vertex!(graph)
                 component_dict[key] = nv(graph)

@@ -91,9 +91,10 @@ function place(
         sa::SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
         move_attempts       = 20000,
-        move_gen            = SubRandomGenerator{D}(),
         initial_temperature = 1.0,
         supplied_state      = nothing,
+        movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
+        #movegen = SearchMoveGenerator(),
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
         cooler ::AbstractSACool  = DefaultSACool(0.999),
@@ -107,11 +108,13 @@ function place(
 
     # Unpack SA
     num_nodes = length(sa.nodes)
-    num_edges = length(sa.edges)
+    num_channels = length(sa.channels)
 
     # Get the largest address
-    @compat max_addresses = last((CartesianIndices(sa.mappable_path_table))).I
+    @compat max_addresses = last((CartesianIndices(sa.pathtable))).I
     largest_address = maximum(max_addresses)
+
+    initial_move_limit = distancelimit(movegen, sa)
 
     # Initialize structure to help during placement.
     cost = map_cost(A, sa)
@@ -123,11 +126,14 @@ function place(
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
     if supplied_state == nothing
-        state = SAState(initial_temperature, Float64(largest_address), cost)
+        state = SAState(initial_temperature, Float64(initial_move_limit), cost)
     else
         state = supplied_state
         reset!(state)
     end
+
+    # Initialize move generator
+    initialize!(movegen, sa, state.distance_limit)
 
     # Print out the header for the statistic columns.
     show_stats(state, true)
@@ -143,7 +149,7 @@ function place(
         accepted_moves      = 0
         successful_moves    = 0
         objective           = state.objective
-        distance_limit      = max(round(Int64, state.distance_limit), 1)
+        distance_limit      = state.distance_limit_int
         sum_cost_difference = zero(typeof(cost))
 
         ############## 
@@ -151,7 +157,7 @@ function place(
         ############## 
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
-            if !generate_move(sa, cookie, move_gen, distance_limit, max_addresses)
+            if !generate_move(sa, movegen, cookie, distance_limit, max_addresses)
                 continue
             end
 
@@ -196,15 +202,22 @@ function place(
     
         # Adjust temperature
         state.warming ? warm(warmer, state) : cool(cooler, state)
-        # Adjust distance limit
-        limit(limiter, state)
-        # State updates
-        update!(state) 
+        # Adjust distance limit - only if we're not warming up.
+        state.warming || limit(limiter, state)
+        # State updates - check if we potentially need to do some recomputation
+        # for the move generator
+        update_movegen = update!(state) 
+
+        if update_movegen
+            update!(movegen, sa, state.distance_limit_int)
+        end
+
         # Exit Condition
         loop = !done(doner, state)
     end
     # Show final statistics
     show_stats(state)
+
     return state
 end
 
@@ -258,8 +271,8 @@ function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) whe
     cookie.index_of_moved_node = index
     cookie.old_location = old_location
     # Check to see if there is a node already mapped to this location
-    occupying_node = sa.grid[new_location]
-    if occupying_node == 0
+    occupying_node_index = sa.grid[new_location]
+    if occupying_node_index == 0
         cookie.move_was_swap = false
 
         base_cost = node_cost(A, sa, index)
@@ -268,18 +281,19 @@ function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) whe
 
         cookie.cost_of_move = moved_cost - base_cost
     else
+        occupying_node = sa.nodes[occupying_node_index]
+
         # Check if the node at the new location can be moved to the old location
-        isvalid(sa.maptable, occupying_node, old_location) || return false
+        isvalid(sa.maptable, getclass(occupying_node), old_location) || return false
         cookie.move_was_swap = true
         # Save the index of the occupying node
-        cookie.index_of_other_node  = occupying_node
+        cookie.index_of_other_node  = occupying_node_index
         # Compute the cost before the move
-        base_cost = node_pair_cost(A, sa, index, occupying_node)
+        base_cost = node_pair_cost(A, sa, index, occupying_node_index)
         # Swap nodes
-        swap(sa, index, occupying_node)
+        swap(sa, index, occupying_node_index)
         # Get cost after move and store
-        #moved_cost = node_cost(A, sa, node) + node_cost(A, sa, occupying_node)
-        moved_cost = node_pair_cost(A, sa, index, occupying_node)
+        moved_cost = node_pair_cost(A, sa, index, occupying_node_index)
         cookie.cost_of_move = moved_cost - base_cost
     end
     return true
@@ -304,80 +318,3 @@ end
 # DEFAULT MOVE GENERATION
 ################################################################################
 canmove(::Type{A}, ::Node) where {A <: AbstractArchitecture} = true
-
-# Move generation in the general case.
-function generate_move(sa::SAStruct{A}, 
-                       cookie, 
-                       move_gen::AbstractMoveGenerator,
-                       limit, 
-                       upperbound
-                      ) where {A <: AbstractArchitecture} 
-    # Pick a random node
-    index = getlinear(move_gen, length(sa.nodes))
-    canmove(A, sa.nodes[index]) || return false
-
-    old_address = getaddress(sa.nodes[index])
-    maptable = sa.maptable
-    # Get the equivalent class of the node
-    class = maptable.task_classes[index]
-    # Get the address and component to move this node to
-    if isnormal(class)
-        # Generate offset and check bounds.
-        address = old_address + getoffset(move_gen, limit)
-        boundscheck(address, upperbound) || return false
-        # Now that we know our location is inbounds, find a component for it
-        # to live in.
-        components = maptable.normal_class_map[class][address]
-        lc = length(components)
-        lc == 0 && return false
-        component = components[getlinear(move_gen, lc)]
-        new_location = Location(address, component)
-    else
-        new_location = rand(maptable.special_class_map[-class])
-    end
-    # Perform the move and record enough information to undo the move. The
-    # function "move_with_undo" will return false if the move is a swap and
-    # the moved node cannot be placed.
-    return move_with_undo(sa::SAStruct, cookie, index, new_location)
-end
-
-function boundscheck(addr::CartesianIndex{N}, ub) where N
-    for i in 1:N
-        if !(1 <= addr.I[i] <= ub[i])
-            return false
-        end
-    end
-    return true
-end
-
-
-function generate_move(
-               sa       ::SAStruct{A,U,D,D}, 
-               cookie   ::MoveCookie, 
-               move_gen ::AbstractMoveGenerator, 
-               limit, 
-               upperbound
-              ) where {A <: AbstractArchitecture, U,D}
-
-    index = getlinear(move_gen, length(sa.nodes))
-    canmove(A, sa.nodes[index]) || return false
-
-    old_address = getaddress(sa.nodes[index])
-    maptable    = sa.maptable
-    class       = maptable.task_classes[index]
-    if isnormal(class)
-        address = old_address + getoffset(move_gen, limit)
-        # Check if in-bounds.
-        boundscheck(address, upperbound) || return false
-        # Check if this is an acceptable destination address
-        maptable.normal_class_map[class][address] || return false
-
-    else
-        # TODO: move this into the move generator. The initial attempt did not
-        # seem to have a good distrubution, probably due to interaction
-        # with the call to "getlinear" above.
-        address = rand(maptable.special_class_map[-class])
-    end
-
-    return move_with_undo(sa::SAStruct, cookie, index, address)
-end
