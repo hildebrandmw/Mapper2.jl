@@ -348,6 +348,14 @@ function walk_children(c::AbstractComponent)
     return components
 end
 
+function walk_children(tl::TopLevel, a::Address)
+    # Walk the component at this address
+    paths = walk_children(tl[a])
+    component_path = tl.address_to_child[a]
+    # Append the first part of the component path to each of the sub paths.
+    return catpath.(Path{Component}(component_path), paths)
+end
+
 function connected_components(tl::TopLevel{A,D}) where {A,D}
     # Construct the associative for the connected components.
     cc = Dict{Address{D}, Set{Address{D}}}()

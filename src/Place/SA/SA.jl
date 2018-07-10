@@ -15,6 +15,7 @@ using NamedTuples
 # using Primes
 
 import Base: getindex
+import Base: @propagate_inbounds
 import ..Mapper2.MapperCore: getaddress
 
 is07 ? (using Logging) : (using MicroLogging)

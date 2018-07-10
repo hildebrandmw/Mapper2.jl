@@ -18,7 +18,7 @@ update!(::SearchMoveGenerator, args...) = nothing
 end
 
 # Move generation in the general case.
-function generate_move(
+@propagate_inbounds function generate_move(
         sa::SAStruct{A}, 
         ::SearchMoveGenerator,
         cookie, 
@@ -43,7 +43,6 @@ function generate_move(
         # to live in.
         isvalidaddress(maptable, class, address) || return false
         new_location = genlocation(maptable, class, address)
-
     else
         new_location = rand(maptable.special[-class])
     end
@@ -60,14 +59,31 @@ distancelimit(::SearchMoveGenerator, sa) = @compat maximum(last((CartesianIndice
 # limit changes, this structure will have to be modified - hence why it's
 # mutable.
 
-mutable struct CachedMoveGenerator{T} <: AbstractMoveGenerator
-    moves :: Vector{Dict{T, Vector{T}}}
-    past_moves :: Dict{Int, Vector{Dict{T, Vector{T}}}}
+mutable struct MoveLUT{T}
+    targets :: Vector{T}
+    idx :: Int
+    indices :: Vector{Int}
+end
 
-    CachedMoveGenerator{T}() where T = new{T}(
-        Dict{T,Vector{T}}[],
-        Dict{Int, Vector{Dict{T, Vector{T}}}}(),
-       )
+# Get a random element of distance "d"
+function Base.rand(m::MoveLUT) 
+    @inbounds target = m.targets[rand(1:m.idx)]
+    return target
+end
+
+# mutable struct CachedMoveGenerator{T} <: AbstractMoveGenerator
+#     moves :: Vector{Dict{T, Vector{T}}}
+#     past_moves :: Dict{Int, Vector{Dict{T, Vector{T}}}}
+# 
+#     CachedMoveGenerator{T}() where T = new{T}(
+#         Dict{T,Vector{T}}[],
+#         Dict{Int, Vector{Dict{T, Vector{T}}}}(),
+#        )
+# end
+mutable struct CachedMoveGenerator{T}
+    moves :: Vector{Dict{T, MoveLUT{T}}}
+
+    CachedMoveGenerator{T}() where T = new{T}(Dict{T, MoveLUT{T}}[])
 end
 
 # Configure the distance limit to be the maximum value in the distance table
@@ -75,50 +91,92 @@ end
 # array.
 distancelimit(::CachedMoveGenerator, sa) = Float64(maximum(sa.distance))
 
-function initialize!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
-    # For each normal class, get all locations that can be used by that class 
-    # and then for each location, record the set of locations that are within
-    # the specified limit.
+# function initialize!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
+#     # For each normal class, get all locations that can be used by that class 
+#     # and then for each location, record the set of locations that are within
+#     # the specified limit.
+#     maptable = sa.maptable
+#     num_classes = length(maptable.normal)
+# 
+#     moves = map(1:num_classes) do class
+#         # Get all locations that can be occupied by this class.
+#         all_locations = getlocations(maptable, class)
+#         
+#         # Return a move dictionary for this class
+#         return Dict(map(all_locations) do a
+#             addr_a = getaddress(a)
+#             destinations = [b for b in all_locations if sa.distance[addr_a,getaddress(b)] <= limit]
+#             return a => destinations
+#         end)
+#     end
+# 
+#     # Reassign the cached moves.
+#     c.moves = moves
+# 
+#     # Record the set of moves for this limit.
+#     c.past_moves[limit] = c.moves
+# 
+#     return nothing
+# end
+function initialize!(c :: CachedMoveGenerator{T}, sa :: SAStruct, limit) where T
     maptable = sa.maptable
     num_classes = length(maptable.normal)
 
     moves = map(1:num_classes) do class
         # Get all locations that can be occupied by this class.
-        all_locations = getlocations(maptable, class)
-        
-        # Return a move dictionary for this class
-        return Dict(map(all_locations) do a
-            addr_a = getaddress(a)
-            destinations = [b for b in all_locations if sa.distance[addr_a,getaddress(b)] <= limit]
-            return a => destinations
+        class_locations = getlocations(maptable, class)
+
+        # Create a dictionary of MoveLUTs for this class.
+        return Dict(map(class_locations) do source
+            source_address = getaddress(source)
+            dist(x) = sa.distance[source_address, getaddress(x)]
+
+            # Sort destinations for this address by distance.
+            dests = sort(
+                class_locations;
+                lt = (x, y) -> dist(x) < dist(y)
+            )
+
+            # Create an auxiliary look up vector.
+            dmax = distancelimit(c, sa)
+            θ = collect(Iterators.filter(
+                !iszero, 
+                (findlast(x -> dist(x) <= i, dests) for i in 1:dmax)
+            ))
+
+            return source => MoveLUT(dests, Int(dmax), θ)
         end)
     end
 
-    # Reassign the cached moves.
     c.moves = moves
-
-    # Record the set of moves for this limit.
-    c.past_moves[limit] = c.moves
-
     return nothing
 end
 
 # Here, we assume that limit only decreases. Iterate through the cached moves
 # and prune all the destinations that are now above the limit.
-function update!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
-    # Check to see if we have already computed the set of moves for this
-    # limit. If so, just use that.
-    if limit in keys(c.past_moves)
-        c.moves = c.past_moves[limit]
-
-    # Otherwise, compute the set of moves needed.
-    else
-        initialize!(c, sa, limit)
+# function update!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T
+#     # Check to see if we have already computed the set of moves for this
+#     # limit. If so, just use that.
+#     if limit in keys(c.past_moves)
+#         c.moves = c.past_moves[limit]
+# 
+#     # Otherwise, compute the set of moves needed.
+#     else
+#         initialize!(c, sa, limit)
+#     end
+#     return nothing
+# end
+function update!(c::CachedMoveGenerator{T}, sa::SAStruct, limit) where T 
+    for dict in c.moves
+        for lut in values(dict)
+            lut.idx = lut.indices[min(length(lut.indices), limit)]
+        end
     end
     return nothing
 end
 
-function generate_move(
+
+@propagate_inbounds function generate_move(
         sa::SAStruct{A}, 
         c::CachedMoveGenerator,
         cookie, 

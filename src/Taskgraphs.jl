@@ -54,6 +54,7 @@ end
 
 "Return the names of sources of a `TaskgraphEdge`."
 getsources(t::TaskgraphEdge) = t.sources
+
 "Return the names of sinks of a `TaskgraphEdge`."
 getsinks(t::TaskgraphEdge)   = t.sinks
 
@@ -85,15 +86,15 @@ struct Taskgraph
     name            ::String
     nodes           ::Dict{String, TaskgraphNode}
     edges           ::Vector{TaskgraphEdge}
-    node_edges_out   ::Dict{String, Vector{TaskgraphEdge}}
-    node_edges_in    ::Dict{String, Vector{TaskgraphEdge}}
+    node_edges_out  ::Dict{String, Vector{Int}}
+    node_edges_in   ::Dict{String, Vector{Int}}
 
     function Taskgraph(name = "noname")
         new(name,
             Dict{String,TaskgraphNode}(),
             TaskgraphEdge[],
-            Dict{String,Vector{TaskgraphEdge}}(),
-            Dict{String,Vector{TaskgraphEdge}}(),
+            Dict{String,Vector{Int}}(),
+            Dict{String,Vector{Int}}(),
         )
     end
 
@@ -123,15 +124,15 @@ struct Taskgraph
         # the values to empty arrays of edges so down-stream algortihms won't
         # have to check if an adjacency list exists for a node.
         edges = collect(edge_container)
-        node_edges_out = Dict(name => TaskgraphEdge[] for name in keys(nodes))
-        node_edges_in  = Dict(name => TaskgraphEdge[] for name in keys(nodes))
+        node_edges_out = Dict(name => Int[] for name in keys(nodes))
+        node_edges_in  = Dict(name => Int[] for name in keys(nodes))
         # Iterate through all edges - grow adjacency lists correctly.
-        for edge in edges
+        for (index, edge) in enumerate(edges)
             for source in edge.sources
-                push!(node_edges_out[source], edge)
+                push!(node_edges_out[source], index)
             end
             for sink in edge.sinks
-                push!(node_edges_in[sink], edge)
+                push!(node_edges_in[sink], index)
             end
         end
         # Return the data structure
@@ -159,6 +160,9 @@ nodenames(t::Taskgraph) = keys(t.nodes)
 num_nodes(t::Taskgraph) = length(getnodes(t))
 num_edges(t::Taskgraph) = length(getedges(t))
 
+getsources(t::Taskgraph, te::TaskgraphEdge) = (t.nodes[n] for n in getsources(te))
+getsinks(t::Taskgraph, te::TaskgraphEdge) = (t.nodes[n] for n in getsinks(te))
+
 """
     add_node(t::Taskgraph, task::TaskgraphNode)
 
@@ -184,23 +188,30 @@ allowed.
 function add_edge(t::Taskgraph, edge::TaskgraphEdge)
     # Update the edge array
     push!(t.edges, edge)
+    index = length(t.edges)
     # Update the adjacency lists.
     for source in edge.sources
-        push!(t.node_edges_out[source], edge)
+        push!(t.node_edges_out[source], index)
     end
     for sink in edge.sinks
-        push!(t.node_edges_in[sink], edge)
+        push!(t.node_edges_in[sink], index)
     end
     return nothing
 end
 
 
 # Methods for accessing the adjacency lists
-out_edges(t::Taskgraph, task::String) = t.node_edges_out[task]
+out_edges(t::Taskgraph, task::String) = [t.edges[i] for i in t.node_edges_out[task]]
 out_edges(t::Taskgraph, task::TaskgraphNode) = out_edges(t, task.name)
 
-in_edges(t::Taskgraph, task::String) = t.node_edges_in[task]
+out_edge_indices(t::Taskgraph, task::String) = t.node_edges_out[task]
+out_edge_indices(t::Taskgraph, task::TaskgraphNode) = out_edge_indices(t, task.name)
+
+in_edges(t::Taskgraph, task::String) = [t.edges[i] for i in t.node_edges_in[task]]
 in_edges(t::Taskgraph, task::TaskgraphNode) = in_edges(t, task.name)
+
+in_edge_indices(t::Taskgraph, task::String) = t.node_edges_in[task]
+in_edge_indices(t::Taskgraph, task::TaskgraphNode) = in_edge_indices(t, task.name)
 
 hasnode(t::Taskgraph, node::String) = haskey(t.nodes, node)
 

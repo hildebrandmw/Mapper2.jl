@@ -16,7 +16,7 @@ mutable struct MoveCookie{T} <: AbstractCookie
 end
 
 # constructor for non-flat architectures
-function MoveCookie(::SAStruct{A,U,D,D1}) where {A,U,D,D1} 
+function MoveCookie(::SAStruct{A,U,D,D1}) where {A,U,D,D1}
     MoveCookie(0.0, 0, false, 0, Location{D}())
 end
 
@@ -36,7 +36,7 @@ abstract type AbstractSAWarm end
 
 """
 Default warming schedule. On each invocation, will increase the temperature of
-the anneal by `multiplier`. When the acceptance ratio rises above `ratio`, 
+the anneal by `multiplier`. When the acceptance ratio rises above `ratio`,
 warming routine will end.
 
 To prevent unbounded warming, the `ratio` field is multiplier by the `decay`
@@ -69,8 +69,12 @@ Default distance limit updater. Will adjust the distance limit so approximate
 `ratio` of moves are accepted. See VPR for algorithm.
 """
 struct DefaultSALimit <: AbstractSALimit
-    ratio       ::Float64
+    ratio :: Float64
+    # Minimum allows distance limit.
+    minimum :: Int
 end
+
+DefaultSALimit(ratio::Float64) = DefaultSALimit(ratio, 1)
 
 # Finishing Schedules
 abstract type AbstractSADone end
@@ -93,13 +97,13 @@ function place(
         move_attempts       = 20000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
-        movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
-        #movegen = SearchMoveGenerator(),
+        #movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
+        movegen = SearchMoveGenerator(),
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
         cooler ::AbstractSACool  = DefaultSACool(0.999),
         doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
-        limiter::AbstractSALimit = DefaultSALimit(0.44),
+        limiter::AbstractSALimit = DefaultSALimit(0.44, 2),
         kwargs...
        ) where {A,U,D}
 
@@ -139,9 +143,9 @@ function place(
     show_stats(state, true)
     first_display = true
     while loop
-        ################## 
+        ##################
         # Pre-loop setup #
-        ################## 
+        ##################
 
         # Invert temperature to perform floating point multiplication rather
         # than division. Set local counters for this iteration.
@@ -152,12 +156,13 @@ function place(
         distance_limit      = state.distance_limit_int
         sum_cost_difference = zero(typeof(cost))
 
-        ############## 
+        ##############
         # Inner Loop #
-        ############## 
+        ##############
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
-            if !generate_move(sa, movegen, cookie, distance_limit, max_addresses)
+            @inbounds success = generate_move(sa, movegen, cookie, distance_limit, max_addresses)
+            if !success
                 continue
             end
 
@@ -187,8 +192,8 @@ function place(
 
         if !isapprox(objective, state.objective)
             @warn """
-            Objective mismatch. 
-            actual: $(state.objective). 
+            Objective mismatch.
+            actual: $(state.objective).
             calculated: $objective.
             """
         end
@@ -199,14 +204,14 @@ function place(
         state.recent_accepted_moves     = accepted_moves
         state.recent_deviation          = sum_cost_difference / accepted_moves
         state.aux_cost                  = aux_cost(A, sa)
-    
+
         # Adjust temperature
         state.warming ? warm(warmer, state) : cool(cooler, state)
         # Adjust distance limit - only if we're not warming up.
         state.warming || limit(limiter, state)
         # State updates - check if we potentially need to do some recomputation
         # for the move generator
-        update_movegen = update!(state) 
+        update_movegen = update!(state)
 
         if update_movegen
             update!(movegen, sa, state.distance_limit_int)
@@ -245,7 +250,7 @@ warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
 
-@inline function done(d::DefaultSADone, state::SAState) 
+@inline function done(d::DefaultSADone, state::SAState)
     return state.deviation < d.atol
 end
 
@@ -255,15 +260,24 @@ function limit(l::DefaultSALimit, state::SAState)
                        state.recent_successful_moves
     # Update distance limit
     temporary = (1 - l.ratio + acceptance_ratio)
-    state.distance_limit = clamp(state.distance_limit * temporary, 1,
-                                state.max_distance_limit)
+    state.distance_limit = clamp(
+        state.distance_limit * temporary,
+        l.minimum,
+        state.max_distance_limit
+    )
     return nothing
 end
 
 ################################################################################
 # Movement related functions
 ################################################################################
-function move_with_undo(sa::SAStruct{A}, cookie, index::Int64, new_location) where A
+@propagate_inbounds function move_with_undo(
+        sa::SAStruct{A},
+        cookie,
+        index::Int64,
+        new_location
+    ) where A
+
     node = sa.nodes[index]
 
     # Store the old information
@@ -304,7 +318,7 @@ end
 
 Undo the last move made to the `sa` with the help of the `cookie`.
 """
-function undo_move(sa::SAStruct, cookie)
+@propagate_inbounds function undo_move(sa::SAStruct, cookie)
     # If the last move was a swap, need a swap in order to undo it.
     if cookie.move_was_swap
         swap(sa, cookie.index_of_moved_node, cookie.index_of_other_node)

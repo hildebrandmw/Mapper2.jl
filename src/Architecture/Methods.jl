@@ -3,6 +3,15 @@ function getoffset(a::TopLevel{A,D}) where {A,D}
 end
 
 """
+    mappables(a::TopLevel{A,D}, address::Address{D})
+
+Return a `Vector{Path{Component}}` of paths to mappable components at `address`.
+"""
+function mappables(a::TopLevel{A,D}, address::Address{D}) where {A,D}
+    return [p for p in walk_children(a, address) if ismappable(A, a[p])]
+end
+
+"""
     check(c::AbstractComponent)
 
 Check a component for ports that are not connected to any link. Only applies

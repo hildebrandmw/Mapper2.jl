@@ -110,7 +110,9 @@ export  # Types
         add_node,
         add_edge,
         out_edges,
+        out_edge_indices,
         in_edges,
+        in_edge_indices,
         hasnode,
         outnode_names,
         innode_names,
@@ -164,6 +166,7 @@ export  # Types
         hasaddress,
         getchild,
         getname,
+        mappables,
         # Asserts
         assert_no_children,
         assert_no_intrarouting,
