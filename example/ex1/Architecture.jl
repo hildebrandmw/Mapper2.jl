@@ -230,10 +230,12 @@ function build_test_arch()
     src_rule = x -> true
     dst_rule = x -> true
 
-    offsets = [CartesianIndex(-1,0),
-               CartesianIndex(1,0), 
-               CartesianIndex(0,1), 
-               CartesianIndex(0,-1)]
+    offsets = [
+        CartesianIndex(-1,0),
+        CartesianIndex(1,0), 
+        CartesianIndex(0,1), 
+        CartesianIndex(0,-1)
+    ]
 
     src_dirs = ("north", "south", "east", "west")
     dst_dirs = ("south", "north", "west", "east")

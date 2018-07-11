@@ -143,6 +143,9 @@ export  # Types
         AbstractComponent,
         TopLevel,
         Component,
+        @port_str,
+        @link_str,
+        @component_str,
         # Verification
         check_routing,
         # Methods

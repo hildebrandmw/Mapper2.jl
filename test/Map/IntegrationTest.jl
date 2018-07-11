@@ -8,8 +8,12 @@
     # Try making a map
     m = Example1.make_map()
 
-    # Try placement
-    m = Example1.place(m, move_attempts = 5000)
+    # Try placement - use the Search Move Generator to give it a go.
+    m = Example1.place(
+        m, 
+        move_attempts = 5000, 
+        movegen = SA.SearchMoveGenerator()
+    )
 
     # Try routing
     m = Example1.route(m)

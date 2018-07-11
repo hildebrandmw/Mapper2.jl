@@ -189,11 +189,13 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Abstrac
     return channels, channel_dict
 end
 
-function collect_nodes(arch::TopLevel{A,D},
-                       pathmap,
-                       edge::TaskgraphEdge,
-                       paths,
-                       dir) where {A,D}
+function collect_nodes(
+        arch::TopLevel{A,D},
+        pathmap,
+        edge::TaskgraphEdge,
+        paths,
+        dir
+    ) where {A,D}
 
     nodes = Vector{Int64}[]
     # Iterate through the source paths - get the port names.

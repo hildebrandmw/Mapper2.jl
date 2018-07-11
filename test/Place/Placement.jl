@@ -4,7 +4,6 @@
     # call "verify placement"
 
     m = Example1.make_map()
-
     sa = Mapper2.SA.SAStruct(m)
 
     ## copy two tasks into the same primitive
@@ -68,5 +67,8 @@ end
     sa = Mapper2.SA.SAStruct(m)
 
     Mapper2.SA.place(sa);
+    # The example is small enough that it should achieve this result every time.
     @test Mapper2.SA.map_cost(sa) == 14
 end
+
+

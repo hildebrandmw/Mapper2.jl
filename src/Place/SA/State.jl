@@ -108,6 +108,7 @@ function update!(state::SAState)
     alpha = 0.2
     state.deviation = alpha * state.recent_deviation +
                         (1.0 - alpha) * state.deviation
+
     # Determine whether or not to print out results
     current_time = time()
     state.run_time = current_time - state.start_time
@@ -155,14 +156,14 @@ function show_stats(state::SAState, first = false)
      fields = (
         :temperature,
         :objective,
-        :total_moves,
-        :successful_moves,
+        #:total_moves,
+        #:successful_moves,
         :accepted_moves,
         :moves_per_second,
-        #:deviation,
+        :deviation,
         :run_time,
         :distance_limit,
-        :aux_cost,
+        #:aux_cost,
     )
 
     #=

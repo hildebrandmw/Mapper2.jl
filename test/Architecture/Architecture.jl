@@ -80,14 +80,17 @@ end
         @test search_metadata!(t, "task", "input")
         @test search_metadata!(t, "task", "output")
     end
-    expected_ports = sort(["north_out",
-                           "north_in",
-                           "south_out",
-                           "south_in",
-                           "east_out",
-                           "east_in",
-                           "west_out",
-                           "west_in"])
+
+    expected_ports = sort([
+        "north_out",
+        "north_in",
+        "south_out",
+        "south_in",
+        "east_out",
+        "east_in",
+        "west_out",
+        "west_in"
+    ])
 
     let
         t = build_general_tile()

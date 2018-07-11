@@ -48,8 +48,6 @@ mutable struct DefaultSAWarm <: AbstractSAWarm
     decay       ::Float64
 end
 
-struct TrueSAWarm <: AbstractSAWarm end
-
 # Cooling Schedules
 abstract type AbstractSACool end
 
@@ -97,15 +95,15 @@ function place(
         move_attempts       = 20000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
-        #movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
-        movegen = SearchMoveGenerator(),
+        movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
+        #movegen = SearchMoveGenerator(),
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
         cooler ::AbstractSACool  = DefaultSACool(0.999),
         doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
         limiter::AbstractSALimit = DefaultSALimit(0.44, 2),
         kwargs...
-       ) where {A,U,D}
+    ) where {A,U,D}
 
     @info "Running Simulated Annealing Placement."
     # Set the random number generator for repeatable results.
@@ -202,8 +200,14 @@ function place(
         state.recent_move_attempts      = move_attempts
         state.recent_successful_moves   = successful_moves
         state.recent_accepted_moves     = accepted_moves
-        state.recent_deviation          = sum_cost_difference / accepted_moves
-        state.aux_cost                  = aux_cost(A, sa)
+        # Quick check to avoid NaN's showing up in the case of zero accepted
+        # moves.
+        if iszero(accepted_moves)
+            state.recent_deviation = 0
+        else
+            state.recent_deviation = sum_cost_difference / accepted_moves
+        end
+        state.aux_cost = aux_cost(A, sa)
 
         # Adjust temperature
         state.warming ? warm(warmer, state) : cool(cooler, state)
@@ -243,15 +247,14 @@ end
         # Decay acceptance ratio
         w.ratio *= w.decay
     end
+
     return nothing
 end
-
-warm(w::TrueSAWarm, state::SAState) = true
 
 @inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
 
 @inline function done(d::DefaultSADone, state::SAState)
-    return state.deviation < d.atol
+    return !state.warming && (state.deviation < d.atol)
 end
 
 function limit(l::DefaultSALimit, state::SAState)

@@ -166,6 +166,11 @@ end
 path_promote(::Type{Component}, ::Type{T}) where T <: Union{Port,Link} = T
 path_demote(::Type{T}) where T <: Union{Component,Port,Link} = Component
 
+# String macros for constructing port and link paths.
+macro component_str(s) :(Path{Component}($s)) end
+macro link_str(s) :(Path{Link}($s)) end
+macro port_str(s) :(Path{Port}($s)) end
+
 function get_relative_port(c::AbstractComponent, p::Path{Port})
     # If the port is defined in the component, just return the port itself
     if length(p) == 1

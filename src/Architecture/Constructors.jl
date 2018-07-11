@@ -86,7 +86,15 @@ function check_directions(c, sources, sinks)
     end
 end
 
-function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), linkname = "")
+function add_link(
+        c :: AbstractComponent, 
+        src_any, 
+        dest_any, 
+        safe = false; 
+        metadata = emptymeta(), 
+        linkname = "",
+    )
+
     sources = portpath_promote(src_any)
     sinks = portpath_promote(dest_any)
     # Check port directions
@@ -98,6 +106,17 @@ function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), li
             safe ? (return false) : error("$port already has a connection.")
         end
     end
+    # Check if we're trying to connect ports beyond just immedate hierarchy.
+    for port in chain(sources, sinks)
+        if length(port) == 0 || length(port) > 2
+            error("""
+                Links must connect ports defined within a component or to IO
+                ports of an immediate child.
+
+                $port violates this rule!.
+                """)
+        end
+    end
 
     # create link
 
@@ -107,8 +126,13 @@ function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), li
     end
 
     if haskey(c.links, linkname)
-        safe ? (return false) : error("Link name: $linkname already exists in component $(c.name)")
+        if safe
+            return false
+        else
+            error("Link name: $linkname already exists in component $(c.name)")
+        end
     end
+
     newlink = Link(linkname, sources, sinks, metadata)
     # Create a key for this link and add it to the component.
     c.links[linkname] = newlink
@@ -121,14 +145,17 @@ function add_link(c, src_any, dest_any, safe = false; metadata = emptymeta(), li
 end
 
 
-function connection_rule(tl::TopLevel,
-                         offset_rules,
-                         src_rule,
-                         dst_rule;
-                         metadata = emptymeta(),
-                         valid_addresses = addresses(tl),
-                         invalid_addresses = CartesianIndex[],
-                        )
+function connection_rule(
+        tl::TopLevel,
+        offset_rules,
+        src_rule,
+        dst_rule;
+        metadata = emptymeta(),
+        # Default to all addresses
+        valid_addresses = addresses(tl),
+        # Invalidate no addresses.
+        invalid_addresses = CartesianIndex[],
+    )
     # Count variable for verification - reports the number of links created.
     count = 0
 

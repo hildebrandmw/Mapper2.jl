@@ -434,10 +434,12 @@ function build_pathtable(arch::TopLevel{A,D}) where {A,D}
 
     for (name, component) in arch.children
         # Collect full paths for all components that are mappable.
-        paths = [catpath(name, p)
-                 for p in walk_children(component)
-                 if ismappable(A, component[p])
-                ]
+        paths = [
+            catpath(name, p) 
+            for p in walk_children(component) 
+            if ismappable(A, component[p])
+        ]
+
         # Account for architecture to array address offset
         pathtable[getaddress(arch, name) + offset] = paths
     end

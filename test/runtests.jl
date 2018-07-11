@@ -5,15 +5,26 @@ Mapper2.set_logging(:debug)
 
 # Add path to example architecture to the LOAD_PATH variable
 for i in 1:2
-    push!(LOAD_PATH, joinpath(Mapper2.PKGDIR, "example", "ex$i"))
+    include(joinpath(Mapper2.PKGDIR, "example", "ex$i", "Example$i.jl"))
 end
+include(joinpath(Mapper2.PKGDIR, "example", "Chessboard.jl"))
 
-using Example1
-using Example2
 
+using .Example1
+using .Example2
+
+
+# Taskgraph
 include("Taskgraph.jl")
-include("Architecture.jl")
-include("Placement.jl")
-include("IntegrationTest.jl")
-include("SaveLoad.jl")
-include("InitialPlacement.jl")
+
+# Architecture
+include("Architecture/Architecture.jl")
+
+# Placement
+include("Place/Placement.jl")
+include("Place/MoveGenerators.jl")
+include("Place/InitialPlacement.jl")
+
+# Maps
+include("Map/IntegrationTest.jl")
+include("Map/SaveLoad.jl")
