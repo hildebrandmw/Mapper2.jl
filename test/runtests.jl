@@ -7,7 +7,8 @@ Mapper2.set_logging(:debug)
 for i in 1:2
     include(joinpath(Mapper2.PKGDIR, "example", "ex$i", "Example$i.jl"))
 end
-include(joinpath(Mapper2.PKGDIR, "example", "Chessboard.jl"))
+include(joinpath(Mapper2.PKGDIR, "example", "chessboard", "Chessboard.jl"))
+using .Chessboard
 
 
 using .Example1

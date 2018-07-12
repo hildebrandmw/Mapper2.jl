@@ -183,6 +183,8 @@ export  # Types
         connection_rule,
         build_mux,
         check,
+        ConnectionRule,
+        Offset,
         # Analysis methods
         build_distance_table,
         build_component_table,

@@ -144,39 +144,83 @@ function add_link(
     return true
 end
 
+tautology(args...) = true
 
-function connection_rule(
-        tl::TopLevel,
-        offset_rules,
-        src_rule,
-        dst_rule;
-        metadata = emptymeta(),
-        # Default to all addresses
-        valid_addresses = addresses(tl),
-        # Invalidate no addresses.
-        invalid_addresses = CartesianIndex[],
+struct Offset
+    offset      :: Address
+    source_port :: String
+    dest_port   :: String
+
+    # Do conversions to correct types.
+    function Offset(
+            offset :: Union{Address,Tuple},
+            source_port :: AbstractString, 
+            dest_port :: AbstractString
+        ) 
+
+        new(
+            Address(offset),
+            string(source_port),
+            string(dest_port),
+        )
+    end
+end
+
+# Allow passing of iterators as a constructor.
+Offset(A, B, C) = [Offset(a, b, c) for (a,b,c) in zip(A, B, C)]
+
+
+struct ConnectionRule
+    # Vector of offsets to be applied if all below filters pass.
+    offsets :: Vector{Offset}
+
+    # Allow filtering of addresses.
+    address_filter :: Function
+    # Filter source components
+    source_filter :: Function
+    # Filter destination components
+    dest_filter :: Function
+end
+
+# Provide KeyWord alternative.
+function ConnectionRule(
+        offsets; 
+        address_filter = tautology,
+        source_filter = tautology,
+        dest_filter = tautology,
     )
+
+    ConnectionRule(offsets, address_filter, source_filter, dest_filter)
+end
+
+function connection_rule(tl::TopLevel, rule :: Vector{Offset}; kwargs...)
+    connection_rule(tl, ConnectionRule(rule); kwargs...)
+end
+
+function connection_rule(tl::TopLevel, rule::ConnectionRule; metadata = emptymeta())
     # Count variable for verification - reports the number of links created.
     count = 0
 
-    for src_address in setdiff(valid_addresses, invalid_addresses)
+    #for src_address in setdiff(valid_addresses, invalid_addresses)
+    for src_address in Iterators.filter(rule.address_filter, addresses(tl))
         # Get the source component
         src = getchild(tl, src_address)
         # Check if the source component fulfills the requirement.
-        src_rule(src) || continue
-        # Apply all the offsets to the current address
-        for (offset, src_port, dst_port) in offset_rules
+        rule.source_filter(src) || continue
 
-            @assert typeof(offset)   <: CartesianIndex
-            @assert typeof(src_port) <: String
-            @assert typeof(dst_port) <: String
+        # Apply all the offsets to the current address
+        for offset_rule in rule.offsets
+            offset = offset_rule.offset
+            src_port = offset_rule.source_port
+            dst_port = offset_rule.dest_port
 
             # Check destination address
             dst_address = src_address + offset
             haskey(tl.address_to_child, dst_address) || continue
+
             # check destination component
             dst = getchild(tl, dst_address)
-            dst_rule(dst) || continue
+            rule.dest_filter(dst) || continue
 
             # check port existence
             if !(haskey(src.ports, src_port) && haskey(dst.ports, dst_port))

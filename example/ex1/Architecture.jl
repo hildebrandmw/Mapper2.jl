@@ -227,28 +227,17 @@ function build_test_arch()
 
     # Connect all ports together
 
-    src_rule = x -> true
-    dst_rule = x -> true
-
     offsets = [
-        CartesianIndex(-1,0),
-        CartesianIndex(1,0), 
-        CartesianIndex(0,1), 
-        CartesianIndex(0,-1)
+        Offset((-1, 0), "north_out", "south_in"),
+        Offset(( 1, 0), "south_out", "north_in"),
+        Offset(( 0, 1), "east_out",  "west_in" ),
+        Offset(( 0,-1), "west_out",  "east_in" ),
     ]
-
-    src_dirs = ("north", "south", "east", "west")
-    dst_dirs = ("south", "north", "west", "east")
-
-    src_ports = ["$(i)_out" for i in src_dirs]
-    dst_ports = ["$(i)_in" for i in dst_dirs]
-
-    offset_rules = zip(offsets, src_ports, dst_ports)
 
     # Build metadata dictionary for capacity and cost
     metadata = Dict{String,Any}("capacity"  => 5)
     # Launch the function call!
-    connection_rule(arch, offset_rules, src_rule, dst_rule, metadata = metadata)
+    connection_rule(arch, offsets; metadata = metadata)
     check(arch)
     return arch
 end

@@ -119,45 +119,15 @@ function build_arch(width, height)
     end
 
     # Finally, we have to connect all these tiles together.
-
-    # First, we start by defining our source and destination rulse. These state
-    # which tiles we want to connect, and which should be ignored.
-    #
-    # In this case, since we want to connect all tiles, our source and 
-    # destination rule functions will just return true.
-    source_rule(x) = true
-    dest_rule(x) = true
-
-    # Next, we define the AddressOffsets to generate connections. The 
-    # "connection_rule" function will start at the source address and add the 
-    # offset to get the destination address.
-    #
-    # Because our grid is rectilinear, our offsets are just the 4 cardinal
-    # directions.
-    offsets = (
-        Address(-1, 0),
-        Address( 1, 0),
-        Address( 0, 1),
-        Address( 0,-1),
-    )
-
-    # Now we have to define the source and destination ports to try to connect
-    # for each offset.
-    #
-    # For example, for a links with offset (-1, 0), the link should start at
-    # the north output of a tile and end at the south input
-    #
-    # To help with the mental model, the origin is in the upper lefthand corner
-    # of the array.
-    source_ports = ("north_out", "south_out", "east_out", "west_out")
-    dest_ports =   ("south_in",  "north_in",  "west_in",  "east_in")
-
-    # Create the "offset_rule" iterator by zipping offsets, source_ports, and
-    # dest_ports together.
-    offset_rules = zip(offsets, source_ports, dest_ports)
-
-    # Finally, connect all links together.
-    connection_rule(arch, offset_rules, source_rule, dest_rule)
+    # Simply define the Address offsets and source -> destination port pairs.
+    offsets = [
+        Offset((-1, 0), "north_out", "south_in"),
+        Offset(( 1, 0), "south_out", "north_in"),
+        Offset(( 0, 1), "east_out",  "west_in" ),
+        Offset(( 0,-1), "west_out",  "east_in" ),
+    ]
+    
+    connection_rule(arch, offsets)
 
     # And we're done!.
     return arch

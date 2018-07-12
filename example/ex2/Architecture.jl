@@ -56,27 +56,16 @@ function build_arch()
         add_child(a, tile, CartesianIndex(i,j,k))
     end
 
-    # Connect all ports together
-    fn = x -> true
-    src_rule = fn
-    dst_rule = fn
+    offsets = [
+        Offset((-1, 0, 0), "north_out", "south_in"),
+        Offset(( 1, 0, 0), "south_out", "north_in"),
+        Offset(( 0, 1, 0), "east_out", "west_in"),
+        Offset(( 0,-1, 0), "west_out", "east_in"),
+        Offset(( 0, 0, 1), "up_out", "down_in"),
+        Offset(( 0, 0,-1), "down_out", "up_in"),
+    ]
 
-    offsets = [CartesianIndex(-1, 0, 0),
-               CartesianIndex( 1, 0, 0), 
-               CartesianIndex( 0, 1, 0), 
-               CartesianIndex( 0,-1, 0),
-               CartesianIndex( 0, 0, 1), 
-               CartesianIndex( 0, 0,-1)]
-
-    src_dirs = ("north", "south", "east", "west", "up",   "down")
-    dst_dirs = ("south", "north", "west", "east", "down", "up"  )
-
-    src_ports = ["$(i)_out" for i in src_dirs]
-    dst_ports = ["$(i)_in" for i in dst_dirs]
-
-    offset_rules = zip(offsets, src_ports, dst_ports)
-
-    connection_rule(a, offset_rules, src_rule, dst_rule)
+    connection_rule(a, offsets)
     check(a)
     return a
 end
