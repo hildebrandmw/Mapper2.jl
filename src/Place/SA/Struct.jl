@@ -357,8 +357,10 @@ Take the placement information in `m` and apply it to `sa`.
 """
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
+
+    offset = getoffset(m.architecture)
     for (taskname, path) in m.mapping.nodes
-        address = getaddress(m.architecture, path)
+        address = getaddress(m.architecture, path) + offset
         component = Compat.findfirst(x -> x == path, sa.pathtable[address])
         # Get the index to assign
         index = sa.tasktable[taskname]
