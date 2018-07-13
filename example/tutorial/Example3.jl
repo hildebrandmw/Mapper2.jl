@@ -4,13 +4,13 @@ module Example3
 using Mapper2
 
 # Much of the exact behavior of the Mapper is controlled by parameterizing the
-# TopLevel and Map types with a subtype of AbstractArchitecture.
+# TopLevel and Map types with a subtype of Architecture.
 #
 # This declarations allows us to extend various methods of placement and routing,
 # should we want.
 #
 # If we don't extend those, default behavior will be used.
-struct EX3 <: AbstractArchitecture end
+struct EX3 <: Architecture end
 
 # A tutorial on how to model a simple architecture.
 include("Architecture.jl")

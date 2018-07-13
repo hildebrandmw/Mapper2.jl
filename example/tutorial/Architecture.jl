@@ -47,7 +47,7 @@ end
 # "true", than the compnent is mappable. Otherwise, it isn't. Simple :)
 #
 # Note that we MUST make the first argument of this function our locally defined
-# subtype of AbstractArchitecture to correctly extend the "ismappable" method.
+# subtype of Architecture to correctly extend the "ismappable" method.
 Mapper2.ismappable(::Type{EX3}, x) = get(x.metadata, "mappable", false)
 
 # Since Crossbars are Mapper primitives, we are now ready to build our tile.

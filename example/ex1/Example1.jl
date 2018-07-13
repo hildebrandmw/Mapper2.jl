@@ -25,7 +25,7 @@ export  build_input_primitive,
         route
 
 # Extensions of the base Mapper types
-struct TestArchitecture <: AbstractArchitecture end
+struct TestArchitecture <: Architecture end
 
 make_map() = NewMap(build_test_arch(), make_taskgraph())
 make_fanout() = NewMap(build_test_arch(), make_fanout_taskgraph())

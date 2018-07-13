@@ -6,21 +6,14 @@ makedocs(
     format = :html,
     authors = "Mark Hildebrand",
     pages = [
-        "Home" => "index.md",
-        "Manual" => Any[
-                "Architecture Modeling" => Any[
-                    "man/arch/architecture.md",
-                    "man/arch/constructors.md",
-                    "man/arch/analysis.md",
-                   ]
-            ],
-        "Internal Documentation" => Any[
-                "lib/internal.md",
-                "lib/internals/mappercore.md",
-                "lib/internals/placement.md",
-                "lib/internals/sa.md",
-                "lib/internals/routing.md",
-                "lib/internals/helper.md",
-            ],
-        ]
-    )
+        #"Home" => "index.md",
+        "Manual" => [
+            "Simulated Annealing" => [
+                "man/SA/Struct.md",
+                "man/SA/MapTables.md",
+                "man/SA/MoveGenerators.md",
+                "man/SA/ExtendableMethods.md",
+            ]
+        ],
+    ]
+)

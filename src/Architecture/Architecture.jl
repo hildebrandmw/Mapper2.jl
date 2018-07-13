@@ -1,11 +1,11 @@
 """
-    AbstractArchitecture
+    Architecture
 
 Abstract supertype for controlling dispatch to specialized functions for
 architecture interpretation. Create a custom concrete subtype of this if you
 want to use custom methods during placement or routing.
 """
-abstract type AbstractArchitecture end
+abstract type Architecture end
 
 ################################################################################
 #                                  PORT TYPES                                  #
@@ -247,7 +247,7 @@ classes will be returned.
 #-------------------------------------------------------------------------------
 # TopLevel
 #-------------------------------------------------------------------------------
-struct TopLevel{A <: AbstractArchitecture,D} <: AbstractComponent
+struct TopLevel{A <: Architecture,D} <: AbstractComponent
     name                ::String
     children            ::Dict{String, Component}
     child_to_address    ::Dict{String, Address{D}}
@@ -435,7 +435,7 @@ isfree(c::AbstractComponent, p::Path{Port}) = !haskey(c.portlink, p)
 # Documentation for TopLevel
 ################################################################################
 @doc """
-    TopLevel{A <: AbstractArchitecture, D}
+    TopLevel{A <: Architecture, D}
 
 Top level component for an architecture mode. Main difference is between a
 `TopLevel` and a `Component` is that children of a `TopLevel` are accessed
@@ -450,7 +450,7 @@ A `TopLevel{A,D}` may be indexed using:
 [`LinkPath{AddressPath{D}}`](@ref LinkPath).
 
 # Constructor
-    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A <: AbstractArchitecture,D}
+    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A <: Architecture,D}
 
 Return an empty `TopLevel` with the given name and `metadata`.
 
@@ -458,11 +458,9 @@ Return an empty `TopLevel` with the given name and `metadata`.
 The following functions may be used to add subcomponents and connect 
 subcomponents together:
 
-$(make_ref_list(_toplevel_constructions))
 
 # Analysis routines for TopLevel
 
-$(make_ref_list(_toplevel_analysis))
 
 # Fields
 * `name::String` - The name of the TopLevel.

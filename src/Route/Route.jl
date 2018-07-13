@@ -8,8 +8,9 @@ const is07 = VERSION > v"0.7.0-"
 
 using ..Mapper2.Helper
 using ..Mapper2.MapperCore
+using ..Mapper2.MapperGraphs
+
 using DataStructures
-using LightGraphs
 using Compat
 
 is07 ? (using Logging) : (using MicroLogging)
@@ -29,24 +30,9 @@ abstract type AbstractRoutingLink end
 abstract type AbstractRoutingChannel end
 abstract type AbstractRoutingAlgorithm end
 
-const AA = AbstractArchitecture
+const AA = Architecture
 const ARL = AbstractRoutingLink
 const ARC = AbstractRoutingChannel
-
-const _arl_interface = (:channels, 
-                        :cost, 
-                        :capacity, 
-                        :occupancy, 
-                        :iscongested,
-                        :remchannel, 
-                        :addchannel,
-                       )
-const _arl_default      = (:RoutingLink,)
-const _arl_constructor  = (:annotate,)
-
-const _arc_interface = (:start, :stop, :isless)
-const _arc_default   = (:RoutingChannel,)
-const _arc_constructor = (:routing_channel,)
 
 @doc """
 Representation of  routing resources in an architecture. Required fields:
@@ -57,14 +43,11 @@ Representation of  routing resources in an architecture. Required fields:
 * `capacity::Int64` - The number of channels that can simulaneously use this 
     resouce.
 
-Default implementation: $(make_ref_list(_arl_default))
 
-Overload constructor: $(make_ref_list(_arl_constructor))
 
 More advanced implementations may contain different fields provided the following
 interfaces are implemented:
 
-$(make_ref_list(_arl_interface))
 """ AbstractRoutingLink
 
 @doc """
@@ -75,14 +58,11 @@ Representation of channels in the taskgraph for routing. Required fields:
 * `stop::Vector{Vector{Int64}}` - Collection of stop vertices for each stop 
     node of the channel.
 
-Default implementation: $(make_ref_list(_arc_default))
 
-Overload constructor: $(make_ref_list(_arc_constructor))
 
 More advanced implementations may contain different fields provided the following
 interfaces are implemented:
 
-$(make_ref_list(_arc_interface))
 """ AbstractRoutingChannel
 
 ################################################################################
@@ -135,7 +115,7 @@ routing_algorithm(m::Map{A,D}, rs) where {A <: AA, D} = Pathfinder(m, rs)
 # REQUIRED METHODS
 ################################################################################
 """
-    annotate(::Type{<:AbstractArchitecture}, item::Union{Port,Link,Component})
+    annotate(::Type{<:Architecture}, item::Union{Port,Link,Component})
 
 Return some `<:AbstractRoutingLink` for `item`. See [`AbstractRoutingLink`](@ref)
 for required fields. If `item <: Component`, it is a primitive. If not other 
@@ -146,7 +126,7 @@ function annotate(::Type{A}, item::Union{Port,Link,Component}) where A <: AA
 end
 
 """
-    canuse(::Type{<:AbstractArchitecture}, item::AbstractRoutingLink, channel::AbstractRoutingChannel)
+    canuse(::Type{<:Architecture}, item::AbstractRoutingLink, channel::AbstractRoutingChannel)
 
 Return `true` if `channel` can be routed using `item`.
 

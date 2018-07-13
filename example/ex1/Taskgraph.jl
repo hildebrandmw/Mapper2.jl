@@ -25,13 +25,13 @@ Make a basic collection of input, output, and general nodes.
 function make_nodes()
     # input nodes. 
     input_metadata  = Dict("task" => "input")
-    input_nodes = [TaskgraphNode(n, input_metadata) for n in input_node_names]
+    input_nodes = [TaskgraphNode(n; metadata = input_metadata) for n in input_node_names]
     # output nodes
     output_metadata  = Dict("task" => "output")
-    output_nodes = [TaskgraphNode(n, output_metadata) for n in output_node_names]
+    output_nodes = [TaskgraphNode(n; metadata = output_metadata) for n in output_node_names]
     # general nodes
     general_metadata = Dict("task" => "general")
-    general_nodes = [TaskgraphNode(n, general_metadata) for n in general_node_names]
+    general_nodes = [TaskgraphNode(n; metadata = general_metadata) for n in general_node_names]
     return vcat(input_nodes, output_nodes, general_nodes)
 end
 
@@ -50,7 +50,7 @@ function make_edges()
              ("task6","output2","B"),
             ]
 
-    return [TaskgraphEdge(a[1],a[2],Dict("class" => a[3])) for a in edges]
+    return [TaskgraphEdge(a[1],a[2]; metadata = Dict("class" => a[3])) for a in edges]
 end
 
 function make_fanout_edges()
@@ -68,5 +68,5 @@ function make_fanout_edges()
              ("task6","output2","B"),
             ]
 
-    return [TaskgraphEdge(a[1],a[2],Dict("class" => a[3])) for a in edges]
+    return [TaskgraphEdge(a[1],a[2]; metadata = Dict("class" => a[3])) for a in edges]
 end

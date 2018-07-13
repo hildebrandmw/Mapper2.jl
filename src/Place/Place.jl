@@ -6,11 +6,8 @@ using MicroLogging
 export  place,
         placement_routine
 
-const AA = AbstractArchitecture
-const TN = TaskgraphNode
-
 """
-    place(m::Map{A,D}; kwargs...)
+    place(m::Map{A}; seed = rand(UInt64), kwargs...) where {A <: Architecture}
 
 Run placement on `m` using the algorithm specified by the `placement_algorithm`
 for `m`. Any keyword arguments for the placement algorithm can be passed via
@@ -18,13 +15,12 @@ for `m`. Any keyword arguments for the placement algorithm can be passed via
 
 Return a `Map` with the placement recorded.
 """
-function place(m::Map{A}; seed = rand(UInt64), kwargs...) where {A <: AA}
+function place(m::Map{A}; seed = rand(UInt64), kwargs...) where {A <: Architecture}
     @info "Using Seed: $seed"
     srand(seed)
     f = placement_routine(A)
     return f(m; kwargs...)
 end
-
 
 # Placeholder
 placement_routine() = nothing

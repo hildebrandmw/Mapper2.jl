@@ -81,8 +81,8 @@ end
     )
 
     move_generators = (
-        SA.CachedMoveGenerator{Address{2}}(),
-        SA.SearchMoveGenerator(),
+        SA.CachedMoveGenerator,
+        SA.SearchMoveGenerator,
     )
 
     iterator = Iterators.product(
@@ -95,7 +95,8 @@ end
         m = NewMap(A,T)
 
         sa = SA.SAStruct(m)
-        SA.place(sa, movegen = movegen)
+        move_generator = movegen(sa)
+        @time SA.place(sa, movegen = move_generator)
         # Number of links in the linegraph is 15.
         #
         # All maps should reach this.
@@ -119,8 +120,8 @@ end
     )
 
     move_generators = (
-        SA.CachedMoveGenerator{Address{3}}(),
-        SA.SearchMoveGenerator(),
+        SA.CachedMoveGenerator,
+        SA.SearchMoveGenerator,
     )
 
     iterator3d = Iterators.product(
@@ -133,7 +134,8 @@ end
         m = NewMap(A,T)
 
         sa = SA.SAStruct(m)
-        SA.place(sa, movegen = movegen)
+        move_generator = movegen(sa)
+        @time SA.place(sa, movegen = move_generator)
 
         # When checking the number of links, give some leeway for the mapper
         # to not quite reach the minimum.

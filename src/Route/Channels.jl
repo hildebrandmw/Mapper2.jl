@@ -5,7 +5,7 @@ struct RoutingChannel <: ARC
     stop_vertices ::Vector{Vector{Int64}}
 end
 
-function routing_channel(::Type{A}, start, stop, edge) where {A<:AbstractArchitecture}
+function routing_channel(::Type{A}, start, stop, edge) where {A<:Architecture}
     RoutingChannel(start, stop)
 end
 
@@ -24,7 +24,7 @@ required fields.
 """ RoutingChannel
 
 @doc """
-    routing_channel(::Type{<:AbstractArchitecture}, start, stop, edge::TaskgraphEdge)
+    routing_channel(::Type{<:Architecture}, start, stop, edge::TaskgraphEdge)
 
 Return some `c <: AbstractRoutingChannel` for `edge`. Start and stop nodes are
 given as the required `Vector{Vector{Int64}}`.
@@ -34,17 +34,17 @@ Default: [`RoutingChannel`](@ref)
 See also: [`AbstractRoutingChannel`](@ref)
 """ routing_channel
 
-@doc """
-    start(c::AbstractRoutingChannel)
-
-Return the `start` vector for `c`.
-""" start
-
-@doc """
-    stop(c::AbstractRoutingChannel)
-
-Return the `stop` vector for `c`.
-""" stop
+# @doc """
+#     start(c::AbstractRoutingChannel)
+# 
+# Return the `start` vector for `c`.
+# """ start
+# 
+# @doc """
+#     stop(c::AbstractRoutingChannel)
+# 
+# Return the `stop` vector for `c`.
+# """ stop
 
 @doc """
     isless(a::ARC, b::ARC)

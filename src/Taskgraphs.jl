@@ -1,51 +1,27 @@
 
 """
-    struct TaskgraphNode
-
-Simple container representing a node in a taskgraph. Miscellaneous data should
-be stored in the `metadata` field.
-
-# Fields:
-* `name::String` - The name of the task.
-* `metadata::Dict{String,Any}` - Container for storing any additional
-    information with the type to build datastructure down stream.
-
-# Constructor
-    TaskgraphNode(name, metadata = Dict{String,Any}())
-
+Simple container representing a task in a taskgraph.
 """
 struct TaskgraphNode
-    name    ::String
-    metadata::Dict{String,Any}
+    "The name of this task."
+    name :: String
+    metadata :: Dict{String,Any}
+
     # Constructor
-    TaskgraphNode(name, metadata = Dict{String,Any}()) = new(name, metadata)
+    TaskgraphNode(name; metadata = emptymeta()) = new(name, metadata)
 end
 
 """
-    struct TaskgraphEdge
-
-Simple container representing an edge in a taskgraph. Miscellaneous data should
-be stored in the `metadatea` field.
-
-# Fields
-* `sources::Vector{String}` - Names of `TaskgraphNodes`s that are sources for
-    this edge.
-* `sinks::Vector{String}` - Names of `TaskgraphNode`s that are destinations
-    for this edge.
-* `metadata::Dict{String,Any}` - Container for storing any additional
-    information with the type to build datastructure down stream.
-
-# Constructor
-    TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
-
-Arguments `source` and `sink` may either be of type `String` or `Vector{String}`.
+Simple container representing an edge in a taskgraph.
 """
 struct TaskgraphEdge
-    sources ::Vector{String}
-    sinks   ::Vector{String}
-    metadata::Dict{String,Any}
+    "Source task names."
+    sources :: Vector{String}
+    "Sink task names."
+    sinks :: Vector{String}
+    metadata :: Dict{String,Any}
 
-    function TaskgraphEdge(source, sink, metadata = Dict{String,Any}())
+    function TaskgraphEdge(source, sink; metadata = Dict{String,Any}())
         sources = wrap_vector(source)
         sinks   = wrap_vector(sink)
         return new(sources, sinks, metadata)
@@ -59,34 +35,28 @@ getsources(t::TaskgraphEdge) = t.sources
 getsinks(t::TaskgraphEdge)   = t.sinks
 
 """
-    struct Taskgraph
-
 Data structure encoding tasks and their relationships.
-
-# Fields
-* `name::String` - The name of the taskgraph.
-* `nodes::Dict{String, TaskgraphNode}` - Tasks within the taskgraph. Keys are
-    the instance names of the node, value is the data structure.
-* `edges::Vector{TaskgraphEdge}` - Collection of edges between `TaskgraphNode`s.
-* `node_edges_out::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
-    Given a task name, returns a collection of `TaskgraphEdge` that have the
-    corresponding task as a source.
-* `node_edges_in::Dict{String,Vector{TaskgraphEdge}}` - Fast adjacency lookup.
-    Given a task name, returns a collection of `TaskgraphEdge` that have the
-    corresponding task as a sink.
-
-# Constructor
-    Taskgraph(name, node_container, edge_container)
-
-Return a `TaskGraph` with the given name, nodes, and edges. Arguments
-`node_container` and `edge_container` must have elements of type
-`TaskgraphEdge` and `TaskgraphNode` respectively.
 """
 struct Taskgraph
-    name            ::String
+    "The name of the taskgraph"
+    name :: String
+
+    "Nodes in the taskgraph. Type: `Dict{String, TaskgraphNode}`"
     nodes           ::Dict{String, TaskgraphNode}
+
+    "Edges in the taskgraph. Type: `Vector{TaskgraphEdge}`"
     edges           ::Vector{TaskgraphEdge}
+
+    """
+    Outgoing adjacency list mapping node names to edge indices. 
+    Type: `Dict{String, Vector{Int64}}`
+    """
     node_edges_out  ::Dict{String, Vector{Int}}
+
+    """
+    Incoming adjacency list mapping node names to edge indices. 
+    Type: `Dict{String, Vector{Int64}}`
+    """
     node_edges_in   ::Dict{String, Vector{Int}}
 
     function Taskgraph(name = "noname")
@@ -98,32 +68,34 @@ struct Taskgraph
         )
     end
 
-    function Taskgraph(name, node_container, edge_container)
-        if eltype(node_container) != TaskgraphNode
+    function Taskgraph(name :: String, nodes, edges)
+        if eltype(nodes) != TaskgraphNode
             typer = TypeError(
-                  :Taskgraph,
-                  "Incorrect Node Element Type",
-                  TaskgraphNode,
-                  eltype(node_container))
+                :Taskgraph,
+                "Incorrect Node Element Type",
+                TaskgraphNode,
+                eltype(nodes)
+            )
 
             throw(typer)
         end
-        if eltype(edge_container) != TaskgraphEdge
+        if eltype(edges) != TaskgraphEdge
             typer = TypeError(
-                  :Taskgraph,
-                  "Incorrect Edge Element Type",
-                  TaskgraphEdge,
-                  eltype(edge_container))
+                :Taskgraph,
+                "Incorrect Edge Element Type",
+                TaskgraphEdge,
+                eltype(edges)
+            )
 
             throw(typer)
         end
         # First - create the dictionary to store the nodes. Nodes can be
         # accessed via their name.
-        nodes = Dict(n.name => n for n in node_container)
+        nodes = Dict(n.name => n for n in nodes)
         # Initialize the adjacency lists with an entry for each node. Initialize
         # the values to empty arrays of edges so down-stream algortihms won't
         # have to check if an adjacency list exists for a node.
-        edges = collect(edge_container)
+        edges = collect(edges)
         node_edges_out = Dict(name => Int[] for name in keys(nodes))
         node_edges_in  = Dict(name => Int[] for name in keys(nodes))
         # Iterate through all edges - grow adjacency lists correctly.
@@ -145,6 +117,9 @@ struct Taskgraph
         )
     end
 end
+
+# Allow construction without any name.
+Taskgraph(nodes, edges) = Taskgraph("noname", nodes, edges)
 
 ################################################################################
 # METHODS FOR THE TASKGRAPH

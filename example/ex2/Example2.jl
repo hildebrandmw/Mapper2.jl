@@ -12,7 +12,7 @@ export  build_primitive,
         route
 
 
-struct Test3d <: AbstractArchitecture end
+struct Test3d <: Architecture end
 
 make_map() = NewMap(build_arch(), make_taskgraph())
         

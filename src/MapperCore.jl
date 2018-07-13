@@ -3,41 +3,17 @@ module MapperCore
 const is07 = VERSION > v"0.7.0-"
 
 using ..Mapper2.Helper
+Helper.@SetupDocStringTemplates
+
+using ..Mapper2.MapperGraphs
+
 using IterTools
 using DataStructures
 using Compat
 
+
 is07 ? (using Logging) : (using MicroLogging)
 is07 && (using Serialization)
-
-using LightGraphs
-
-const _arch_types = (
-        :AbstractArchitecture,
-        :TopLevel,
-        :Component,
-        :Port,
-        :Link,
-    )
-
-const _toplevel_constructions = (
-        :add_child, 
-        :add_link, 
-        :connection_rule
-    )
-
-const _toplevel_analysis = (
-        :walk_children,
-        :connected_components,
-        :search_metadata,
-        :search_metadata!,
-        :check,
-        :build_distance_table,
-        :build_neighbor_table,
-        :connectedlink,
-        :connectedports,
-        :isconnected
-    )
 
 include("Taskgraphs.jl")
 
@@ -55,24 +31,98 @@ include("Map/Inspection.jl")
 #-------------------------------------------------------------------------------
 # Mapping methods
 #-------------------------------------------------------------------------------
-const AA = AbstractArchitecture
+
+const AA = Architecture
 const TN = TaskgraphNode
 const TE = TaskgraphEdge
 const PLC = Union{Port,Link,Component}
 
 # Placement Queries
-isspecial(::Type{T}, t::TN) where {T <: AA}             = false
-isequivalent(::Type{T}, a::TN, b::TN) where {T <: AA}   = true
-ismappable(::Type{T}, c::Component) where {T <: AA}     = true
-canmap(::Type{T}, t::TN, c::Component) where {T <: AA}  = true 
+"""
+    isspecial(::Type{A}, t::TaskgraphNode) :: Bool where {A <: Architecture}
+
+Return `true` to disable move distance contraction for `t` during placement. 
+
+Default: `false`
+"""
+isspecial(::Type{<:AA}, t::TN) = false
+
+"""
+    isequivalent(::Type{A}, a::TaskgraphNode, b::TaskgraphNode) :: Bool where {A <: Architecture}
+
+Return `true` if `TaskgraphNodes` `a` and `b` are semantically equivalent for
+placement.
+
+Default: `true`
+"""
+isequivalent(::Type{<:AA}, a::TN, b::TN) = true
+
+"""
+    ismappable(::Type{A}, c::Component) :: Bool where {A <: Architecture}
+
+Return `true` if some task can be mapped to `c`.
+
+Default: `true`
+"""
+ismappable(::Type{<:AA}, c::Component) = true
+
+"""
+    canmap(::Type{A}, t::TaskgraphNode, c::Component) :: Bool where {A <: Architecture}
+
+Return `true` if `t` can be mapped to `c`.
+
+Default: `true`
+"""
+canmap(::Type{<:AA}, t::TN, c::Component) = true 
 
 # Routing Queries
-canuse(::Type{<:AA}, item::PLC, edge::TE)               = true
-getcapacity(::Type{A}, item) where A <: AA              = 1
 
-is_source_port(::Type{<:AA}, port::Port, edge::TE)      = true
-is_sink_port(::Type{<:AA}, port::Port, edge::TE)        = true
-needsrouting(::Type{A}, edge::TE) where A <: AA         = true
+"""
+    canuse(::Type{A}, item::Union{Port,Link,Component}, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+
+Return `true` if `edge` can use `item` as a routing resource.
+
+Default: `true`
+"""
+canuse(::Type{<:AA}, item::PLC, edge::TE) = true
+
+"""
+    getcapacity(::Type{A}, item::Union{Port,Link,Component}) where {A <: Architecture}
+
+Return the capacity of routing resource `item`.
+
+Default: `1`
+"""
+getcapacity(::Type{<:AA}, item) = 1
+
+"""
+    is_source_port(::Type{A}, port::Port, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+
+Return `true` if `port` is a valid source port for `edge`.
+
+Default: `true`
+"""
+is_source_port(::Type{<:AA}, port::Port, edge::TE) = true
+
+"""
+    is_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+
+Return `true` if `port` is a vlid sink port for `edge`.
+
+Default: `true`
+"""
+is_sink_port(::Type{<:AA}, port::Port, edge::TE) = true
+
+"""
+    needsrouting(::Type{A}, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+
+Return `true` if `edge` needs to be routed.
+
+Default: `true`
+"""
+needsrouting(::Type{<:AA}, edge::TE) = true
+
+
 
 
 #-------------------------------------------------------------------------------
@@ -120,7 +170,7 @@ export  # Types
         in_nodes,
 
         ### Architecture Exports ###
-        AbstractArchitecture,
+        Architecture,
         # Path Types
         AbstractPath,
         Path,

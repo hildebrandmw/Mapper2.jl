@@ -1,10 +1,10 @@
 module Helper
 
-using LightGraphs
+using Reexport
+@reexport using DocStringExtensions
 
 export  Address,
         emptymeta,
-        make_ref_list,
         wrap_vector,
         typeunion,
         push_to_dict,
@@ -14,44 +14,45 @@ export  Address,
         intern,
         rand_cartesian,
         dim_max,
-        dim_min,
-        max_entry,
-        # Graph related types and methods
-        SparseDiGraph,
-        has_vertex,
-        add_vertex!,
-        add_edge!,
-        vertices,
-        outneighbors,
-        inneighbors,
-        nv,
-        source_vertices,
-        sink_vertices,
-        linearize,
-        make_lightgraph
+        dim_min
 
 # Convenience mapping
 const Address = CartesianIndex
 
+macro SetupDocStringTemplates()
+    return esc(quote
+        # Set up default template.
+        @template DEFAULT = """
+            $(DOCSTRING)
+            """
+
+        # Template for type definitions.
+        @template TYPES = """
+            $(TYPEDEF)
+
+            Fields
+            ------
+            $(FIELDS)
+
+            Documentation
+            -------------
+            $(DOCSTRING)
+
+            Method List
+            -----------
+            $(METHODLIST)
+            """
+    end)
+end
+
 "Return an empty `Dict{Sring,Any}()` for `metadata` fields."
 emptymeta() = Dict{String,Any}()
-
-function make_ref_list(v)
-    ref_strings = ["[`$(string(i))`](@ref)" for i in v]
-    return join(ref_strings, ", ")
-end
 
 wrap_vector(v) = [v]
 wrap_vector(v::Vector) = identity(v)
 
 function typeunion(A::Array)
-    types = DataType[]
-    for i in A
-        t = typeof(i)
-        if t ∉ types
-            push!(types, t)
-        end
-    end
+    types = unique(map(typeof, A))
     return Array{Union{types...}}(A)
 end
 
@@ -61,12 +62,8 @@ end
 Push value `v` to the vector found in dictionary `d` at `d[k]`. If `d[k]`
 does not exist, create a new vector by `d[k] = [v]`.
 """
-function push_to_dict(d, k, v)
-    if haskey(d,k)
-        push!(d[k],v)
-    else
-        d[k] = (valtype(d))([v])
-    end
+function push_to_dict(d::Associative{K,V}, k, v) where {K,V}
+    haskey(d, k) ? push!(d[k], v) : d[k] = V([v])
     return nothing
 end
 
@@ -75,9 +72,7 @@ end
 
 Increment `d[k]` by `v`. If `d[k]` does not exist, initialize `d[k] = b`.
 """
-function add_to_dict(d, k, v = 1; b = 1)
-    haskey(d, k) ? d[k] += v : d[k] = b
-end
+add_to_dict(d, k, v = 1; b = 1)  = haskey(d, k) ? (d[k] += v) : (d[k] = b)
 
 """
     rev_dict(d)
@@ -117,34 +112,9 @@ function intern(x)
     return nothing
 end
 
-################################################################################
-# Cartesian Index Schenanigans
-################################################################################
-function _rand_cart(lb::Type{T}, ub::Type{T}) where T <: NTuple{N,Any} where N
-    # Chain together a bunch of calls to rand
-    ex = [:(rand(lb[$i]:ub[$i])) for i in 1:N]
-    # Construct the address type
-    return :(CartesianIndex{N}($(ex...)))
-end
-
-@generated function rand_cartesian(lb::NTuple{N}, ub::NTuple{N}) where {N}
-    return _rand_cart(lb,ub)
-end
-
-max_entry(c::CartesianIndex) = maximum(c.I)
-
-for (name, op) in zip((:dim_max, :dim_min), (:max, :min))
-    eval(quote
-        function ($name)(indices)
-            # Copy the first element of the address iterator.
-            ex = first(indices).I
-            for index in indices
-                ex = ($op).(ex, index.I)
-            end
-            return ex
-        end
-    end)
-end
+_dimop(x, op) = reduce(op, i.I for i in x)
+dim_min(x) = _dimop(x, min)
+dim_max(x) = _dimop(x, max)
 
 # Documentation for the max and min functions generated above.
 @doc """
@@ -156,93 +126,5 @@ end
     `dim_min(indices)` returns tuple of the minimum componentwise values
     from a collection of CartesianIndices.
     """ dim_min
-
-################################################################################
-# Subgraph for for lightgraphs
-################################################################################
-struct AdjList{T}
-    neighbors_in ::Vector{T}
-    neighbors_out::Vector{T}
-end
-
-AdjList{T}() where T = AdjList(T[], T[])
-
-struct SparseDiGraph{T}
-    vertices::Dict{T,AdjList{T}}
-end
-
-SparseDiGraph{T}() where T = SparseDiGraph(Dict{T,AdjList{T}}())
-
-LightGraphs.has_vertex(g::SparseDiGraph, v) = haskey(g.vertices, v)
-
-function LightGraphs.add_vertex!(g::SparseDiGraph{T}, v) where T
-    has_vertex(g, v) && return false
-    g.vertices[v] = AdjList{T}()
-    return true
-end
-
-function LightGraphs.add_edge!(g::SparseDiGraph, src, snk)
-    has_vertex(g, src) || throw(KeyError(src))
-    has_vertex(g, snk) || throw(KeyError(snk))
-    push!(g.vertices[src].neighbors_out, snk)
-    push!(g.vertices[snk].neighbors_in,  src)
-    return nothing
-end
-
-LightGraphs.vertices(g::SparseDiGraph) = keys(g.vertices)
-LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].neighbors_out
-LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].neighbors_in
-LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
-
-source_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(inneighbors(g,v)) == 0]
-sink_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(outneighbors(g,v)) == 0]
-
-
-"""
-    linearize(g::SparseDiGraph{T}) where T
-
-Return a Vector{T} of vertices of `g` in linearized traversal order if `g` is
-linear. Throw error if `g` is not linear.
-"""
-function linearize(g::SparseDiGraph{T}) where T
-    # Do a check for an empty graph.
-    if nv(g) == 0
-        return T[]
-    end
-
-    sv = source_vertices(g)
-    length(sv) != 1 && error("Expected 1 source vertex. Found $(length(sv)).")
-    vertices = T[first(sv)]
-    neighbors = outneighbors(g, last(vertices))
-    while length(neighbors) > 0
-        if length(neighbors) > 1
-            error("""
-                  Vertex $(last(vertices)) has $(length(neighbors)) neighbors.
-                  Expected 1.
-                  """)
-        end
-        push!(vertices, first(neighbors))
-        neighbors = outneighbors(g, last(vertices))
-    end
-    return vertices
-end
-
-"""
-    make_lightgraph(s::SparseDiGraph)
-
-Given `s`, return a tuple `(g,d` where lightgraph `g` and dictionary `d`
-where `g` is isomorphic to `s` and `d` maps vertices of `s` to vertices of `g`.
-"""
-function make_lightgraph(s::SparseDiGraph)
-    g = DiGraph(nv(s))
-    # Create a mapping dictionary
-    d = Dict(v => i for (i,v) in enumerate(vertices(s)))
-    # Iterate over edges, adding each edge to the lightgraph
-    for i in vertices(s), j in outneighbors(s, i)
-        add_edge!(g, d[i], d[j])
-    end
-    return g, d
-end
-
 
 end # module Helper

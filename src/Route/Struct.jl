@@ -18,7 +18,6 @@ Central type for routing.
 
 # See also:
 
-$(make_ref_list((:RoutingGraph, :AbstractRoutingLink, :AbstractRoutingChannel)))
 """
 struct RoutingStruct{L <: ARL, C <: ARC}
     architecture_graph      ::RoutingGraph
@@ -136,7 +135,7 @@ end
 ################################################################################
 # Routing Link Annotation
 ################################################################################
-function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: AbstractArchitecture
+function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: Architecture
     @debug "Annotating Graph Links"
     maprev = rev_dict(rg.map)
 
@@ -156,7 +155,7 @@ end
 ################################################################################
 # Routing Taskgraph Constructor
 ################################################################################
-function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: AbstractArchitecture}
+function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Architecture}
     # Debug printing
     @debug "Building Default Routing Taskgraph"
     # Unpack map
@@ -229,7 +228,7 @@ function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
 - `:source` - indicates a source port for directed communication.
 - `:sink` - indicates a sink port for direction communication.
 """
-function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: AbstractArchitecture
+function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: Architecture
     if dir == :source
         return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_source_port(A,v,e)]
     elseif dir == :sink

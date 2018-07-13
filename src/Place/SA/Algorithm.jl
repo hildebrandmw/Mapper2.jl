@@ -2,7 +2,6 @@
 Simulated Annealing placement.
 =#
 
-
 ################################################################################
 # Type to keep track of previous moves.
 ################################################################################
@@ -95,8 +94,8 @@ function place(
         move_attempts       = 20000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
-        movegen = CachedMoveGenerator{location_type(sa.maptable)}(),
-        #movegen = SearchMoveGenerator(),
+        movegen = CachedMoveGenerator(sa),
+        #movegen = SearchMoveGenerator(sa),
         # Parameters for high-level control
         warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
         cooler ::AbstractSACool  = DefaultSACool(0.999),
@@ -151,7 +150,6 @@ function place(
         accepted_moves      = 0
         successful_moves    = 0
         objective           = state.objective
-        distance_limit      = state.distance_limit_int
         sum_cost_difference = zero(typeof(cost))
 
         ##############
@@ -159,7 +157,7 @@ function place(
         ##############
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
-            @inbounds success = generate_move(sa, movegen, cookie, distance_limit, max_addresses)
+            @inbounds success = generate_move!(sa, movegen, cookie)
             if !success
                 continue
             end
@@ -213,6 +211,7 @@ function place(
         state.warming ? warm(warmer, state) : cool(cooler, state)
         # Adjust distance limit - only if we're not warming up.
         state.warming || limit(limiter, state)
+
         # State updates - check if we potentially need to do some recomputation
         # for the move generator
         update_movegen = update!(state)
@@ -334,4 +333,4 @@ end
 ################################################################################
 # DEFAULT MOVE GENERATION
 ################################################################################
-canmove(::Type{A}, ::Node) where {A <: AbstractArchitecture} = true
+canmove(::Type{A}, ::Node) where {A <: Architecture} = true

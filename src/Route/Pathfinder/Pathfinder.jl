@@ -18,7 +18,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
     pq          ::Q
 
     # Constructor
-    function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: AbstractArchitecture, D}
+    function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: Architecture, D}
         rg = getgraph(rs)
         num_vertices = nv(rg.graph)
         # Initialize a vector with the number of vertices in the routing resouces

@@ -19,7 +19,7 @@ using Mapper2
 # Mapper.
 @enum SquareColor White Black Gray
 
-struct Chess <: AbstractArchitecture end
+struct Chess <: Architecture end
 
 export  Chess,
         # Colors

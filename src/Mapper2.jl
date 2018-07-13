@@ -41,6 +41,8 @@ end
 include("Helper.jl")
 using .Helper
 
+include("MapperGraphs.jl")
+
 include("MapperCore.jl")
 
 include("Place/Place.jl")
@@ -75,7 +77,7 @@ export  Address,
 @reexport using .SA
 
 # Default Placement Algorithm
-Place.placement_routine(::Type{<:AbstractArchitecture}) = SA.place
+Place.placement_routine(::Type{<:Architecture}) = SA.place
 
 ###########
 # ROUTING #

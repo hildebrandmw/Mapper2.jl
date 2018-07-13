@@ -3,10 +3,12 @@ module SA
 const is07 = VERSION > v"0.7.0-"
 
 using ..Mapper2.Helper
+Helper.@SetupDocStringTemplates
+
 using ..Mapper2.MapperCore
 using ..Mapper2.Place
+using ..Mapper2.MapperGraphs
 
-using LightGraphs
 using DataStructures
 using Formatting
 using Compat
@@ -24,8 +26,7 @@ export  SAStruct,
         getaddress,
         getcomponent
 
-
-function place(m::Map{A}; kwargs...) where {A <: AbstractArchitecture}
+function place(m::Map{<:Architecture}; kwargs...)
     # Record how long it takes to build the placement struct and the number
     # of bytes allocated to do so.
     sastruct, struct_time, struct_bytes, _, _ = @timed SAStruct(m; kwargs...)

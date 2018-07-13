@@ -39,65 +39,52 @@ The placeholder is just this empty type.
 ################################################################################
 
 """
-    struct SAStruct{A,U,D,D2,D1,N,L,T}
+Datastructure for simulated annealing placement.
 
-Data structure specialized for Simulated Annealing placement.
+Important parameters:
 
-# Constructor
-    SAStruct(Map::{A,D})
+* `A` - The concrete Architecture type.
 
-# Paramters
 
-* `A` - The Architecture Type
-* `U` - Type of the Distance provider
-* `D` - The dimension of the underlying architecture.
-* `D1` - `D + 1`.
-* `N` - Task node type.
-* `L` - Edge node type.
-* `T` - The AddressData type.
-* `Q` - The type of auxiliary data.
+Constructor
+-----------
+Arguments:
+* `m`: The `Map` to translate into an `SAStruct`.
 
-# Fields
-* `nodes::Vector{N}` - Taskgraph Nodes specialized for placement.
-* `channels::Vector{L}` - Taskgraph Edges specialized for placement.
-* `nodeclass::Vector{Int64}` - Maps Taskgraph Nodes to their equivalence
-    classes for placement. Positive value indicates use of the standard move
-    generator while negative values indicate the special move generator.
-* `maptables::Vector{Array{Vector{UInt8},D}}}` - Indicates which primitive at
-    `address` a tasknode of equivalence class `i` can be mapped to.
+Keyword Arguments:
+* `distance`: The distance type to use. Defaults to 
+`build_distance_table(m.architecture)`. (TODO: Make `distance` a type.)
 
-    Accessed using `maptables[i][address]`. Returned indicies are the indicies
-    or primitives that the task can be mapped to.
-* `special_maptables::Vector{Array{Vector{UInt8,D}}} - Same as `maptables` but
-    for special tasks.
-* `special_addresstables::Vector{Vector{CartesianIndex{D}}}` - Used to determine the
-    addresses that a special tasknode of equivalence class `i` can occupy.
+* `enable_flattness :: Bool`: Enable the flat architecture optimization if
+it is applicable. Default: `true`.
 
-    Accessed using `special_addresstables[i]`. The tasknode can be mapped to
-    at least one component at each address of the returned vector.
-* `distance::U` - Distance look up table from address `a` to address
-    `b`. Precomputed using graph searches on the original architecture.
-* `grid::Array{Int64,D1}` - Mapping from address `a`, component `i` to the
-    tasknode index mapped to that location.
+* `enable_address :: Bool`: Enable address-specific data to be incorporated
+into the struct. Default: `false`.
 
-    Accessed via `grid[i,a]`. Returns `0` is no task is mapped to the component.
-* `address_data::T` - Custom address specific datatype for implementing custom
-    objective functions.
-* `aux::Q` - Free auxiliary data that can be attached to the structure.
-* `pathtable::Array{Vector{Path{Component}},D}` - Mapping from the `SAStruct`
-    to the parent `Map` type.
-* `tasktable::Dict{String,Int64}` - Mapping from the `SAStruct` to the parent
-    `Map` type.
+* `aux`: Auxiliary data struct to provide any extra information that may be
+needed for specializations of placement. Default: `nothing`.
 """
-struct SAStruct{A,U,D,D1,N,L, M <: AbstractMapTable,T,Q}
+struct SAStruct{
+        A <: Architecture, 
+        U,
+        D,
+        D1,
+        N <: Node,
+        L <: SAChannel, 
+        M <: AbstractMapTable,
+        T <: AddressData,
+        Q
+    }
 
-    nodes                   ::Vector{N}
-    channels                   ::Vector{L}
-    maptable                ::M
-    distance                ::U
-    grid                    ::Array{Int64,D1}
-    address_data            ::T
-    aux                     ::Q
+    "`Vector{N}`: Container of nodes."
+    nodes :: Vector{N}
+    "`Vector{L}`: Container of edges."
+    channels :: Vector{L}
+    maptable :: M
+    distance :: U
+    grid :: Array{Int64,D1}
+    address_data :: T
+    aux :: Q
     # Map back fields
     pathtable :: Array{Vector{Path{Component}}, D}
     tasktable :: Dict{String,Int64}
@@ -110,15 +97,26 @@ nodetype(s::SAStruct) = typeof(s.nodes)
 channeltype(s::SAStruct) = typeof(s.channels)
 distancetype(::SAStruct{A,U}) where {A,U} = U
 
+isflat(x) = false
+isflat(::SAStruct{A,U,D,D}) where {A,U,D} = true
+
+
 
 ################################################################################
 # Basis SA Node
 ################################################################################
 
+"""
+The standard implementation of `Node`.
+"""
 mutable struct BasicNode{T} <: Node
-    location  :: T
-    class     :: Int 
+    "Location this node is assigned in the architecture. Must be parametric."
+    location :: T
+    "The class of this node."
+    class :: Int 
+    "Adjacency list of outgoing channels."
     outchannels :: Vector{Int64}
+    "Adjacency list of incoming channels."
     inchannels  :: Vector{Int64}
 end
 
@@ -136,11 +134,11 @@ isnormal(class::Int64) = class > 0
 # -------------
 # Construction
 # -------------
-function buildnode(::Type{A}, n::TaskgraphNode, x) where {A <: AbstractArchitecture}
+function buildnode(::Type{A}, n::TaskgraphNode, x) where {A <: Architecture}
     return BasicNode(x, 0, Int64[], Int64[])
 end
 
-function setup_node_build(::Type{A}, t::Taskgraph, D, isflat::Bool) where A <: AbstractArchitecture
+function setup_node_build(::Type{A}, t::Taskgraph, D, isflat::Bool) where A <: Architecture
     init = isflat ? zero(CartesianIndex{D}) : Location{D}()
     return [buildnode(A, n, init) for n in getnodes(t)]
 end
@@ -159,7 +157,7 @@ struct BasicMultiChannel <: MultiChannel
     sinks   ::Vector{Int64}
 end
 
-function setup_channel_build(::Type{A}, taskgraph) where A <: AbstractArchitecture
+function setup_channel_build(::Type{A}, taskgraph) where A <: Architecture
     edges = getedges(taskgraph)
     nodes = getnodes(taskgraph)
     node_dict = Dict(n.name => i for (i,n) in enumerate(nodes))
@@ -174,7 +172,7 @@ function setup_channel_build(::Type{A}, taskgraph) where A <: AbstractArchitectu
     return build_channels(A, edges, sources, sinks)
 end
 
-function build_channels(::Type{A}, edges, sources, sinks) where A <: AbstractArchitecture
+function build_channels(::Type{A}, edges, sources, sinks) where A <: Architecture
 
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
@@ -192,7 +190,7 @@ end
 
 struct EmptyAddressData <: AddressData end
 """
-    build_address_data(::Type{A}, arch::TopLevel, pathtable) where A <: AbstractArchitecture
+    build_address_data(::Type{A}, arch::TopLevel, pathtable) where A <: Architecture
 
 Default constructor for address data. Creates an array with a similar structure
 to `pathtable`. For each path in `pathtable`, calls:
@@ -205,7 +203,7 @@ function build_address_data(
         arch::TopLevel{A,D}, 
         pathtable;
         isflat = false
-       ) where {A,D}
+    ) where {A,D}
 
     comp(a) = [build_address_data(A, arch[path]) for path in pathtable[a]]
     @compat address_data = Dict(
@@ -233,7 +231,6 @@ end
 ################################################################################
 # Constructor for the SA Structure
 ################################################################################
-
 function SAStruct(
         m::Map{A,D};
         distance = build_distance_table(m.architecture),
@@ -276,7 +273,7 @@ function SAStruct(
 
     # Build SA Node types and make a record mapping node name to the index of
     # that nodes representation in this data structure.
-    nodes     = setup_node_build(A, taskgraph, D, isflat)
+    nodes = setup_node_build(A, taskgraph, D, isflat)
     tasktable = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
 
     # Build Channel
@@ -451,7 +448,7 @@ function build_pathtable(arch::TopLevel{A,D}) where {A,D}
 end
 
 """
-    equivalence_classes(A::Type{T}, taskgraph) where {T <: AbstractArchitecture}
+    equivalence_classes(A::Type{T}, taskgraph) where {T <: Architecture}
 
 Separate the nodes in the taskgraph into equivalence classes based on the rules
 defined by the architecture. Expects the architecture to have defined the
@@ -476,7 +473,7 @@ Returns a tuple of 3 elements:
 function task_equivalence_classes(
             ::Type{A}, 
             taskgraph::Taskgraph,
-           ) where {A <: AbstractArchitecture}
+           ) where {A <: Architecture}
 
     @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
