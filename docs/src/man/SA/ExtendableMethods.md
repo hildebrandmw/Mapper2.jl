@@ -13,4 +13,8 @@ SA.swap
 ## Cost Methods
 ```@docs
 SA.channel_cost
+SA.node_cost
+SA.node_pair_cost
+SA.address_cost
+SA.aux_cost
 ```

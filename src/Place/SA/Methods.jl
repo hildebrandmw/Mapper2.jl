@@ -65,11 +65,11 @@ Ideas include:
         idx::Int
     ) where {A <: Architecture}
 
-    return channel_cost(A, sa_struct, sa_struct.channels[i])
+    return channel_cost(A, sa_struct, sa_struct.channels[idx])
 end
 
 """
-$(SIGNATURES)
+    channel_cost(::Type{A}, sa_struct, channel :: SAChannel) where {A <: Architecture}
 
 Return the cost of `channel`. Default implementation accumulates the distances
 between the source and sink addresses of the channel using `sa_struct.distance`.
@@ -107,7 +107,32 @@ end
     return cost
 end
 
+"""
+    address_cost(::Type{A}, sa_struct, node :: Node) where {A <: Architecture}
+
+Return the address cost for `node` for architecture `A`. Default return value
+is `zero(Float64)`.
+
+Called by default during [`node_cost`](@ref) and [`node_pair_cost`](@ref)
+
+Method List
+-----------
+$(METHODLIST)
+"""
 address_cost(::Type{<:Architecture}, sa_struct::SAStruct, node::Node) = zero(Float64)
+
+"""
+    aux_cost(::Type{A}, sa_struct) where {A <: Architecture}
+
+Return an auxiliary cost associated with the entire mapping of the `sa_struct`.
+May use any field of `sa_struct` but may only mutate `sa_struct.aux`.
+
+Default: `zero(Float64)`
+
+Method List
+-----------
+$(METHODLIST)
+"""
 aux_cost(::Type{<:Architecture}, sa_struct::SAStruct) = zero(Float64)
 
 map_cost(sa_struct::SAStruct{A}) where A = map_cost(A, sa_struct)
@@ -122,14 +147,29 @@ function map_cost(::Type{A}, sa_struct::SAStruct) where {A <: Architecture}
     return cost
 end
 
+"""
+    node_cost(::Type{A}, sa_struct, idx) where {A <: AbstractArchitecture}
+
+Return the cost of the node with index `idx` in architecture `A`.
+
+Default implementation sums the node's:
+* incoming channels
+* outgoing channels
+* address cost
+* auxiliary cost.
+
+Method List
+-----------
+$(METHODLIST)
+"""
 @propagate_inbounds function node_cost(
         ::Type{A}, 
         sa_struct::SAStruct, 
-        index::Integer
+        idx::Integer
     ) where {A <: Architecture}
 
     # Unpack node data type.
-    n = sa_struct.nodes[index]
+    n = sa_struct.nodes[idx]
     cost = aux_cost(A, sa_struct)
     for channel in n.outchannels
         cost += channel_cost(A, sa_struct, channel)
@@ -153,17 +193,28 @@ Node pair cost is slightly more subtle than just each independent node cost if
         objective function is calculated incorrectly due to counting the channel
         twice.
 =#
+"""
+    node_pair_cost(::Type{A}, sa_struct, idx1, idx2) where {A <: Architecture}
+
+Compute the cost of the pair of nodes with indices `idx1` and `idx2`. Call this
+function when computing the cost of two nodes because in general, the total
+cost of two nodes is not the sum of the individual nodes' costs.
+
+Method List
+-----------
+$(METHODLIST)
+"""
 @propagate_inbounds function node_pair_cost(
         ::Type{A}, 
         sa_struct::SAStruct, 
-        i,
-        j,
+        idx1,
+        idx2,
     ) where {A <: Architecture}
 
-    cost = node_cost(A, sa_struct, i)
+    cost = node_cost(A, sa_struct, idx1)
     # Get the two node types for calculating the cost of the second node.
-    a = sa_struct.nodes[i]
-    b = sa_struct.nodes[j]
+    a = sa_struct.nodes[idx1]
+    b = sa_struct.nodes[idx2]
 
     for channel in b.outchannels
         if !in(channel, a.inchannels)
