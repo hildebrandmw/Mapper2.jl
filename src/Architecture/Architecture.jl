@@ -305,7 +305,7 @@ hasaddress(t::TopLevel, s::String) = haskey(t.child_to_address, s)
 
 getchild(t::TopLevel, a::Address) = t.children[t.address_to_child[a]]
 getname(t::TopLevel, a::Address) = t.address_to_child[a]
-function getdims(t::TopLevel{A,D}) where {A,D} 
+function Base.size(t::TopLevel{A,D}) where {A,D} 
     return dim_max(addresses(t)) .- dim_min(addresses(t)) .+ Tuple(1 for _ in 1:D)
 end
 

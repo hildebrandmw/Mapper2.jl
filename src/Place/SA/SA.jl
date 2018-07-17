@@ -13,8 +13,6 @@ using DataStructures
 using Formatting
 using Compat
 using NamedTuples
-# using StaticArrays
-# using Primes
 
 import Base: getindex
 import Base: @propagate_inbounds
@@ -45,11 +43,11 @@ function place(m::Map{<:Architecture}; kwargs...)
 end
 
 include("MapTables.jl")
+include("Distance.jl")
 include("Struct.jl")
 include("Methods.jl")
 include("InitialPlacement.jl")
 include("State.jl")
-#include("NumberGenerators.jl")
 include("MoveGenerators.jl")
 include("Algorithm.jl")
 

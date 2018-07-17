@@ -21,7 +21,7 @@ Move node at `index` from its current location to `new_location`.
     # Zero out this node's original location in the grid, then assign the new
     # location.
     sa_struct.grid[location(node)] = 0
-    assign(node, new_location)
+    assign(sa_struct, index, new_location)
 end
 
 """
@@ -84,11 +84,9 @@ $(METHODLIST)
         channel::TwoChannel
     )
 
-    a = getaddress(sa_struct.nodes[channel.source])
-    b = getaddress(sa_struct.nodes[channel.sink])
-    distance = sa_struct.distance[a,b]
-
-    return Float64(distance)
+    a = sa_struct.nodes[channel.source]
+    b = sa_struct.nodes[channel.sink]
+    return Float64(getdistance(sa_struct.distance, a, b))
 end
 
 @propagate_inbounds function channel_cost(
@@ -99,16 +97,15 @@ end
 
     cost = 0.0
     for src in channel.sources, snk in channel.sinks
-        # Get the source and sink addresses
-        a = getaddress(sa_struct.nodes[src])
-        b = getaddress(sa_struct.nodes[snk])
-        cost += sa_struct.distance[a,b]
+        a = sa_struct.nodes[src]
+        b = sa_struct.nodes[snk]
+        cost += getdistance(sa_struct.distance, a, b)
     end
     return cost
 end
 
 """
-    address_cost(::Type{A}, sa_struct, node :: Node) where {A <: Architecture}
+    address_cost(::Type{A}, sa_struct, node :: SANode) where {A <: Architecture}
 
 Return the address cost for `node` for architecture `A`. Default return value
 is `zero(Float64)`.
@@ -119,7 +116,7 @@ Method List
 -----------
 $(METHODLIST)
 """
-address_cost(::Type{<:Architecture}, sa_struct::SAStruct, node::Node) = zero(Float64)
+address_cost(::Type{<:Architecture}, sa_struct::SAStruct, node::SANode) = zero(Float64)
 
 """
     aux_cost(::Type{A}, sa_struct) where {A <: Architecture}

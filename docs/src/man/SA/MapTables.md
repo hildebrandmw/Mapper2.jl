@@ -1,12 +1,20 @@
 # MapTables
 
 ```@docs
-SA.MapTable
+SA.AbstractMapTable
 ```
 
-## Methods on MapTables
+## API
+
 ```@docs
-SA.isvalid
+SA.location_type
 SA.getlocations
+SA.isvalid
 SA.genlocation
+```
+
+## Implementations
+
+```@docs
+SA.MapTable
 ```

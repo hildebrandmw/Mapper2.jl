@@ -9,7 +9,9 @@ makedocs(
         #"Home" => "index.md",
         "Manual" => [
             "Simulated Annealing" => [
+                "man/SA/Placement.md", 
                 "man/SA/Struct.md",
+                "man/SA/Distance.md",
                 "man/SA/MapTables.md",
                 "man/SA/MoveGenerators.md",
                 "man/SA/ExtendableMethods.md",
