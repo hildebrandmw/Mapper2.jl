@@ -30,58 +30,224 @@ end
 # Types that control various parameters of the placement.
 ################################################################################
 
-# Warming schedules
-abstract type AbstractSAWarm end
+
+##########
+# SAWarm #
+##########
+"""
+Abstract type controlling the warming cycle of Simulated Annealing placement.
+
+API
+---
+* [`warm!`](@ref)
+
+Implementations
+---------------
+* [`DefaultSAWarm`](@ref)
+"""
+abstract type SAWarm end
+
+#-----#
+# API #
+#-----#
+"""
+    warm!(warmer :: SAWarm, state :: SAState)
+
+Increase `state.temperature` according to `warmer`. If `warmer` decides that
+the system is done warming up, it must set `state.warming = false`.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function warm! end
+
+#----------------#
+# Implementation #
+#----------------#
 
 """
-Default warming schedule. On each invocation, will increase the temperature of
+Default imeplementation of [`SAWarm`](@ref).
+
+On each invocation, will increase the temperature of
 the anneal by `multiplier`. When the acceptance ratio rises above `ratio`,
 warming routine will end.
 
 To prevent unbounded warming, the `ratio` field is multiplier by the `decay`
 field on each invocation.
 """
-mutable struct DefaultSAWarm <: AbstractSAWarm
+mutable struct DefaultSAWarm <: SAWarm
     ratio       ::Float64
     multiplier  ::Float64
     decay       ::Float64
 end
 
-# Cooling Schedules
-abstract type AbstractSACool end
+@inline function warm!(w::DefaultSAWarm, state::SAState)
+    # Compute acceptance ratio from the state
+    acceptance_ratio = state.recent_accepted_moves /
+                       state.recent_successful_moves
+
+    # Update temperature
+    state.temperature *= w.multiplier
+    # Check if acceptance ratio has achieved the desired ratio
+    if acceptance_ratio > w.ratio
+        state.warming = false
+    else
+        # Decay acceptance ratio
+        w.ratio *= w.decay
+    end
+
+    return nothing
+end
+
+##########
+# SACool #
+##########
 
 """
-Default cooling schedule. Each invocation, will multipkly the temperature
+Cooling schedule for Simulated Annealing placement.
+
+API
+---
+* [`cool!`](@ref)
+
+Implementations
+---------------
+* [`DefaultSACool`](@ref)
+
+"""
+abstract type SACool end
+
+#-----#
+# API #
+#-----#
+
+"""
+    cool!(cooler :: SACool, state :: SAState)
+
+When called, may decrease `state.temperature`.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function cool! end
+
+#----------------#
+# Implementation #
+#----------------#
+
+"""
+Default cooling schedule. Each invocation, will multiply the temperature
 of the anneal by the `alpha` paramter.
 """
-struct DefaultSACool <: AbstractSACool
+struct DefaultSACool <: SACool
     alpha::Float64
 end
 
-# Distance limit updates
-abstract type AbstractSALimit end
+@inline cool!(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
+
+####################
+# Distance Limiter #
+####################
+
+"""
+Type that controls the length contraction mechanism of Simulated Annealing 
+placement.
+
+API
+---
+* [`limit!`](@ref)
+
+Implmementations
+----------------
+* [`DefaultSALimit`](@ref)
+
+"""
+abstract type SALimit end
+
+#-----#
+# API #
+#-----#
+"""
+    limit!(limiter :: SALimit, state :: SAState)
+
+Mutate `state.distance_limit` when called.
+"""
+function limit! end
+
+#----------------#
+# Implementation #
+#----------------#
 
 """
 Default distance limit updater. Will adjust the distance limit so approximate
-`ratio` of moves are accepted. See VPR for algorithm.
+`ratio` of moves are accepted. Will not set `state.limit` lower than `minimum`.
 """
-struct DefaultSALimit <: AbstractSALimit
+struct DefaultSALimit <: SALimit
     ratio :: Float64
     # Minimum allows distance limit.
     minimum :: Int
 end
-
 DefaultSALimit(ratio::Float64) = DefaultSALimit(ratio, 1)
 
-# Finishing Schedules
-abstract type AbstractSADone end
+function limit!(l::DefaultSALimit, state::SAState)
+    # Compute acceptance ratio from state
+    acceptance_ratio = state.recent_accepted_moves /
+                       state.recent_successful_moves
+    # Update distance limit
+    temporary = (1 - l.ratio + acceptance_ratio)
+    state.distance_limit = clamp(
+        state.distance_limit * temporary,
+        l.minimum,
+        state.max_distance_limit
+    )
+    return nothing
+end
+
+##########
+# SADone #
+##########
+
+"""
+Control when to terminate Simulated Annealing placement.
+
+API
+---
+* [`sa_done`](@ref)
+
+Implementations
+---------------
+* [`DefaultSADone`]
+
+"""
+abstract type SADone end
+
+#-----#
+# API #
+#-----#
+
+"""
+    sa_done(doner :: SADone, state :: SAState)
+
+Return `true` to finish placement.
+"""
+function sa_done end
+
+#---------------#
+# Implmentation #
+#---------------#
 
 """
 Default end detection. Will return `true` when objective deviation is
 less than `atol`.
 """
-struct DefaultSADone <: AbstractSADone
-    atol::Float64
+struct DefaultSADone <: SADone
+    atol :: Float64
+end
+
+@inline function sa_done(d::DefaultSADone, state::SAState)
+    return !state.warming && (state.deviation < d.atol)
 end
 
 ################################################################################
@@ -97,10 +263,10 @@ function place(
         movegen = CachedMoveGenerator(sa),
         #movegen = SearchMoveGenerator(sa),
         # Parameters for high-level control
-        warmer ::AbstractSAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
-        cooler ::AbstractSACool  = DefaultSACool(0.999),
-        doner  ::AbstractSADone  = DefaultSADone(10.0^-5),
-        limiter::AbstractSALimit = DefaultSALimit(0.44, 2),
+        warmer ::SAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
+        cooler ::SACool  = DefaultSACool(0.999),
+        doner  ::SADone  = DefaultSADone(10.0^-5),
+        limiter::SALimit = DefaultSALimit(0.44, 2),
         kwargs...
     ) where {A,U,D}
 
@@ -157,6 +323,7 @@ function place(
         ##############
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
+            #@inbounds success = generate_move!(sa, movegen, cookie)
             @inbounds success = generate_move!(sa, movegen, cookie)
             if !success
                 continue
@@ -167,15 +334,15 @@ function place(
             cost_of_move = cookie.cost_of_move
             if cost_of_move <= zero(typeof(cost_of_move)) ||
                     rand() < exp(-cost_of_move * one_over_T)
-               accepted_moves += 1
+                accepted_moves += 1
 
-               if cost_of_move > 0
-                   sum_cost_difference += cost_of_move
-               end
+                if cost_of_move > 0
+                    sum_cost_difference += cost_of_move
+                end
 
-               objective += cost_of_move
+                objective += cost_of_move
             else
-               undo_move(sa, cookie)
+                undo_move(sa, cookie)
             end
         end
 
@@ -208,9 +375,9 @@ function place(
         state.aux_cost = aux_cost(A, sa)
 
         # Adjust temperature
-        state.warming ? warm(warmer, state) : cool(cooler, state)
+        state.warming ? warm!(warmer, state) : cool!(cooler, state)
         # Adjust distance limit - only if we're not warming up.
-        state.warming || limit(limiter, state)
+        state.warming || limit!(limiter, state)
 
         # State updates - check if we potentially need to do some recomputation
         # for the move generator
@@ -221,53 +388,12 @@ function place(
         end
 
         # Exit Condition
-        loop = !done(doner, state)
+        loop = !sa_done(doner, state)
     end
     # Show final statistics
     show_stats(state)
 
     return state
-end
-
-################################################################################
-# Default state-changing functions
-################################################################################
-@inline function warm(w::DefaultSAWarm, state::SAState)
-    # Compute acceptance ratio from the state
-    acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_successful_moves
-
-    # Update temperature
-    state.temperature *= w.multiplier
-    # Check if acceptance ratio has achieved the desired ratio
-    if acceptance_ratio > w.ratio
-        state.warming = false
-    else
-        # Decay acceptance ratio
-        w.ratio *= w.decay
-    end
-
-    return nothing
-end
-
-@inline cool(c::DefaultSACool, state::SAState) = (state.temperature *= c.alpha)
-
-@inline function done(d::DefaultSADone, state::SAState)
-    return !state.warming && (state.deviation < d.atol)
-end
-
-function limit(l::DefaultSALimit, state::SAState)
-    # Compute acceptance ratio from state
-    acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_successful_moves
-    # Update distance limit
-    temporary = (1 - l.ratio + acceptance_ratio)
-    state.distance_limit = clamp(
-        state.distance_limit * temporary,
-        l.minimum,
-        state.max_distance_limit
-    )
-    return nothing
 end
 
 ################################################################################
@@ -330,7 +456,3 @@ Undo the last move made to the `sa` with the help of the `cookie`.
     end
     return nothing
 end
-################################################################################
-# DEFAULT MOVE GENERATION
-################################################################################
-canmove(::Type{A}, ::Node) where {A <: Architecture} = true

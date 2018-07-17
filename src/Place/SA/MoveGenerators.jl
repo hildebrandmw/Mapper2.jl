@@ -1,4 +1,17 @@
 # Control the move generation used by the Annealing scheme.
+"""
+API
+---
+* [`generate_move`](@ref)
+* [`distancelimit`](@ref)
+* [`initialize!`](@ref)
+* [`update!`](@ref)
+
+Implementations
+---------------
+* [`SearchMoveGenerator`](@ref)
+* [`CachedMoveGenerator`](@ref)
+"""
 abstract type AbstractMoveGenerator end
 
 # Document the interface for an AbstractMoveGenerator.
@@ -226,7 +239,8 @@ CachedMoveGenerator(sa_struct::SAStruct{A,U,D}) where {A,U,D} =
 # Configure the distance limit to be the maximum value in the distance table
 # to be sure that initially, a task may be moved anywhere on the proecessor
 # array.
-distancelimit(::CachedMoveGenerator, sa_struct) = Int(maximum(sa_struct.distance))
+distancelimit(::CachedMoveGenerator, sa_struct) = 
+    maxdistance(sa_struct, sa_struct.distance)
 
 function initialize!(
         move_generator :: CachedMoveGenerator{T}, 
@@ -243,11 +257,9 @@ function initialize!(
 
         # Create a dictionary of MoveLUTs for this class.
         return Dict(map(class_locations) do source
-            source_address = getaddress(source)
-
             # Define a function that returns the distance of a location from
             # the current source address.
-            dist(x) = sa_struct.distance[source_address, getaddress(x)]
+            dist(x) = getdistance(sa_struct.distance, source, x)
 
             # Sort destinations for this address by distance.
             dests = sort(

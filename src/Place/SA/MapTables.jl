@@ -2,7 +2,6 @@
 # Location data structure
 ################################################################################
 
-# Data structure containing an Address and an index for a component slot.
 struct Location{D}
     address     ::CartesianIndex{D}
     pathindex   ::Int64
@@ -11,8 +10,8 @@ end
 Location{D}() where D = Location(zero(CartesianIndex{D}), 0)
 
 # Overloads for accessing arrays of dimension D+1
-Base.getindex(a::Array, l::Location) = a[l.pathindex, l.address]
-Base.setindex!(a::Array, x, l::Location) = a[l.pathindex, l.address] = x
+@propagate_inbounds Base.getindex(a::Array, l::Location) = a[l.pathindex, l.address]
+@propagate_inbounds Base.setindex!(a::Array, x, l::Location) = a[l.pathindex, l.address] = x
 
 # Overloads for accessing Dicts of vectors.
 function Base.getindex(a::Dict{Address{D},Vector{T}}, l::Location{D}) where {D,T}
@@ -32,11 +31,78 @@ Base.getindex(c::CartesianIndex) = 1
 # Maptables
 ################################################################################
 
-abstract type AbstractMapTable{D} end
+"""
+TODO
+
+API
+---
+* [`location_type`](@ref)
+* [`getlocations`](@ref)
+* [`isvalid`](@ref)
+* [`genlocation`](@ref)
+
+
+Implementations
+---------------
+* [`MapTable`](@ref)
+"""
+abstract type AbstractMapTable end
+
+#######
+# API #
+#######
 
 """
-Look-up table storing all of the Addresses/Locations that all node classes may
-be mapped to in a parent `SAStruct`.
+Return the stored location type for a `MapTable`.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function location_type end
+
+"""
+    getlocations(maptable, class::Int, [address])
+
+Return a vector of locations that nodes of type `class` can occupy. If optional
+argument `address` is provided, the list of locations will be restricted to
+that address.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function getlocations end
+
+"""
+    isvalid(maptable, class, location :: Location)
+
+Return `true` if nodes of type `class` can occupy `location`.
+
+    isvalid(maptable, class, address :: Address)
+
+Return `true` if nodes of type `class` can occupy `address`. In other words, 
+there is some component at `adddress` that class can be mapped to.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function isvalid end
+
+"""
+    genlocation(maptable, class, address)
+
+Return a random location that nodes of type `class` can occupy at `address`.
+"""
+function genlocation end
+
+################################################################################
+# MapTable
+################################################################################
+
+"""
+Default implementation of [`AbstractMapTable`](@ref)
 
 Important Parameters:
 * `D` - The dimensionality of the `Addresses` in the table.
@@ -44,7 +110,7 @@ Important Parameters:
     if a generic placement is being used, or `CartesianIndex{D}` if the 
     flat-architecture optimization is used.
 """
-struct MapTable{D,T,U} <: AbstractMapTable{D}
+struct MapTable{D,T,U} <: AbstractMapTable
     """
     Container for nodes classified as `normal`.
 
@@ -121,13 +187,6 @@ function MapTable(
     return MapTable{D,T,U}(normal,special)
 end
 
-"""
-$(SIGNATURES)
-
-Return the stored location type for the `MapTable`
-"""
-location_type(maptable::MapTable{D,T,U}) where {D,T,U}  = U
-
 
 function MapTable(
         toplevel::TopLevel{A,D},
@@ -178,13 +237,13 @@ function MapTable(
     return MapTable(normal, special)
 end
 
-"""
-    getlocations(maptable, class::Int, [address])
 
-Return a vector of locations that nodes of type `class` can occupy. If optional
-argument `address` is provided, the list of locations will be restricted to
-that address.
-"""
+location_type(maptable::MapTable{D,T,U}) where {D,T,U}  = U
+
+# Handles both the general and flat architecture cases.
+#
+# Makes repeated calls to the 3 argument version of getlocations starting at
+# all base addresses to generate ALL locations for this class.
 function getlocations(maptable::MapTable{D,T,U}, class::Int) where {D,T,U}
     if isnormal(class)
         # Allocation an empty vector of the appropriate location type.
@@ -222,27 +281,32 @@ end
 
 # Helpers for "isvalid"
 # Top is for the general case, bottom is for the flat-optimization case.
+canhold(v::Vector, i) = in(i, v)
 canhold(v::Vector) = length(v) > 0
 canhold(b::Bool) = b
 
-"""
-$(SIGNATURES)
-
-Return `true` if nodes of type `class` may be mapped to `location`.
-"""
-function isvalid(maptable::MapTable, class::Integer, location)
+function isvalid(maptable::MapTable, class::Integer, location :: Location)
     if isnormal(class)
-        return canhold(maptable.normal[class][getaddress(location)])
+        maptable_entry = maptable.normal[class][getaddress(location)]
+        return canhold(maptable_entry, getindex(location))
     else
         return in(location, maptable.special[-class])
     end
 end
 
-"""
-$(SIGNATURES)
+function isvalid(maptable::MapTable, class::Integer, address :: Address)
+    if isnormal(class)
+        maptable_entry = maptable.normal[class][address]
+        return canhold(maptable_entry)
+    else
+        return in(address, maptable.special[-class])
+    end
+end
 
-Return a random location that nodes of type `class` can occupy at `address`.
-"""
+# General case. Index into maptable using using the class and address.
+#
+# Pick a random element from the list of indices and create a Location out of
+# it.
 function genlocation(
         maptable::MapTable{D,Vector{Int}}, 
         class::Integer, 

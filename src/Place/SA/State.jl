@@ -1,24 +1,28 @@
 ################################################################################
 # Structure to keep track of performance information
 ################################################################################
+"""
+State tracking struct for Simulated Annealing placement.
+"""
 mutable struct SAState
     #= Information related to most recent move attempt =#
-    "Current Temperature of the system"
+    "Current Temperature of the system."
     temperature         ::Float64
-    "Current objective value"
+    "Current objective value."
     objective           ::Float64
-    "Current Distance Limit"
+    "Current distance limit."
     distance_limit      ::Float64
+    "Current distance limit as an integer."
     distance_limit_int  ::Int64
+    "Maximum distance limit for this architecture."
     max_distance_limit  ::Float64
 
-    "Current number of move attempts"
     recent_move_attempts    ::Int64
     recent_successful_moves ::Int64
     recent_accepted_moves   ::Int64
     recent_deviation        ::Float64
 
-    "Current Warming State"
+    "Current warming state"
     warming             ::Bool
 
     #= Global state information =#
@@ -44,6 +48,7 @@ mutable struct SAState
     dt::Float64
 
     #= Auxiliary cost =#
+    "Auxiliary cost"
     aux_cost::Float64
 
     function SAState(temperature, distance_limit, objective)
@@ -128,16 +133,6 @@ function update!(state::SAState)
     return return_value
 end
 
-#=
-TODO: If this turns out to be really useful, think about writing a kernel
-function to generalize this to other state objects.
-=#
-"""
-    show_stats(state::SAState, first = false)
-
-Print out stats about the SAState object in columns. If `first = true`, will
-print a header outlining the contents of eath column.
-"""
 function show_stats(state::SAState, first = false)
      state.display_updates || return nothing
      #=

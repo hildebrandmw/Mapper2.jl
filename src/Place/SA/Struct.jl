@@ -1,7 +1,7 @@
 ################################################################################
 # Abstract Types for Placement
 ################################################################################
-abstract type Node end
+abstract type SANode end
 abstract type SAChannel end
 abstract type TwoChannel <: SAChannel end
 abstract type MultiChannel <: SAChannel end
@@ -9,15 +9,15 @@ abstract type AddressData end
 
 
 @doc """
-Fields required by specialized Node types:
+Fields required by specialized SANode types:
 * `address::CartesianIndex{D}` where `D` is the dimension of the architecture.
 * `component_index<:Integer`
 * `out_links::Vector{Int64}`
 * `in_links::Vector{Int64}`
-""" Node
+""" SANode
 
 @doc """
-Fields required by specialized Node types:
+Fields required by specialized SANode types:
 * `sources::Vector{Int64}`
 * `sinks::Vector{Int64}`
 """ SAChannel
@@ -52,8 +52,7 @@ Arguments:
 * `m`: The `Map` to translate into an `SAStruct`.
 
 Keyword Arguments:
-* `distance`: The distance type to use. Defaults to 
-`build_distance_table(m.architecture)`. (TODO: Make `distance` a type.)
+* `distance`: The distance type to use. Defaults: [`BasicDistance`](@ref)
 
 * `enable_flattness :: Bool`: Enable the flat architecture optimization if
 it is applicable. Default: `true`.
@@ -66,10 +65,10 @@ needed for specializations of placement. Default: `nothing`.
 """
 struct SAStruct{
         A <: Architecture, 
-        U,
+        U <: SADistance,
         D,
         D1,
-        N <: Node,
+        N <: SANode,
         L <: SAChannel, 
         M <: AbstractMapTable,
         T <: AddressData,
@@ -107,9 +106,9 @@ isflat(::SAStruct{A,U,D,D}) where {A,U,D} = true
 ################################################################################
 
 """
-The standard implementation of `Node`.
+The standard implementation of `SANode`.
 """
-mutable struct BasicNode{T} <: Node
+mutable struct BasicNode{T} <: SANode
     "Location this node is assigned in the architecture. Must be parametric."
     location :: T
     "The class of this node."
@@ -121,14 +120,14 @@ mutable struct BasicNode{T} <: Node
 end
 
 # Node Interface
-location(n::Node)           = n.location
-assign(n::Node, l)          = (n.location = l)
-getclass(n::Node)           = n.class
-setclass!(n::Node, class)   = n.class = class
-getaddress(n::Node)         = getaddress(n.location)
-getindex(n::Node)           = getindex(n.location)
+@inline location(n::SANode)           = n.location
+@inline assign(n::SANode, l)          = (n.location = l)
+@inline getclass(n::SANode)           = n.class
+@inline setclass!(n::SANode, class)   = n.class = class
+@inline getaddress(n::SANode)         = getaddress(n.location)
+@inline getindex(n::SANode)           = getindex(n.location)
 
-isnormal(node::Node) = isnormal(class(node))
+isnormal(node::SANode) = isnormal(class(node))
 isnormal(class::Int64) = class > 0
 
 # -------------
@@ -233,7 +232,7 @@ end
 ################################################################################
 function SAStruct(
         m::Map{A,D};
-        distance = build_distance_table(m.architecture),
+        distance = BasicDistance(m.architecture),
         # Enable the flat-architecture optimization.
         enable_flattness = true,
         # Enable address-specific data.
@@ -524,71 +523,6 @@ function task_equivalence_classes(
         normal_reps = normal_reps,
         special_reps = special_reps,
     )
-end
-
-################################################################################
-# BFS Routines for building the distance look up table
-################################################################################
-function build_distance_table(arch::TopLevel{A,D}) where {A,D}
-    # The data type for the LUT
-    dtype = UInt8
-    # Pre-allocate a table of the right dimensions.
-    # Replicate the dimensions once to get a 2D sized LUT.
-    dims = getdims(arch)
-    distance = fill(typemin(dtype), dims..., dims...)
-
-    neighbor_dict = build_neighbor_dict(arch)
-
-    @debug "Building Distance Table"
-    # Run a BFS for each starting address
-    @compat for address in keys(neighbor_dict)
-        bfs!(distance, address, neighbor_dict)
-    end
-    return distance
-end
-
-#=
-Simple data structure for keeping track of costs associated with addresses
-Gets put the the queue for the BFS.
-=#
-struct CostAddress{U,D}
-    cost::U
-    address::Address{D}
-end
-
-# Implementation note:
-# This function is only correct if the cost of each link is 1. If cost can vary,
-# will have to code this using some kind of shortest path formulation.
-function bfs!(distance::Array{U,N}, source::Address{D}, neighbor_dict) where {U,N,D}
-    # Create a queue for visiting addresses. Add source to get into the loop.
-    q = Queue(CostAddress{U,D})
-    enqueue!(q, CostAddress(zero(U), source))
-
-    # Create a set of visited items to avoid visiting the same address twice.
-    seen = Set{Address{D}}()
-    push!(seen, source)
-
-    # Basic BFS.
-    while !isempty(q)
-        u = dequeue!(q)
-        distance[source, u.address] = u.cost
-        for v in neighbor_dict[u.address]
-            in(v, seen) && continue
-
-            enqueue!(q, CostAddress(u.cost + one(U), v))
-            push!(seen, v)
-        end
-    end
-
-    return nothing
-end
-
-function build_neighbor_dict(arch::TopLevel{A,D}) where {A,D}
-    @debug "Building Neighbor Table"
-    # Get the connected component dictionary
-    cc = MapperCore.connected_components(arch)
-    offset = getoffset(arch)
-    return Dict(a + offset => collect(s) .+ offset for (a,s) in cc)
 end
 
 ################################################################################

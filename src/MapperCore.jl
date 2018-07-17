@@ -153,7 +153,6 @@ export  # Types
         getnode,
         getedge,
         getoffset,
-        getdims,
         nodenames,
         num_nodes,
         num_edges,
@@ -236,7 +235,7 @@ export  # Types
         ConnectionRule,
         Offset,
         # Analysis methods
-        build_distance_table,
+        build_distance,
         build_component_table,
 
         ### Map ###
