@@ -50,6 +50,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
         channel_dict,
     )
 end
+
 #-- Accessors
 allroutes(r::RoutingStruct) = r.routings
 getroute(r::RoutingStruct, i::Integer) = r.routings[i]

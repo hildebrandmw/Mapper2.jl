@@ -1,32 +1,32 @@
 struct CostVertex
-   cost        ::Float64
-   index       ::Int64
-   predecessor ::Int64
+   cost :: Float64
+   index :: Int64
+   predecessor :: Int64
 end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
 mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
-    historical_cost         ::Vector{Float64}
-    current_cost_factor     ::Float64
-    historical_cost_factor  ::Float64
-    iteration_limit         ::Int64
-    links_to_route          ::T
+    historical_cost :: Vector{Float64}
+    congestion_cost_factor :: Float64
+    historical_cost_factor :: Float64
+    iteration_limit :: Int64
+    links_to_route :: T
     # Scratch-pad to avoid re-allocation.
-    discovered  ::BitVector
-    predecessor ::Vector{Int64}
-    pq          ::Q
+    discovered  :: BitVector
+    predecessor :: Vector{Int64}
+    pq          :: Q
 
     # Constructor
-    function Pathfinder(m::Map{A,D}, rs::RoutingStruct) where {A <: Architecture, D}
+    function Pathfinder(m::Map{A}, rs::RoutingStruct) where A
         rg = getgraph(rs)
         num_vertices = nv(rg.graph)
         # Initialize a vector with the number of vertices in the routing resouces
         # graph.
-        historical_cost         = ones(Float64, num_vertices)
-        current_cost_factor     = 3.0
-        historical_cost_factor  = 3.0
-        iteration_limit         = 100
+        historical_cost = ones(Float64, num_vertices)
+        congestion_cost_factor = 3.0
+        historical_cost_factor = 3.0
+        iteration_limit = 100
         links_to_route = 1:length(rs.channels)
 
         # Initialized all nodes as undiscovered
@@ -38,7 +38,7 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
 
         return new{A,typeof(links_to_route),typeof(pq)}(
             historical_cost,
-            current_cost_factor,
+            congestion_cost_factor,
             historical_cost_factor,
             iteration_limit,
             links_to_route,
@@ -61,11 +61,12 @@ Return an iterator of links to route given the `Pathfinder` state, the
 function links_to_route(p::Pathfinder, r::RoutingStruct, iteration)
     # Every so many iterations, reset the entire routing process to help
     # global convergence.
-    if mod(iteration,50) == 1
-        iter = collect(p.links_to_route)
-    else
-        iter = [link for link in p.links_to_route if iscongested(r,link)]
-    end
+    # if mod(iteration,50) == 1
+    #     iter = collect(p.links_to_route)
+    # else
+    #     iter = [link for link in p.links_to_route if iscongested(r,link)]
+    # end
+    iter = collect(p.links_to_route)
 
     lt = (x,y) -> isless(getchannel(r, x), getchannel(r, y))
     sort!(iter, lt = lt)
@@ -109,9 +110,18 @@ function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     link = getlink(rs, index)
     base_cost = cost(link)
     # Compute the penalty for present congestion
-    p = 1 + max(0, pf.current_cost_factor * (1 + occupancy(link) - capacity(link)))
+    p = 1 + max(0, pf.congestion_cost_factor * (1 + occupancy(link) - capacity(link)))
+
     h = pf.historical_cost[index]
     return base_cost * p * h
+end
+
+function currentcost(pathfinder, routing_struct, link_idx)
+    link = getlink(routing_struct, link_idx)
+    base_cost = cost(link)
+    p = 1 + max(0, pathfinder.congestion_cost_factor * (occupancy(link) - capacity(link)))
+
+    return base_cost * p
 end
 
 function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
@@ -123,6 +133,26 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
         end
     end
     return nothing
+end
+
+function routecost(
+        pathfinder::Pathfinder, 
+        routing_struct::RoutingStruct,
+        channel_idx :: Integer
+    )
+
+    cost = zero(Float64)
+    for link_idx in vertices(getroute(routing_struct, channel_idx))
+        thiscost = currentcost(pathfinder, routing_struct, link_idx)
+        if thiscost > 1E6
+            @show link_idx
+            link = getlink(routing_struct, link_idx)
+            @show occupancy(link)
+            @show capacity(link)
+        end
+        cost += thiscost
+    end
+    return cost
 end
 
 """
@@ -274,33 +304,103 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
 end
 
 function route(p::Pathfinder, rs::RoutingStruct)
+    iterations_per_update = 10
+    num_congested_links = 0
+
     @info "Running Pathfinder Routing Algorithm"
     for i in 1:p.iteration_limit
-        for link in links_to_route(p,rs,i)
+        # Rip up all routes
+        for link in links_to_route(p, rs, i)
             clear_route(rs, link)
+        end
+
+        # Run routing
+        for link in links_to_route(p, rs, i)
             shortest_path(p, rs, link)
         end
         update_historical_congestion(p, rs)
-        ncongested = 0
+        num_congested_links = 0
         # Count the number of congested links.
         for j in p.links_to_route
             if iscongested(rs, j)
-                ncongested += 1
+                num_congested_links += 1
             end
         end
-        # information update
-        if mod(i, 10) == 0
+
+        # Report status update.
+        if mod(i, iterations_per_update) == 0
+            # Report the number of congested links.
             @info """
                 On iteration $i of $(p.iteration_limit).
-                Number of congested links: $ncongested.
+                Number of congested links: $num_congested_links.
                 """
-
-            if ncongested > 0.9 * length(p.links_to_route)
+            # If congestion is extremely bad, further routings will be super
+            # slow. If over 90% of the links are congested, it's very likely
+            # that the placement is uunroutable. Just abort early.
+            if num_congested_links > 0.9 * length(p.links_to_route)
                 @warn "Warning. Extreme congestion detected - aborting early."
                 break
             end
         end
-        ncongested == 0 && break
+        num_congested_links == 0 && break
+    end
+
+    # Perform cleanup if not congested
+    if num_congested_links == 0
+        cleanup(p, rs)
+    end
+    return nothing
+end
+
+"""
+    cleanup(pathfinder)
+
+Post Pathfinder algorithm cleanup routine. Removes historical congestion and
+tries to reroute links. Will only accept a new routing if it decreases the
+total number of links. Congestion will not be allowed during this phase, so 
+it can only improve routing quality.
+
+Cleanup process will continue until no improvement it seen.
+"""
+function cleanup(pathfinder :: Pathfinder, routing_struct :: RoutingStruct)
+    # Set the historical_cost_factor to zero to essentially remove its impact.
+    pathfinder.historical_cost_factor = 0.0
+    pathfinder.historical_cost .= 1
+
+    # Set the congestion_cost_factor to a large number so congested routes become
+    # very sternly discouraged
+    pathfinder.congestion_cost_factor = 1.0E6
+
+    # Reroute each link.
+    while true
+        @debug "Running Cleanup"
+        cost_decreased = false
+        for channel_idx in pathfinder.links_to_route
+            # Get initial cost of the channel.
+            initial_cost = routecost(pathfinder, routing_struct, channel_idx)
+
+            # Save the old routing
+            old_routing = getroute(routing_struct, channel_idx)
+
+            # Ripup and reroute
+            clear_route(routing_struct, channel_idx)
+            shortest_path(pathfinder, routing_struct, channel_idx)
+
+            # Process the final cost.
+            final_cost = routecost(pathfinder, routing_struct, channel_idx)
+
+            # @show initial_cost
+            # @show final_cost
+
+            if final_cost < initial_cost
+                @debug final_cost - initial_cost
+                cost_decreased = true
+            end
+        
+        end
+
+        # Exit when cost stops decreasing.
+        cost_decreased || break
     end
     return nothing
 end

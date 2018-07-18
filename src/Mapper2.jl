@@ -26,27 +26,31 @@ else
     # v0.6 logging
     using MicroLogging
     function set_logging(level)
-        modules = (Mapper2.Helper,
-                   Mapper2.MapperCore,
-                   Mapper2.Place,
-                   Mapper2.SA,
-                   Mapper2.Routing,
-                  )
+        modules = (
+            Mapper2.Helper,
+            Mapper2.MapperCore,
+            Mapper2.SA,
+            Mapper2.Routing,
+        )
         for m in modules
             configure_logging(m, min_level=level)
         end
     end
 end
 
+# Aux modules
 include("Helper.jl")
 using .Helper
 
 include("MapperGraphs.jl")
 
+# Central data types.
 include("MapperCore.jl")
 
-include("Place/Place.jl")
+# Placement modules
 include("Place/SA/SA.jl")
+
+# Routing modules
 include("Route/Route.jl")
 
 # exports from Helper.
@@ -64,7 +68,8 @@ export  Address,
         linearize,
         make_lightgraph,
         dim_max,
-        dim_min
+        dim_min,
+        place!
 
 # Use submodules to make exports visible.
 @reexport using .MapperCore
@@ -72,12 +77,16 @@ export  Address,
 #############
 # PLACEMENT #
 #############
-@reexport using .Place
 # Placement Algorithms
 @reexport using .SA
 
 # Default Placement Algorithm
-Place.placement_routine(::Type{<:Architecture}) = SA.place
+"""
+    place!(map::Map{A}; kwargs...) where {A <: Architecture}
+
+Run mutating placement on `map`. Defaults to SA.place!.
+"""
+place!(map::Map{<:Architecture}; kwargs...) = SA.place!(map; kwargs...)
 
 ###########
 # ROUTING #

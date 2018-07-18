@@ -14,17 +14,9 @@ mutable struct MoveCookie{T} <: AbstractCookie
    old_location            ::T
 end
 
-# constructor for non-flat architectures
-function MoveCookie(::SAStruct{A,U,D,D1}) where {A,U,D,D1}
-    MoveCookie(0.0, 0, false, 0, Location{D}())
+function MoveCookie(sa_struct :: SAStruct)
+    MoveCookie(0.0, 0, false, 0, zero(eltype(sa_struct)))
 end
-
-# constructor for flat architecture - check if the grid is the same dimension
-# as the dimensionality of the architecture
-function MoveCookie(::SAStruct{A,U,D,D}) where {A,U,D}
-    MoveCookie(0.0, 0, false, 0, zero(CartesianIndex{D}))
-end
-
 
 ################################################################################
 # Types that control various parameters of the placement.
@@ -69,11 +61,11 @@ function warm! end
 """
 Default imeplementation of [`SAWarm`](@ref).
 
-On each invocation, will increase the temperature of
+On each invocation, will multiply the temperature of
 the anneal by `multiplier`. When the acceptance ratio rises above `ratio`,
 warming routine will end.
 
-To prevent unbounded warming, the `ratio` field is multiplier by the `decay`
+To prevent unbounded warming, the `ratio` field is multiplied by the `decay`
 field on each invocation.
 """
 mutable struct DefaultSAWarm <: SAWarm
@@ -139,7 +131,7 @@ function cool! end
 
 """
 Default cooling schedule. Each invocation, will multiply the temperature
-of the anneal by the `alpha` paramter.
+of the anneal by the `alpha` parameter.
 """
 struct DefaultSACool <: SACool
     alpha::Float64
@@ -254,19 +246,18 @@ end
 # Placement Routine!
 ################################################################################
 
-function place(
-        sa::SAStruct{A,U,D};
+function place!(
+        sa_struct :: SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
         move_attempts       = 20000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
-        movegen = CachedMoveGenerator(sa),
-        #movegen = SearchMoveGenerator(sa),
+        movegen :: MoveGenerator = CachedMoveGenerator(sa_struct),
         # Parameters for high-level control
-        warmer ::SAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
-        cooler ::SACool  = DefaultSACool(0.999),
-        doner  ::SADone  = DefaultSADone(10.0^-5),
-        limiter::SALimit = DefaultSALimit(0.44, 2),
+        warmer :: SAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
+        cooler :: SACool  = DefaultSACool(0.999),
+        doner :: SADone  = DefaultSADone(10.0^-5),
+        limiter :: SALimit = DefaultSALimit(0.44, 2),
         kwargs...
     ) where {A,U,D}
 
@@ -274,18 +265,18 @@ function place(
     # Set the random number generator for repeatable results.
 
     # Unpack SA
-    num_nodes = length(sa.nodes)
-    num_channels = length(sa.channels)
+    num_nodes = length(sa_struct.nodes)
+    num_channels = length(sa_struct.channels)
 
     # Get the largest address
-    @compat max_addresses = last((CartesianIndices(sa.pathtable))).I
+    @compat max_addresses = last((CartesianIndices(sa_struct.pathtable))).I
     largest_address = maximum(max_addresses)
 
-    initial_move_limit = distancelimit(movegen, sa)
+    initial_move_limit = distancelimit(movegen, sa_struct)
 
     # Initialize structure to help during placement.
-    cost = map_cost(A, sa)
-    cookie = MoveCookie(sa)
+    cost = map_cost(A, sa_struct)
+    cookie = MoveCookie(sa_struct)
 
     # Main Simulated Annealing Loop
     loop = true
@@ -300,7 +291,7 @@ function place(
     end
 
     # Initialize move generator
-    initialize!(movegen, sa, state.distance_limit)
+    initialize!(movegen, sa_struct, state.distance_limit)
 
     # Print out the header for the statistic columns.
     show_stats(state, true)
@@ -323,8 +314,7 @@ function place(
         ##############
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
-            #@inbounds success = generate_move!(sa, movegen, cookie)
-            @inbounds success = generate_move!(sa, movegen, cookie)
+            @inbounds success = generate_move!(sa_struct, movegen, cookie)
             if !success
                 continue
             end
@@ -342,7 +332,7 @@ function place(
 
                 objective += cost_of_move
             else
-                undo_move(sa, cookie)
+                undo_move(sa_struct, cookie)
             end
         end
 
@@ -350,7 +340,7 @@ function place(
         # Post iteration routines #
         ###########################
         # Update cost for numerical stability reasons
-        state.objective = map_cost(A, sa)
+        state.objective = map_cost(A, sa_struct)
         # Sanity Check
 
         if !isapprox(objective, state.objective)
@@ -372,7 +362,7 @@ function place(
         else
             state.recent_deviation = sum_cost_difference / accepted_moves
         end
-        state.aux_cost = aux_cost(A, sa)
+        state.aux_cost = aux_cost(A, sa_struct)
 
         # Adjust temperature
         state.warming ? warm!(warmer, state) : cool!(cooler, state)
@@ -384,7 +374,7 @@ function place(
         update_movegen = update!(state)
 
         if update_movegen
-            update!(movegen, sa, state.distance_limit_int)
+            update!(movegen, sa_struct, state.distance_limit_int)
         end
 
         # Exit Condition
@@ -400,59 +390,59 @@ end
 # Movement related functions
 ################################################################################
 @propagate_inbounds function move_with_undo(
-        sa::SAStruct{A},
+        sa_struct::SAStruct{A},
         cookie,
         index::Int64,
         new_location
     ) where A
 
-    node = sa.nodes[index]
+    node = sa_struct.nodes[index]
 
     # Store the old information
     old_location = location(node)
     cookie.index_of_moved_node = index
     cookie.old_location = old_location
     # Check to see if there is a node already mapped to this location
-    occupying_node_index = sa.grid[new_location]
+    occupying_node_index = sa_struct.grid[new_location]
     if occupying_node_index == 0
         cookie.move_was_swap = false
 
-        base_cost = node_cost(A, sa, index)
-        move(sa, index, new_location)
-        moved_cost = node_cost(A, sa, index)
+        base_cost = node_cost(A, sa_struct, index)
+        move(sa_struct, index, new_location)
+        moved_cost = node_cost(A, sa_struct, index)
 
         cookie.cost_of_move = moved_cost - base_cost
     else
-        occupying_node = sa.nodes[occupying_node_index]
+        occupying_node = sa_struct.nodes[occupying_node_index]
 
         # Check if the node at the new location can be moved to the old location
-        isvalid(sa.maptable, getclass(occupying_node), old_location) || return false
+        isvalid(sa_struct.maptable, getclass(occupying_node), old_location) || return false
         cookie.move_was_swap = true
         # Save the index of the occupying node
         cookie.index_of_other_node  = occupying_node_index
         # Compute the cost before the move
-        base_cost = node_pair_cost(A, sa, index, occupying_node_index)
+        base_cost = node_pair_cost(A, sa_struct, index, occupying_node_index)
         # Swap nodes
-        swap(sa, index, occupying_node_index)
+        swap(sa_struct, index, occupying_node_index)
         # Get cost after move and store
-        moved_cost = node_pair_cost(A, sa, index, occupying_node_index)
+        moved_cost = node_pair_cost(A, sa_struct, index, occupying_node_index)
         cookie.cost_of_move = moved_cost - base_cost
     end
     return true
 end
 
 """
-    undo_move(sa::SAStruct, cookie)
+    undo_move(sa_struct::SAStruct, cookie)
 
-Undo the last move made to the `sa` with the help of the `cookie`.
+Undo the last move made to the `sa_struct` with the help of the `cookie`.
 """
-@propagate_inbounds function undo_move(sa::SAStruct, cookie)
+@propagate_inbounds function undo_move(sa_struct::SAStruct, cookie)
     # If the last move was a swap, need a swap in order to undo it.
     if cookie.move_was_swap
-        swap(sa, cookie.index_of_moved_node, cookie.index_of_other_node)
+        swap(sa_struct, cookie.index_of_moved_node, cookie.index_of_other_node)
     # Otherwise, a simple move is just fine.
     else
-        move(sa, cookie.index_of_moved_node, cookie.old_location)
+        move(sa_struct, cookie.index_of_moved_node, cookie.old_location)
     end
     return nothing
 end

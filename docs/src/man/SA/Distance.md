@@ -1,10 +1,10 @@
-# Distance Type
+# SADistance
 
 ```@docs
 SA.SADistance
 ```
 
-## Methods
+## API
 ```@docs
 SA.getdistance
 SA.maxdistance

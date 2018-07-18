@@ -8,6 +8,7 @@ struct Location{D}
 end
 
 Location{D}() where D = Location(zero(CartesianIndex{D}), 0)
+Base.zero(::Type{Location{D}}) where D = Location{D}()
 
 # Overloads for accessing arrays of dimension D+1
 @propagate_inbounds Base.getindex(a::Array, l::Location) = a[l.pathindex, l.address]

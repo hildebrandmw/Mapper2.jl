@@ -6,15 +6,15 @@ makedocs(
     format = :html,
     authors = "Mark Hildebrand",
     pages = [
-        #"Home" => "index.md",
+        "Home" => "index.md",
         "Manual" => [
-            "Simulated Annealing" => [
-                "man/SA/Placement.md", 
-                "man/SA/Struct.md",
-                "man/SA/Distance.md",
-                "man/SA/MapTables.md",
-                "man/SA/MoveGenerators.md",
-                "man/SA/ExtendableMethods.md",
+            "Simulated Annealing Placement" => [
+                "man/SA/placement.md", 
+                "man/SA/sastruct.md",
+                "man/SA/methods.md",
+                "man/SA/distance.md",
+                "man/SA/move_generators.md",
+                "man/SA/map_tables.md",
             ]
         ],
     ]

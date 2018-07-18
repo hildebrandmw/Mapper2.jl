@@ -1,6 +1,11 @@
-# Simulated Annealing Placement.
+# SAStruct
 
-The central data structure for simulated annealing placement is the SAStruct:
+The central data structure for simulated annealing placement is the 
+[`SAStruct`](@ref). Before placement, this data type will be created from the
+[`Map`](@ref) and the main loop of placement will occur using this structure.
+
+After placement, the final location of tasks will be recorded from the 
+[`SAStruct`](@ref) back into the parent [`Map`](@ref).
 
 ```@docs
 SA.SAStruct
@@ -25,4 +30,4 @@ applied without sacrificing the generality of placement when it cannot.
 
 ## Construction Pipeline
 
-
+TODO

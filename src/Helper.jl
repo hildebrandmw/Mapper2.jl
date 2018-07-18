@@ -113,8 +113,8 @@ function intern(x)
 end
 
 _dimop(x, op) = reduce(op, i.I for i in x)
-dim_min(x) = _dimop(x, min)
-dim_max(x) = _dimop(x, max)
+dim_min(x) = _dimop(x, (a,b) -> min.(a,b))
+dim_max(x) = _dimop(x, (a,b) -> max.(a,b))
 
 # Documentation for the max and min functions generated above.
 @doc """

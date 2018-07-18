@@ -96,7 +96,7 @@ end
 
         sa = SA.SAStruct(m)
         move_generator = movegen(sa)
-        @time SA.place(sa, movegen = move_generator)
+        @time SA.place!(sa, movegen = move_generator)
         # Number of links in the linegraph is 15.
         #
         # All maps should reach this.
@@ -135,7 +135,7 @@ end
 
         sa = SA.SAStruct(m)
         move_generator = movegen(sa)
-        @time SA.place(sa, movegen = move_generator)
+        @time SA.place!(sa, movegen = move_generator)
 
         # When checking the number of links, give some leeway for the mapper
         # to not quite reach the minimum.
@@ -156,7 +156,7 @@ end
     m = Example1.make_fanout()
     sa = Mapper2.SA.SAStruct(m)
 
-    Mapper2.SA.place(sa);
+    Mapper2.SA.place!(sa);
     # The example is small enough that it should achieve this result every time.
     @test Mapper2.SA.map_cost(sa) == 14
 end

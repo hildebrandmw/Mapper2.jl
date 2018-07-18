@@ -55,13 +55,13 @@ Keyword Arguments:
 * `distance`: The distance type to use. Defaults: [`BasicDistance`](@ref)
 
 * `enable_flattness :: Bool`: Enable the flat architecture optimization if
-it is applicable. Default: `true`.
+    it is applicable. Default: `true`.
 
 * `enable_address :: Bool`: Enable address-specific data to be incorporated
-into the struct. Default: `false`.
+    into the struct. Default: `false`.
 
 * `aux`: Auxiliary data struct to provide any extra information that may be
-needed for specializations of placement. Default: `nothing`.
+    needed for specializations of placement. Default: `nothing`.
 """
 struct SAStruct{
         A <: Architecture, 
@@ -98,6 +98,7 @@ distancetype(::SAStruct{A,U}) where {A,U} = U
 
 isflat(x) = false
 isflat(::SAStruct{A,U,D,D}) where {A,U,D} = true
+Base.eltype(sa_struct::SAStruct) = location_type(sa_struct.maptable)
 
 
 

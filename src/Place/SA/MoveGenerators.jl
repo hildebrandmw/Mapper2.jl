@@ -12,9 +12,9 @@ Implementations
 * [`SearchMoveGenerator`](@ref)
 * [`CachedMoveGenerator`](@ref)
 """
-abstract type AbstractMoveGenerator end
+abstract type MoveGenerator end
 
-# Document the interface for an AbstractMoveGenerator.
+# Document the interface for an MoveGenerator.
 """
     generate_move(sa_struct, move_generator, node_idx)
 
@@ -55,7 +55,7 @@ function update! end
 # Top level function - serves as entry point for the methods listed above.
 @propagate_inbounds function generate_move!(
             sa_struct :: SAStruct{A}, 
-            move_generator :: AbstractMoveGenerator,
+            move_generator :: MoveGenerator,
             move_cookie,
         ) where {A <: Architecture}
 
@@ -74,7 +74,7 @@ end
 Move generator that operates by generating a random addresses where each 
 component of the address is within `limit` of the old address.
 """
-mutable struct SearchMoveGenerator{D} <: AbstractMoveGenerator 
+mutable struct SearchMoveGenerator{D} <: MoveGenerator 
     """
     The component-wise upperbound of the grid of the SAStruct. This is here
     to ensure that generated moves are within the total bounds of the SAStruct
@@ -228,7 +228,7 @@ Standard classes are used to index into the first level of `moves`. The inner
 dictionary is a mapping from a base address to a [`MoveLUT`](@ref) for that
 address.
 """
-mutable struct CachedMoveGenerator{T} <: AbstractMoveGenerator
+mutable struct CachedMoveGenerator{T} <: MoveGenerator
     moves :: Vector{Dict{T, MoveLUT{T}}}
 
     CachedMoveGenerator{T}() where T = new{T}(Dict{T, MoveLUT{T}}[])

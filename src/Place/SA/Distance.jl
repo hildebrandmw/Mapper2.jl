@@ -93,6 +93,7 @@ function BasicDistance(toplevel::TopLevel{A,D}) where {A,D}
     for address in keys(neighbors)
         bfs!(table, address, neighbors)
     end
+
     return BasicDistance{2*D}(table)
 end
 
