@@ -5,6 +5,8 @@ Root file for the routing related files.
 module Routing
 
 using ..Mapper2.Helper
+Helper.@SetupDocStringTemplates
+
 using ..Mapper2.MapperCore
 using ..Mapper2.MapperGraphs
 
@@ -14,55 +16,57 @@ using Logging
 using Random
 
 export  route,
+        ChannelIndex,
+        PortVertices,
         RoutingStruct,
-        AbstractRoutingLink,
         RoutingLink,
-        AbstractRoutingChannel,
+        BasicRoutingLink,
         RoutingChannel,
+        BasicRoutingChannel,
         routing_link_type,
         routing_channel,
         annotate
 
-abstract type AbstractRoutingLink end
-abstract type AbstractRoutingChannel end
 abstract type AbstractRoutingAlgorithm end
 
 const AA = Architecture
-const ARL = AbstractRoutingLink
-const ARC = AbstractRoutingChannel
 
-@doc """
-Representation of  routing resources in an architecture. Required fields:
+"""
+Representation of routing resources in an architecture.
 
-* `channels::Vector{Int64}` - List of channels using this routing resource. Must
-    initialize to empty.
-* `cost::Float64` - The cost of a channel using this resource.
-* `capacity::Int64` - The number of channels that can simulaneously use this 
-    resouce.
+API
+---
+* [`channels`](@ref)
+* [`cost`](@ref)
+* [`capacity`](@ref)
+* [`occupancy`](@ref)
+* [`addchannel`](@ref)
+* [`remchannel`](@ref)
 
+Implementations
+---------------
+* [`BasicRoutingLink`](@ref) - Reference this type for what methods of the API
+    come for free when using various fields of the basic type.
+"""
+abstract type RoutingLink end
 
+"""
+Representation of channels in the taskgraph for routing.
 
-More advanced implementations may contain different fields provided the following
-interfaces are implemented:
+API
+---
+* [`start_vertices`](@ref)
+* [`stop_vertices`](@ref)
+* [`isless(a::RoutingChannel, b::RoutingChannel)`](@ref)
 
-""" AbstractRoutingLink
-
-@doc """
-Representation of channels in the taskgraph for routing. Required fields:
-
-* `start::Vector{Vector{Int64}}` - Collection of start vertices for each start
-    node of the channel.
-* `stop::Vector{Vector{Int64}}` - Collection of stop vertices for each stop 
-    node of the channel.
-
-
-
-More advanced implementations may contain different fields provided the following
-interfaces are implemented:
-
-""" AbstractRoutingChannel
+Implementations
+---------------
+* [`BasicChannel`](@ref)
+"""
+abstract type RoutingChannel end
 
 ################################################################################
+include("Types.jl")
 include("Graph.jl")
 include("Links.jl")
 include("Channels.jl")
@@ -81,12 +85,12 @@ function route(m::Map{A,D}) where {A,D}
     routing_error = false
     local route_time
     local route_bytes
-    try
+    # try
         _, route_time, route_bytes, _, _ = @timed route(algorithm, routing_struct)
-    catch err
-        @error err
-        routing_error = true
-    end
+    # catch err
+    #     @error err
+    #     routing_error = true
+    # end
 
     # Record the final results.
     record(m, routing_struct)
@@ -114,21 +118,21 @@ routing_algorithm(m::Map{A,D}, rs) where {A <: AA, D} = Pathfinder(m, rs)
 """
     annotate(::Type{<:Architecture}, item::Union{Port,Link,Component})
 
-Return some `<:AbstractRoutingLink` for `item`. See [`AbstractRoutingLink`](@ref)
+Return some `<:RoutingLink` for `item`. See [`RoutingLink`](@ref)
 for required fields. If `item <: Component`, it is a primitive. If not other 
 primitives have been defined, it will be a `mux`.
 """
 function annotate(::Type{A}, item::Union{Port,Link,Component}) where A <: AA
-    RoutingLink(capacity = getcapacity(A, item))
+    BasicRoutingLink(capacity = getcapacity(A, item))
 end
 
 """
-    canuse(::Type{<:Architecture}, item::AbstractRoutingLink, channel::AbstractRoutingChannel)
+    canuse(::Type{<:Architecture}, link::RoutingLink, channel::RoutingChannel)
 
-Return `true` if `channel` can be routed using `item`.
+Return `true` if `channel` can be routed using `link`.
 
-See: [`AbstractRoutingLink`](@ref), [`AbstractRoutingChannel`](@ref)
+See: [`RoutingLink`](@ref), [`RoutingChannel`](@ref)
 """
-MapperCore.canuse(::Type{A}, item::ARL, channel::ARC) where A <: AA = true
+MapperCore.canuse(::Type{A}, link::RoutingLink, channel::RoutingChannel) where A <: AA = true
 
 end

@@ -1,7 +1,25 @@
 const PPLC = Union{Path{Port},Path{Link},Path{Component}}
+
+"""
+Representation of the routing resources of a `TopLevel`.
+"""
 struct RoutingGraph
-    graph   ::typeof(DiGraph(0))
+
+    """
+    Adjacency information of routing resources, encode as a 
+    `LightGraphs.SimpleDiGraph`.
+    """
+    graph   ::SimpleDiGraph{Int64}
+
+    """
+    Translation information mapping elements on the parent `TopLevel` to indices
+    in `graph`.
+
+    Implemented as a `Dict{Path{<:Union{Port,Link,Component}}, Int64}` where the
+    values in the dict are the vertex index in `graph` of the key.
+    """
     map     ::Dict{PPLC, Int64}
+
     function RoutingGraph(graph::AbstractGraph, map::Dict{P,Int64}) where {P <: Path}
 
         #= Make sure that all of the values in the port map are valid. =#
@@ -15,7 +33,11 @@ struct RoutingGraph
         return new(graph, m)
     end
 end
-getmap(r::RoutingGraph) = r.map
+
+"""
+Return the `map` of a [`RoutingGraph`](@ref)
+"""
+getmap(graph::RoutingGraph) = graph.map
 
 function translate_routes(r::RoutingGraph, graphs::Vector{<:SparseDiGraph})
     map_reversed = rev_dict(r.map)
@@ -162,29 +184,46 @@ function add_links!(top, c::AbstractComponent)
     return nothing
 end
 
-function splicegraphs(c::AbstractComponent, top::RoutingGraph, subgraphs::Vector)
-    add_subgraphs!(top, keys(c.children), subgraphs)
-    add_links!(top, c)
-    return top
+function splicegraphs(
+        component::AbstractComponent, 
+        topgraph::RoutingGraph, 
+        subgraphs
+    )
+
+    add_subgraphs!(topgraph, keys(component.children), subgraphs)
+    add_links!(topgraph, component)
+    return topgraph
 end
 
-function routing_graph(c::AbstractComponent, 
-                       memoize = true,
-                       md = Dict{String, RoutingGraph}())
+function routing_graph(
+        component::AbstractComponent, 
+        memoize = true,
+        memo = Dict{String, RoutingGraph}()
+    )
 
-    # Check memoize dict
-    memoize && haskey(md, c.name) && return md[c.name]
-    if length(c.children) == 0
-        g = routing_skeleton(c)
+    # Check if the graph for this component has been memoized and return the
+    # memoized result if it has.
+    if memoize && haskey(memo, component.name) 
+        return memo[component.name]
+    end
+
+    # If this component has not children, no need to route each of the children,
+    # just build a routing skeleton for it.
+    if length(component.children) == 0
+        graph = routing_skeleton(component)
+
+    # Recursively build graphs for each of the children of this component.
+    # Once all the graphs for the children have been created, splice them into
+    # a skeleton graph for this component.
     else
-        subgraphs = [routing_graph(i,memoize,md) for i in children(c)]
-        topgraph  = routing_skeleton(c)
-        g = splicegraphs(c, topgraph, subgraphs)
+        subgraphs = [routing_graph(i,memoize,memo) for i in children(component)]
+        topgraph  = routing_skeleton(component)
+        graph = splicegraphs(component, topgraph, subgraphs)
     end
     # Memoize this result
-    memoize && memoize!(c, md, c.name, g)
-    safety_check(c, g)
-    return g
+    memoize && memoize!(component, memo, component.name, graph)
+    safety_check(component, graph)
+    return graph
 end
 
 memoize!(::Component, md::Dict, key, value) = (md[key] = value)

@@ -16,6 +16,11 @@ makedocs(
                 "man/SA/move_generators.md",
                 "man/SA/map_tables.md",
             ]
+            "Routing" => [
+                "man/routing/routing.md",
+                "man/routing/links.md",
+                "man/routing/channels.md",
+            ]
         ],
     ]
 )

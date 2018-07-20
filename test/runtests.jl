@@ -22,7 +22,7 @@ include("Taskgraph.jl")
 include("Architecture/Architecture.jl")
 
 # Placement
-#include("Place/Placement.jl")
+include("Place/Placement.jl")
 include("Place/MoveGenerators.jl")
 include("Place/InitialPlacement.jl")
 
