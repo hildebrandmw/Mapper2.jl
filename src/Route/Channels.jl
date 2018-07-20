@@ -1,54 +1,47 @@
-const ARC = AbstractRoutingChannel
+"""
+Default implementation of [`RoutingChannel`](@ref).
+"""
+struct BasicChannel <: RoutingChannel
+    """
+    Direct storage for the `Vector{PortVertices}` of the sets of start vertices
+    for each source of the channel.
+    """
+    start_vertices :: Vector{PortVertices}
 
-struct RoutingChannel <: ARC
-    start_vertices::Vector{Vector{Int64}}
-    stop_vertices ::Vector{Vector{Int64}}
+    """
+    Direct storage for the `Vector{PortVertices}` of the sets of stop vertices
+    for each source of the channel.
+    """
+    stop_vertices ::Vector{PortVertices}
 end
 
+"""
+    routing_channel(::Type{A}, start, stop, edge::TaskgraphEdge) where {A <: Architecture}
+
+Return `<:RoutingCHannel` for `edge`. Arguments `start` and `stop` are return
+elements for `start_vertices` and `stop_vertices` respectively.
+"""
 function routing_channel(::Type{A}, start, stop, edge) where {A<:Architecture}
-    RoutingChannel(start, stop)
+    BasicChannel(start, stop)
 end
 
-start_vertices(r::ARC) = r.start_vertices
-stop_vertices(r::ARC) = r.stop_vertices
+"""
+    start_vertices(channel::RoutingChannel) :: Vector{PortVertices}
 
-# Fallback for choosing links to give priority to during routing.
-Base.isless(::ARC, ::ARC) = false
+Return `Vector{PortVertices}` of start vertices for `channel`.
+"""
+start_vertices(channel::RoutingChannel) = channel.start_vertices
 
-################################################################################
-# Documentation
-################################################################################
-@doc """
-Default implementation of [`AbstractRoutingChannel`](@ref) containing only the
-required fields.
-""" RoutingChannel
+"""
+    stop_vertices(channel::RoutingChannel) :: Vector{PortVertices}
 
-@doc """
-    routing_channel(::Type{<:Architecture}, start, stop, edge::TaskgraphEdge)
+Return `Vector{PortVertices}` of stop vertices for `channel`.
+"""
+stop_vertices(channel::RoutingChannel) = channel.stop_vertices
 
-Return some `c <: AbstractRoutingChannel` for `edge`. Start and stop nodes are
-given as the required `Vector{Vector{Int64}}`.
+"""
+    isless(a::RoutingChannel, b::RoutingChannel) :: Bool
 
-Default: [`RoutingChannel`](@ref)
-
-See also: [`AbstractRoutingChannel`](@ref)
-""" routing_channel
-
-# @doc """
-#     start(c::AbstractRoutingChannel)
-# 
-# Return the `start` vector for `c`.
-# """ start
-# 
-# @doc """
-#     stop(c::AbstractRoutingChannel)
-# 
-# Return the `stop` vector for `c`.
-# """ stop
-
-@doc """
-    isless(a::ARC, b::ARC)
-
-Return `true` if channel `a` is "less important" than `b`. Otherwise return `false`.
-Used to tell routing schedule which links are more important.
-""" isless
+Return `true` if `a` should be routed before `b`.
+"""
+Base.isless(::RoutingChannel, ::RoutingChannel) = false

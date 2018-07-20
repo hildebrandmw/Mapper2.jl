@@ -1,8 +1,8 @@
 """
 Overwrite routing link type to allow classification of routing links by class.
 """
-struct TypedRoutingLink <: AbstractRoutingLink
-    channels::Vector{Int64}
+struct TypedRoutingLink <: RoutingLink
+    channels::Vector{ChannelIndex}
     cost    ::Float64
     capacity::Int64
     class   ::String
@@ -19,9 +19,9 @@ end
 """
 New RoutingTask type to allow classification of tasks by a class.
 """
-struct TypedRoutingChannel <: AbstractRoutingChannel
-    start_vertices::Vector{Vector{Int64}}
-    stop_vertices::Vector{Vector{Int64}}
+struct TypedRoutingChannel <: RoutingChannel
+    start_vertices::Vector{PortVertices}
+    stop_vertices::Vector{PortVertices}
     class::String
 
     function TypedRoutingChannel(start, stop, edge)

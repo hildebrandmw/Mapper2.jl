@@ -6,42 +6,43 @@ end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
-mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
+mutable struct Pathfinder{A,Q} <: AbstractRoutingAlgorithm
     historical_cost :: Vector{Float64}
     congestion_cost_factor :: Float64
     historical_cost_factor :: Float64
     iteration_limit :: Int64
-    links_to_route :: T
+    channels_to_route :: Vector{ChannelIndex}
     # Scratch-pad to avoid re-allocation.
     discovered  :: BitVector
     predecessor :: Vector{Int64}
     pq          :: Q
 
     # Constructor
-    function Pathfinder(m::Map{A}, rs::RoutingStruct) where A
-        rg = getgraph(rs)
-        num_vertices = nv(rg.graph)
-        # Initialize a vector with the number of vertices in the routing resouces
-        # graph.
-        historical_cost = ones(Float64, num_vertices)
-        congestion_cost_factor = 3.0
-        historical_cost_factor = 3.0
-        iteration_limit = 100
-        links_to_route = 1:length(rs.channels)
+    function Pathfinder(
+            m::Map{A}, 
+            routing_struct::RoutingStruct;
+            iteration_limit = 100,
+            channels_to_route = ChannelIndex.(1:length(routing_struct.channels)),
+            congestion_cost_factor = 3.0,
+            historical_cost_factor = 3.0
+        ) where A
+        routing_graph = getgraph(routing_struct)
+        num_vertices = nv(routing_graph.graph)
 
-        # Initialized all nodes as undiscovered
+        # Initialize shortest path structures.
+        historical_cost = ones(Float64, num_vertices)
         discovered  = falses(num_vertices)
         # Initially, all nodes have no predecessors. The initial state of this
         # structure should be cleared to the correct default values.
         predecessor = zeros(Int64, num_vertices)
         pq          = binary_minheap(CostVertex)
 
-        return new{A,typeof(links_to_route),typeof(pq)}(
+        return new{A,typeof(pq)}(
             historical_cost,
             congestion_cost_factor,
             historical_cost_factor,
             iteration_limit,
-            links_to_route,
+            channels_to_route,
             # scratchpad
             discovered,
             predecessor,
@@ -50,28 +51,19 @@ mutable struct Pathfinder{A,T,Q} <: AbstractRoutingAlgorithm
 end
 
 "Return the Architecture type for the given Pathfinder structure."
-getarchitecture(::Pathfinder{A,T,Q}) where {A,T,Q} = A
+getarchitecture(::Pathfinder{A}) where {A} = A
 
 """
-    links_to_route(p::Pathfinder, routing_struct, iteration)
+    channels_to_route(p::Pathfinder, routing_struct)
 
 Return an iterator of links to route given the `Pathfinder` state, the
 `RoutingStruct`, and the `iteration` number.
 """
-function links_to_route(p::Pathfinder, r::RoutingStruct, iteration)
-    # Every so many iterations, reset the entire routing process to help
-    # global convergence.
-    # if mod(iteration,50) == 1
-    #     iter = collect(p.links_to_route)
-    # else
-    #     iter = [link for link in p.links_to_route if iscongested(r,link)]
-    # end
-    iter = collect(p.links_to_route)
-
+function channels_to_route(p::Pathfinder, r::RoutingStruct)
     lt = (x,y) -> isless(getchannel(r, x), getchannel(r, y))
-    sort!(iter, lt = lt)
+    sort!(p.channels_to_route, lt = lt)
 
-    return iter
+    return p.channels_to_route
 end
 
 """
@@ -95,8 +87,8 @@ end
 Rip up all the routes.
 """
 function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
-    for link in p.links_to_route
-        clear_route(rs, link)
+    for channel in p.channels_to_route
+        clear_route(rs, channel)
     end
 end
 
@@ -138,19 +130,12 @@ end
 function routecost(
         pathfinder::Pathfinder, 
         routing_struct::RoutingStruct,
-        channel_idx :: Integer
+        channel_idx :: ChannelIndex
     )
 
     cost = zero(Float64)
     for link_idx in vertices(getroute(routing_struct, channel_idx))
-        thiscost = currentcost(pathfinder, routing_struct, link_idx)
-        if thiscost > 1E6
-            @show link_idx
-            link = getlink(routing_struct, link_idx)
-            @show occupancy(link)
-            @show capacity(link)
-        end
-        cost += thiscost
+        cost += currentcost(pathfinder, routing_struct, link_idx)
     end
     return cost
 end
@@ -161,7 +146,7 @@ end
 Run weighted shortest path routing computation on the routing structure given
 the current `Pathfinder` state.
 """
-function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
+function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
     A = getarchitecture(p)
     # Reset the runtime structures.
     soft_reset(p)
@@ -181,7 +166,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
     end
     # Iterate through the list of possible starting points for this channel and
     # add it to the priority queue.
-    for node in shuffle(first(start_vectors))
+    for node in first(start_vectors)
         push!(pq, CostVertex(node))
     end
 
@@ -203,7 +188,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
         # nodes from the data structure definition. Otherwise, use the previously
         # used nodes in "paths" as the starting points
         if nv(paths) == 0
-            startnodes = shuffle(first(start_vectors))
+            startnodes = first(start_vectors)
             for i in startnodes
                 push!(pq, CostVertex(i))
             end
@@ -310,18 +295,18 @@ function route(p::Pathfinder, rs::RoutingStruct)
     @info "Running Pathfinder Routing Algorithm"
     for i in 1:p.iteration_limit
         # Rip up all routes
-        for link in links_to_route(p, rs, i)
-            clear_route(rs, link)
+        for channel in channels_to_route(p, rs)
+            clear_route(rs, channel)
         end
 
         # Run routing
-        for link in links_to_route(p, rs, i)
-            shortest_path(p, rs, link)
+        for channel in channels_to_route(p, rs)
+            shortest_path(p, rs, channel)
         end
         update_historical_congestion(p, rs)
         num_congested_links = 0
         # Count the number of congested links.
-        for j in p.links_to_route
+        for j in p.channels_to_route
             if iscongested(rs, j)
                 num_congested_links += 1
             end
@@ -337,7 +322,7 @@ function route(p::Pathfinder, rs::RoutingStruct)
             # If congestion is extremely bad, further routings will be super
             # slow. If over 90% of the links are congested, it's very likely
             # that the placement is uunroutable. Just abort early.
-            if num_congested_links > 0.9 * length(p.links_to_route)
+            if num_congested_links > 0.9 * length(p.channels_to_route)
                 @warn "Warning. Extreme congestion detected - aborting early."
                 break
             end
@@ -375,7 +360,7 @@ function cleanup(pathfinder :: Pathfinder, routing_struct :: RoutingStruct)
     while true
         @debug "Running Cleanup"
         cost_decreased = false
-        for channel_idx in pathfinder.links_to_route
+        for channel_idx in pathfinder.channels_to_route
             # Get initial cost of the channel.
             initial_cost = routecost(pathfinder, routing_struct, channel_idx)
 

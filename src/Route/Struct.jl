@@ -1,36 +1,54 @@
 """
-    RoutingStruct(L,C}
+Central type for routing. Not meant for extending.
 
-Central type for routing.
-
-# Parameter Restrictions:
-* `L <: AbstractRoutingLink`
-* `c <: AbstractRoutingChannel`
-
-# Fields
-* `graph::RoutingGraph` - Graph encoding the architecture connectivity.
-* `links::Vector{L}` - Link annotations for each vertex in `graph`.
-* `paths::Vector{SparseDiGraph{Int}}` - Routings taken by each channel.
-* `channels::Vector{C}` - Routing taskgraph.
-
-# Constructor
-    RoutingStruct(m::Map{A,D})
-
-# See also:
+API
+---
+* [`allroutes`](@ref)
+* [`getroute`](@ref)
+* [`alllinks`](@ref)
+* [`getlink`])(@ref)
+* [`start_vertices`](@ref)
+* [`stop_vertices`](@ref)
+* [`getchannel`](@ref)
+* [`getmap`](@ref)
+* [`getgraph`](@ref)
+* [`iscongested`](@ref)
+* [`clear_route`](@ref)
+* [`setroute`](@ref)
 
 """
-struct RoutingStruct{L <: ARL, C <: ARC}
+struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
+    "Base [`RoutingGraph`](@ref) for the underlying routing architecture."
     architecture_graph      ::RoutingGraph
+
+    """
+    Annotating [`RoutingLink`](@ref) for each routing element in 
+    `architecture_graph`.
+    """
     graph_vertex_annotations::Vector{L}
+
+    """
+    Graphs of routing resources used by each channel.
+    """
     routings                ::Vector{SparseDiGraph{Int}}
+
+    """
+    `Vector{RoutingChannel}` containing the channel information for the 
+    taskgraph.
+    """
     channels                ::Vector{C}
+
+    """
+    Convenience structure mapping local channel indices back to edge indices
+    in the parent taskgraph.
+    """
     channel_index_to_taskgraph_index::Dict{Int,Int}
 end
 
-function RoutingStruct(m::Map{A,D}) where {A,D}
+function RoutingStruct(map::Map{A,D}) where {A,D}
     # Unpack some fields from the map
-    architecture = m.architecture
-    taskgraph    = m.taskgraph
+    architecture = map.architecture
+    taskgraph    = map.taskgraph
     @debug "Building Resource Graph"
 
     architecture_graph = routing_graph(architecture)
@@ -38,7 +56,7 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     # by the architecture type.
     graph_vertex_annotations = annotate(architecture, architecture_graph)
     # Get start and stop nodes for each taskgraph.
-    channels, channel_dict = build_routing_taskgraph(m, architecture_graph)
+    channels, channel_dict = build_routing_taskgraph(map, architecture_graph)
     # Initialize the paths variable.
     routings = [SparseDiGraph{Int}() for i in 1:length(channels)]
 
@@ -51,41 +69,82 @@ function RoutingStruct(m::Map{A,D}) where {A,D}
     )
 end
 
-#-- Accessors
-allroutes(r::RoutingStruct) = r.routings
-getroute(r::RoutingStruct, i::Integer) = r.routings[i]
-#setroute(r::RoutingStruct, route::SparseDiGraph, i::Integer) = r.routings[i] = route
-
-alllinks(r::RoutingStruct) = r.graph_vertex_annotations
-getlink(r::RoutingStruct, i::Integer) = r.graph_vertex_annotations[i]
-
-start_vertices(r::RoutingStruct, i::Integer) = start_vertices(r.channels[i])
-stop_vertices(r::RoutingStruct, i::Integer) = stop_vertices(r.channels[i])
-
-getchannel(r::RoutingStruct, i::Integer) = r.channels[i]
-
-getmap(r::RoutingStruct) = getmap(r.architecture_graph)
-getgraph(r::RoutingStruct) = r.architecture_graph
-
 #---------#
 # Methods #
 #---------#
-iscongested(rs::RoutingStruct) = iscongested(rs.graph_vertex_annotations)
-iscongested(rs::RoutingStruct, path::Integer) = iscongested(rs, getroute(rs, path))
+"""
+$(SIGNATURES)
 
-function iscongested(rs::RoutingStruct, path::SparseDiGraph{Int})
+Return all routings in `routing_struct`.
+"""
+allroutes(routing_struct::RoutingStruct) = routing_struct.routings
+
+"""
+$(SIGNATURES)
+
+Return route for channel `index`.
+"""
+getroute(routing_struct::RoutingStruct, index) = routing_struct.routings[index]
+
+"""
+$(SIGNATURES)
+
+Return `Vector{RoutingLink}` for all links in `routing_struct.
+"""
+alllinks(routing_struct::RoutingStruct) = routing_struct.graph_vertex_annotations
+
+"""
+$(SIGNATURES)
+
+Return `<:RoutingLink` for link in `routing_struct` with indes `i`.
+"""
+getlink(routing_struct::RoutingStruct, i::Integer) = routing_struct.graph_vertex_annotations[i]
+
+
+"""
+$(SIGNATURES)
+
+Return `Vector{PortVertices}` of start vertices for channel index `i`.
+"""
+start_vertices(routing_struct::RoutingStruct, i::ChannelIndex) = 
+    start_vertices(routing_struct.channels[i])
+
+"""
+$(SIGNATURES)
+
+Return `Vector{PortVertices}` of stop vertices for channel index `i`.
+"""
+stop_vertices(routing_struct::RoutingStruct, i::ChannelIndex) = 
+    stop_vertices(routing_struct.channels[i])
+
+"""
+$(SIGNATURES)
+
+Return `<:RoutingChannel` with indesx `i`.
+"""
+getchannel(routing_struct::RoutingStruct, i::ChannelIndex) = routing_struct.channels[i]
+
+getmap(routing_struct::RoutingStruct) = getmap(routing_struct.architecture_graph)
+getgraph(routing_struct::RoutingStruct) = routing_struct.architecture_graph
+
+iscongested(routing_struct::RoutingStruct) = 
+    iscongested(routing_struct.graph_vertex_annotations)
+iscongested(routing_struct::RoutingStruct, path) = 
+    iscongested(routing_struct, getroute(routing_struct, path))
+
+function iscongested(routing_struct::RoutingStruct, path::SparseDiGraph{Int})
     for i in vertices(path)
-        iscongested(getlink(rs, i)) && return true
+        iscongested(getlink(routing_struct, i)) && return true
     end
     return false
 end
 
 """
-    clear_route(rs::RoutingStruct, index::Integer)
+    clear_route(rs::RoutingStruct, channel::ChannelIndex)
 
 Rip up the current routing for the given link.
 """
-function clear_route(rs::RoutingStruct, channel::Integer)
+function clear_route(rs::RoutingStruct, channel::ChannelIndex)
     #=
     1. Get the path for the link.
     2. Step through each architecture link on that path, remove the link index
@@ -101,7 +160,7 @@ function clear_route(rs::RoutingStruct, channel::Integer)
     return nothing
 end
 
-function setroute(rs::RoutingStruct, route::SparseDiGraph, channel::Integer)
+function setroute(rs::RoutingStruct, route::SparseDiGraph, channel::ChannelIndex)
     # This should always be the case - this assertion is to catch bugs.
     @assert nv(getroute(rs, channel)) == 0
     for i in vertices(route)
@@ -197,7 +256,7 @@ function collect_nodes(
         dir
     ) where {A,D}
 
-    nodes = Vector{Int64}[]
+    nodes = Vector{PortVertices}()
     # Iterate through the source paths - get the port names.
     for path in paths
         # Get the component from the architecture
@@ -212,7 +271,7 @@ function collect_nodes(
         # 2. Use these full paths to index into the portmap dictionary to
         #    get the numbers in the routing graph.
         port_paths = [catpath(path, Path{Port}(port)) for port in ports]
-        port_indices = [pathmap[pp] for pp in port_paths]
+        port_indices = PortVertices([pathmap[pp] for pp in port_paths])
 
         # Add this to the collection of nodes
         push!(nodes, port_indices)
