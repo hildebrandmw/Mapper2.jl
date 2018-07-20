@@ -1,7 +1,5 @@
 module MapperCore
 
-const is07 = VERSION > v"0.7.0-"
-
 using ..Mapper2.Helper
 Helper.@SetupDocStringTemplates
 
@@ -9,11 +7,9 @@ using ..Mapper2.MapperGraphs
 
 using IterTools
 using DataStructures
-using Compat
 
-
-is07 ? (using Logging) : (using MicroLogging)
-is07 && (using Serialization)
+using Logging
+using Serialization
 
 include("Taskgraphs.jl")
 

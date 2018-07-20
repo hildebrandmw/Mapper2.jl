@@ -206,7 +206,7 @@ function build_address_data(
     ) where {A,D}
 
     comp(a) = [build_address_data(A, arch[path]) for path in pathtable[a]]
-    @compat address_data = Dict(
+    address_data = Dict(
         a => comp(a) 
         for a in CartesianIndices(pathtable)
         if length(pathtable[a]) > 0
@@ -358,7 +358,7 @@ function preplace(m::Map, sa::SAStruct)
     offset = getoffset(m.architecture)
     for (taskname, path) in m.mapping.nodes
         address = getaddress(m.architecture, path) + offset
-        component = Compat.findfirst(x -> x == path, sa.pathtable[address])
+        component = findfirst(isequal(path), sa.pathtable[address])
         # Get the index to assign
         index = sa.tasktable[taskname]
         # Assign the nodes
@@ -488,7 +488,7 @@ function task_equivalence_classes(
         if isspecial(A, node)
             # Set this to the index of an existing node if it exists. Otherwise,
             # add this node as a representative and give it the next index.
-            i = Compat.findfirst(x -> isequivalent(A, x, node), special_reps)
+            i = findfirst(x -> isequivalent(A, x, node), special_reps)
             if i == nothing
                 push!(special_reps, node)
                 i = length(special_reps)
@@ -497,7 +497,7 @@ function task_equivalence_classes(
             classes[index] = -i
         else
             # Same as with the special nodes.
-            i = Compat.findfirst(x -> isequivalent(A, x, node), normal_reps)
+            i = findfirst(x -> isequivalent(A, x, node), normal_reps)
             if i == nothing
                 push!(normal_reps, node)
                 i = length(normal_reps)
@@ -519,7 +519,7 @@ function task_equivalence_classes(
         """
     end
 
-    return @NT(
+    return (
         classes = classes, 
         normal_reps = normal_reps,
         special_reps = special_reps,

@@ -269,7 +269,7 @@ function place!(
     num_channels = length(sa_struct.channels)
 
     # Get the largest address
-    @compat max_addresses = last((CartesianIndices(sa_struct.pathtable))).I
+    max_addresses = size(sa_struct.pathtable)
     largest_address = maximum(max_addresses)
 
     initial_move_limit = distancelimit(movegen, sa_struct)

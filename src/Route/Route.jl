@@ -4,17 +4,14 @@ Root file for the routing related files.
 
 module Routing
 
-const is07 = VERSION > v"0.7.0-"
-
 using ..Mapper2.Helper
 using ..Mapper2.MapperCore
 using ..Mapper2.MapperGraphs
 
 using DataStructures
-using Compat
 
-is07 ? (using Logging) : (using MicroLogging)
-is07 && (using Random)
+using Logging
+using Random
 
 export  route,
         RoutingStruct,

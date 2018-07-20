@@ -101,13 +101,13 @@ function add_link(
     check_directions(c, sources, sinks)
 
     # check if port is available for a new link
-    for port in chain(sources, sinks)
+    for port in Iterators.flatten((sources, sinks))
         if !isfree(c, port)
             safe ? (return false) : error("$port already has a connection.")
         end
     end
     # Check if we're trying to connect ports beyond just immedate hierarchy.
-    for port in chain(sources, sinks)
+    for port in Iterators.flatten((sources, sinks))
         if length(port) == 0 || length(port) > 2
             error("""
                 Links must connect ports defined within a component or to IO
@@ -137,7 +137,7 @@ function add_link(
     # Create a key for this link and add it to the component.
     c.links[linkname] = newlink
     # Assign the link to all top level ports.
-    for port in chain(sources, sinks)
+    for port in Iterators.flatten((sources, sinks))
         # Register the link in the portlink dictionary
         c.portlink[port] = newlink
     end

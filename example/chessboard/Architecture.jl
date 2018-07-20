@@ -146,7 +146,7 @@ function build_tile(color :: SquareColor, style :: ArchitectureStyle)
 end
 
 function architecture(
-        tiles,
+        tiles_per_side,
         style :: ArchitectureStyle,
         color_rule :: ArchitectureColor,
     )
@@ -157,7 +157,7 @@ function architecture(
     arch = TopLevel{Chess, N}("architecture")
 
     # Instantiate squares
-    for address in CartesianRange(one(Address{N}), tiles * one(Address{N}))
+    for address in CartesianIndices(Tuple(tiles_per_side for _ in 1:N))
         color = pick(color_rule, address)
         add_child(arch, build_tile(color, style), address)
     end

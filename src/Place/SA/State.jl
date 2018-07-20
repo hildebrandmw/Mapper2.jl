@@ -195,7 +195,7 @@ function show_stats(state::SAState, first = false)
         # Iterate through each field in order
         for f in fields
             # Replace the under scores in the field name with a space.
-            @compat string_f = replace(string(f), "_" => " ")
+            string_f = replace(string(f), "_" => " ")
             # Get the length of the string and add in the spacing between
             # strings
             padded_length = length(string_f) + spacing
@@ -203,7 +203,7 @@ function show_stats(state::SAState, first = false)
             # word of each sentence.
             string_to_print = titlecase(lpad(string_f, padded_length))
             # Print to console
-            @compat printstyled(string_to_print, bold = true, color = :light_green)
+            printstyled(string_to_print, bold = true, color = :light_green)
             # Record the number of characters written.
             total_length += padded_length
         end

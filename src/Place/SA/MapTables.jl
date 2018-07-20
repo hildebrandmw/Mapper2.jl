@@ -213,7 +213,7 @@ function MapTable(
     # C can be mapped to.
     special = map(equivalence_classes.special_reps) do node
         locations_for_node = Location{D}[]
-        @compat for address in CartesianIndices(pathtable)
+        for address in CartesianIndices(pathtable)
             for (index, path) in enumerate(pathtable[address])
                 if canmap(A, node, toplevel[path])
                     push!(locations_for_node, Location(address, index))
@@ -251,8 +251,7 @@ function getlocations(maptable::MapTable{D,T,U}, class::Int) where {D,T,U}
         locations = U[]
         table = maptable.normal[class]
 
-        # Use @compat for this to get the "CartesianIndices" iterator.
-        @compat for address in CartesianIndices(table)
+        for address in CartesianIndices(table)
             append!(locations, getlocations(maptable, class, address))
         end
         return locations

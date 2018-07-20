@@ -22,7 +22,7 @@
     # Get the first index with a primitive vector greater than zero
     i = findfirst(x -> length(x) > 0, address_array)
     # Convert this into a cartesian index
-    addr = CartesianIndex(ind2sub(address_array, i))
+    addr = CartesianIndices(address_array)[i]
     # Get the primitive.
     c = first(address_array[i])
 

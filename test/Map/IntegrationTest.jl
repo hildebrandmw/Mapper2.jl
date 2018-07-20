@@ -1,6 +1,4 @@
 @testset "Testing Example 1" begin
-    using Example1
-
     local m
     makemap     = true 
     placement   = true
@@ -9,8 +7,8 @@
     m = Example1.make_map()
 
     # Try placement - use the Search Move Generator to give it a go.
-    m = Example1.place(
-        m, 
+    Example1.place!(
+        m;
         move_attempts = 5000, 
         movegen = SA.SearchMoveGenerator{2}()
     )
@@ -33,13 +31,11 @@
 end
 
 @testset "Testing Example 2" begin
-    using Example2
-
     # Try making a map
     m = Example2.make_map()
 
     # Try placement
-    m = Example2.place(m)
+    m = Example2.place!(m)
 
     # Try routing
     m = Example2.route(m)

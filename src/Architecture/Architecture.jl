@@ -343,7 +343,7 @@ function walk_children(c::AbstractComponent)
     components = [Path{Component}()]
     queue = [Path{Component}(id) for id in keys(c.children)]
     while !isempty(queue)
-        @compat path = popfirst!(queue)
+        path = popfirst!(queue)
         push!(components, path)
         # Need to push child the child name to the component path to get the
         # component path relative to c.

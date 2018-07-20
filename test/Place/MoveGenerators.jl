@@ -168,7 +168,7 @@ end
     addrs = reshape([CI(i,j) for (i,j) in product(1:board_dims, 1:board_dims)], :)
     testlut(sa_struct, move_generator, idx, addrs, euclidean)
 
-    SA.place(sa_struct, move_attempts = 20)
+    SA.place!(sa_struct, move_attempts = 20)
     @test SA.verify_placement(m, sa_struct)
 
 end

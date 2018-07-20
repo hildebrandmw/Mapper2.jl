@@ -62,7 +62,7 @@ end
 Push value `v` to the vector found in dictionary `d` at `d[k]`. If `d[k]`
 does not exist, create a new vector by `d[k] = [v]`.
 """
-function push_to_dict(d::Associative{K,V}, k, v) where {K,V}
+function push_to_dict(d::AbstractDict{K,V}, k, v) where {K,V}
     haskey(d, k) ? push!(d[k], v) : d[k] = V([v])
     return nothing
 end

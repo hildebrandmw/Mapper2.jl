@@ -144,6 +144,8 @@ function neighbor_dict(toplevel::TopLevel{A,D}) where {A,D}
     # start at 1.
     #
     # Get this offset amount and apply it to the array.
+    #
+    # Wrap the offset in a Ref to ensure the broadcast treats it as a scalar.
     offset = getoffset(toplevel)
-    return Dict(a + offset => collect(s) .+ offset for (a,s) in cc)
+    return Dict(a + offset => collect(s) .+ Ref(offset) for (a,s) in cc)
 end

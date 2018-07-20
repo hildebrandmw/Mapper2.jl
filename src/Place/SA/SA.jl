@@ -1,6 +1,6 @@
 module SA
 
-const is07 = VERSION > v"0.7.0-"
+using Random
 
 using ..Mapper2.Helper
 Helper.@SetupDocStringTemplates
@@ -10,14 +10,12 @@ using ..Mapper2.MapperGraphs
 
 using DataStructures
 using Formatting
-using Compat
-using NamedTuples
 
 import Base: getindex
 import Base: @propagate_inbounds
 import ..Mapper2.MapperCore: getaddress
 
-is07 ? (using Logging) : (using MicroLogging)
+using Logging
 
 export  SAStruct, getdistance
 

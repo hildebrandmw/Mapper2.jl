@@ -37,7 +37,7 @@ include("Taskgraph.jl")
 include("Architecture.jl")
 
 # Extend "ismappable" 
-Mapper2.ismappable(::Type{Chess}, x) = haskey(x.metadata, "color")
+Mapper2.ismappable(::Type{Chess}, x::Component) = haskey(x.metadata, "color")
 
 # Two tasks are equivalent if they have the same color.
 function Mapper2.isequivalent(::Type{Chess}, a::TaskgraphNode, b::TaskgraphNode) 

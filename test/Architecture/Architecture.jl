@@ -3,35 +3,35 @@
     # Path Constructors
     let
         # Empty constructors
-        ref = Path{Void}(String[])
-        @test ref == Path{Void}()
-        @test ref == Path{Void}("")
+        ref = Path{Nothing}(String[])
+        @test ref == Path{Nothing}()
+        @test ref == Path{Nothing}("")
 
         # Various constructors.
-        ref = Path{Void}(["a", "b", "c"])
-        @test ref == Path{Void}("a.b.c")
-        @test ref == Path{Void}("a", "b", "c")
+        ref = Path{Nothing}(["a", "b", "c"])
+        @test ref == Path{Nothing}("a.b.c")
+        @test ref == Path{Nothing}("a", "b", "c")
         # Test fallback inequality
-        @test Path{Void}("a.b.c") != Path{Int}("a.b.c")
+        @test Path{Nothing}("a.b.c") != Path{Int}("a.b.c")
 
-        @test first(Path{Void}("a.b.c")) == "a"
-        @test first(Path{Void}("a")) == "a"
-        @test last(Path{Void}("a.b.c")) == "c"
-        @test last(Path{Void}("c")) == "c"
+        @test first(Path{Nothing}("a.b.c")) == "a"
+        @test first(Path{Nothing}("a")) == "a"
+        @test last(Path{Nothing}("a.b.c")) == "c"
+        @test last(Path{Nothing}("c")) == "c"
     end
     # Length tests
     let
-        @test length(Path{Void}("a.b.c")) == 3
-        @test length(Path{Void}("a.b")) == 2
-        @test length(Path{Void}("a")) == 1
-        @test length(Path{Void}()) == 0
+        @test length(Path{Nothing}("a.b.c")) == 3
+        @test length(Path{Nothing}("a.b")) == 2
+        @test length(Path{Nothing}("a")) == 1
+        @test length(Path{Nothing}()) == 0
     end
     # Test dictionaries
     let
         paths = [
-            Path{Void}("a.b.c"),
+            Path{Nothing}("a.b.c"),
             Path{Int}("a.b.c"),
-            Path{Void}("r"),
+            Path{Nothing}("r"),
         ]
 
         d = Dict(paths[i] => i for i in 1:length(paths))
@@ -63,8 +63,7 @@ end
 
 
 @testset "Testing Architecture Modeling" begin
-    using Example1
-
+    # Use Example1 for this testing.
     # Test General primitive
     let
         p = build_general_primitive()

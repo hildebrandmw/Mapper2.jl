@@ -177,7 +177,7 @@ Look-up table for moves for a single node class starting at some base address.
 The main invariant of this a MoveLUT ``L`` is with base address ``\\alpha`` is
 
 ```math
-\\text{distance}\\left( L_\\text{targets}[i] - \\alpha \\right) \\leq \\delta \
+\\text{distance}\\left( L_\\text{targets}[i] - \\alpha \\right) \\leq \\delta
     \\, \\forall i \\in 1 \\ldots L_\\text{idx}
 ```
 
