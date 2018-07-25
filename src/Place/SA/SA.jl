@@ -17,7 +17,7 @@ import ..Mapper2.MapperCore: getaddress
 
 using Logging
 
-export  SAStruct, getdistance
+export  SAStruct, getdistance, warmup
 
 """
     place!(map::Map; kwargs...) :: SAState
@@ -107,6 +107,17 @@ function place!(m::Map{<:Architecture}; seed = rand(UInt64), kwargs...)
     m.metadata["placement_objective"]       = map_cost(sastruct)
 
     return m
+end
+
+function warmup(m::Map; kwargs...)
+    # Strip "move_attempts" from the kwargs and set it so a low value
+    stripped_kwargs = [k => kwargs[k] for k in keys(kwargs) if k != :move_attempts]
+    push!(stripped_kwargs, :move_attempts => 5000)
+
+    # Run placement.
+    sa_struct = SAStruct(m; stripped_kwargs...)
+    place!(sa_struct; stripped_kwargs...)
+    return nothing
 end
 
 include("MapTables.jl")

@@ -129,6 +129,7 @@ getgraph(routing_struct::RoutingStruct) = routing_struct.architecture_graph
 
 iscongested(routing_struct::RoutingStruct) = 
     iscongested(routing_struct.graph_vertex_annotations)
+
 iscongested(routing_struct::RoutingStruct, path) = 
     iscongested(routing_struct, getroute(routing_struct, path))
 
@@ -231,8 +232,10 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Archite
         # Unpack the edge
         edge = edges[index]
         # Get source and destination nodes paths
-        sources = MapperCore.getpath.(m, getsources(edge))
-        sinks   = MapperCore.getpath.(m, getsinks(edge))
+        #
+        # Wrap map in "Ref" to get scalar broadcasting behavior.
+        sources = MapperCore.getpath.(Ref(m), getsources(edge))
+        sinks   = MapperCore.getpath.(Ref(m), getsinks(edge))
         # Convert these to indices in the routing graph
         start = collect_nodes(arch, r.map, edge, sources, :source)
         stop  = collect_nodes(arch, r.map, edge, sinks, :sink)

@@ -85,12 +85,12 @@ function route(m::Map{A,D}) where {A,D}
     routing_error = false
     local route_time
     local route_bytes
-    # try
+    try
         _, route_time, route_bytes, _, _ = @timed route(algorithm, routing_struct)
-    # catch err
-    #     @error err
-    #     routing_error = true
-    # end
+    catch err
+        @error err
+        routing_error = true
+    end
 
     # Record the final results.
     record(m, routing_struct)

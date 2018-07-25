@@ -134,7 +134,7 @@ end
 function record!(new_dict::Dict, old_dict::Dict, offset::Integer, extension)
     for (path,index) in old_dict
         # Update path
-        new_path  = catpath(extension, path)
+        new_path = catpath(extension, path)
         # Update index
         new_index = index + offset
         # Record the new item.
