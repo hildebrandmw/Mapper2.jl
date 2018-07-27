@@ -1,1 +1,5 @@
-# Routing!!
+# Routing
+
+```@docs
+Routing.route!
+```

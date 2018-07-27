@@ -1,7 +1,6 @@
 module MapperGraphs
 
-using Reexport
-@reexport using LightGraphs
+using LightGraphs
 
 # Additions to the light graphs API
 export  SparseDiGraph,
@@ -9,6 +8,33 @@ export  SparseDiGraph,
         sink_vertices,
         linearize,
         make_lightgraph
+
+
+# Manually export the needed items from LightGraphs instead of 
+# Reexporting to:
+# 1. Not pollute the namespace with random unused names
+# 2. Avoid Documentor looking at all the docstrings in LightGraphs and
+# throwing a million "missing docstring" errors.
+
+        # Graph types
+export  AbstractGraph,
+        SimpleDiGraph,
+        DiGraph,
+        # Mutating methods
+        add_edge!,
+        add_vertex!,
+        add_vertices!,
+        # Iterating methods
+        edges,
+        vertices,
+        # Query Methods
+        nv, ne,
+        outneighbors, inneighbors,
+        has_edge, has_vertex,
+        src, dst,
+        # Analysis
+        is_weakly_connected,
+        has_path
 
 ################################################################################
 # Subgraph for for lightgraphs

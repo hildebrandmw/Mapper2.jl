@@ -77,7 +77,7 @@ Return `Vector{PortPath}` of the ports of `a` and the ports of the children of `
 # Connectedness methods.
 ################################################################################
 
-function connectedlink(t::TopLevel, portpath::Path{Port}, dir::Symbol)
+function connectedlink(t::TopLevel, portpath::Path{Port}, dir)
     # Extract the port type of the top level definition.
     port = t[portpath] 
 
@@ -126,7 +126,7 @@ end
 
 function isconnected(t::TopLevel, portpath::Path{Port}, linkpath::Path{Link})
     # Get the output link connected to the port
-    actuallink = connectedlink(t, portpath, :output)
+    actuallink = connectedlink(t, portpath, Output)
     if linkpath != actuallink
         @error """
             $portpath is not connected to $linkpath.
@@ -148,7 +148,7 @@ end
 
 function isconnected(t::TopLevel, linkpath::Path{Link}, portpath::Path{Port})
     # Get the output link connected to the port
-    actuallink = connectedlink(t, portpath, :input)
+    actuallink = connectedlink(t, portpath, Input)
     if linkpath != actuallink
         @error """
             $portpath is not connected to $linkpath.
@@ -170,7 +170,7 @@ end
 
 function isconnected(t::TopLevel, portpath::Path{Port}, cpath::Path{Component})
     component = t[cpath]
-    cports = portnames(component, (:input,)) 
+    cports = portnames(component, (Input,)) 
     cportpaths = [catpath(cpath, Path{Port}(c)) for c in cports]
     if portpath ∉ cportpaths
         @error "$portpath is not an input of $cpath."
@@ -181,7 +181,7 @@ end
 
 function isconnected(t::TopLevel, cpath::Path{Component}, portpath::Path{Port})
     component = t[cpath]
-    cports = portnames(component, (:output,))
+    cports = portnames(component, (Output,))
     cportpaths = [catpath(cpath, Path{Port}(c)) for c in cports]
     if portpath ∉ cportpaths
         @error "$portpath is not an input of $cpath."

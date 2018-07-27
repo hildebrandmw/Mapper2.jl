@@ -6,7 +6,7 @@ API
 * [`allroutes`](@ref)
 * [`getroute`](@ref)
 * [`alllinks`](@ref)
-* [`getlink`])(@ref)
+* [`getlink`](@ref)
 * [`start_vertices`](@ref)
 * [`stop_vertices`](@ref)
 * [`getchannel`](@ref)
@@ -15,14 +15,13 @@ API
 * [`iscongested`](@ref)
 * [`clear_route`](@ref)
 * [`setroute`](@ref)
-
 """
 struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
     "Base [`RoutingGraph`](@ref) for the underlying routing architecture."
     architecture_graph      ::RoutingGraph
 
     """
-    Annotating [`RoutingLink`](@ref) for each routing element in 
+    Annotating [`RoutingLink`](@ref) for each routing element in
     `architecture_graph`.
     """
     graph_vertex_annotations::Vector{L}
@@ -33,7 +32,7 @@ struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
     routings                ::Vector{SparseDiGraph{Int}}
 
     """
-    `Vector{RoutingChannel}` containing the channel information for the 
+    `Vector{RoutingChannel}` containing the channel information for the
     taskgraph.
     """
     channels                ::Vector{C}
@@ -105,16 +104,24 @@ getlink(routing_struct::RoutingStruct, i::Integer) = routing_struct.graph_vertex
 $(SIGNATURES)
 
 Return `Vector{PortVertices}` of start vertices for channel index `i`.
+
+    start_vertices(channel::RoutingChannel) :: Vector{PortVertices}
+
+Return [`Vector{PortVertices}`](@ref PortVertices) of start vertices for `channel`.
 """
-start_vertices(routing_struct::RoutingStruct, i::ChannelIndex) = 
+start_vertices(routing_struct::RoutingStruct, i::ChannelIndex) =
     start_vertices(routing_struct.channels[i])
 
 """
 $(SIGNATURES)
 
 Return `Vector{PortVertices}` of stop vertices for channel index `i`.
+
+    stop_vertices(channel::RoutingChannel) :: Vector{PortVertices}
+
+Return [`Vector{PortVertices}`](@ref PortVertices) of stop vertices for `channel`.
 """
-stop_vertices(routing_struct::RoutingStruct, i::ChannelIndex) = 
+stop_vertices(routing_struct::RoutingStruct, i::ChannelIndex) =
     stop_vertices(routing_struct.channels[i])
 
 """
@@ -125,16 +132,34 @@ Return `<:RoutingChannel` with indesx `i`.
 getchannel(routing_struct::RoutingStruct, i::ChannelIndex) = routing_struct.channels[i]
 
 getmap(routing_struct::RoutingStruct) = getmap(routing_struct.architecture_graph)
+
+"""
+$(SIGNATURES)
+
+Return the [`RoutingGraph`](@ref) member of `routing_struct`.
+"""
 getgraph(routing_struct::RoutingStruct) = routing_struct.architecture_graph
 
-iscongested(routing_struct::RoutingStruct) = 
+
+"""
+    iscongested(routing_struct, [path])
+
+Return `true` if routing congestion exists in `routing_struct`. If path is given
+either as a [`ChannelIndex`](@ref) or `SparseDiGraph`, return `true` if just
+the specified path is congested.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+iscongested(routing_struct::RoutingStruct) =
     iscongested(routing_struct.graph_vertex_annotations)
 
-iscongested(routing_struct::RoutingStruct, path) = 
+iscongested(routing_struct::RoutingStruct, path) =
     iscongested(routing_struct, getroute(routing_struct, path))
 
-function iscongested(routing_struct::RoutingStruct, path::SparseDiGraph{Int})
-    for i in vertices(path)
+function iscongested(routing_struct::RoutingStruct, graph::SparseDiGraph{Int})
+    for i in vertices(graph)
         iscongested(getlink(routing_struct, i)) && return true
     end
     return false
@@ -161,13 +186,22 @@ function clear_route(rs::RoutingStruct, channel::ChannelIndex)
     return nothing
 end
 
-function setroute(rs::RoutingStruct, route::SparseDiGraph, channel::ChannelIndex)
+"""
+$(SIGNATURES)
+
+Assign `route` to `channel`.
+"""
+function setroute(
+        routing_struct::RoutingStruct,
+        route::SparseDiGraph,
+        channel::ChannelIndex
+    )
     # This should always be the case - this assertion is to catch bugs.
-    @assert nv(getroute(rs, channel)) == 0
+    @assert nv(getroute(routing_struct, channel)) == 0
     for i in vertices(route)
-        addchannel(getlink(rs, i), channel)
+        addchannel(getlink(routing_struct, i), channel)
     end
-    rs.routings[channel] = route
+    routing_struct.routings[channel] = route
 end
 
 function record(m::Map, r::RoutingStruct)
@@ -237,8 +271,8 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Archite
         sources = MapperCore.getpath.(Ref(m), getsources(edge))
         sinks   = MapperCore.getpath.(Ref(m), getsinks(edge))
         # Convert these to indices in the routing graph
-        start = collect_nodes(arch, r.map, edge, sources, :source)
-        stop  = collect_nodes(arch, r.map, edge, sinks, :sink)
+        start = collect_nodes(arch, r.map, edge, sources, MapperCore.Source)
+        stop  = collect_nodes(arch, r.map, edge, sinks, MapperCore.Sink)
         # Build the routing channel type
         return routing_channel(A, start, stop, edge)
     end
@@ -252,12 +286,12 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Archite
 end
 
 function collect_nodes(
-        arch::TopLevel{A,D},
+        arch::TopLevel{A},
         pathmap,
         edge::TaskgraphEdge,
         paths,
         dir
-    ) where {A,D}
+    ) where {A}
 
     nodes = Vector{PortVertices}()
     # Iterate through the source paths - get the port names.
@@ -283,20 +317,15 @@ function collect_nodes(
 end
 
 """
-    get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir::Symbol)
+    get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir::Direction)
 
 Return an array of the names of the ports of `c` that can serve as the correct
 function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
-
-- `:source` - indicates a source port for directed communication.
-- `:sink` - indicates a sink port for direction communication.
 """
 function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: Architecture
-    if dir == :source
+    if dir == MapperCore.Source
         return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_source_port(A,v,e)]
-    elseif dir == :sink
+    elseif dir == MapperCore.Sink
         return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_sink_port(A,v,e)]
-    else
-        throw(KeyError("Symbol: $dir not recognized"))
     end
 end

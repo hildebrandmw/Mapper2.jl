@@ -7,14 +7,14 @@
     m = Example1.make_map()
 
     # Try placement - use the Search Move Generator to give it a go.
-    Example1.place!(
+    place!(
         m;
         move_attempts = 5000, 
         movegen = SA.SearchMoveGenerator{2}()
     )
 
     # Try routing
-    m = Example1.route(m)
+    route!(m)
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)
@@ -35,10 +35,10 @@ end
     m = Example2.make_map()
 
     # Try placement
-    m = Example2.place!(m)
+    place!(m)
 
     # Try routing
-    m = Example2.route(m)
+    route!(m)
 
     # Get statistics from the map
     MapperCore.report_routing_stats(m)

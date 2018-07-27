@@ -1,5 +1,9 @@
 # Collection of basic types to use during routing for clarity.
 
+"""
+Type to access channels in the routing taskgraph. Essentially, it is just a 
+wrapper for an integer, but typed to allow safer and clearer usage.
+"""
 struct ChannelIndex
     idx :: Int 
 end
@@ -7,7 +11,10 @@ end
 Base.getindex(A::AbstractArray, i::ChannelIndex) = getindex(A, i.idx)
 Base.setindex!(A::AbstractArray, X, i::ChannelIndex) = setindex!(A, X, i.idx)
 
-# Simple type for clarity sake.
+"""
+Indices of a [`RoutingGraph`](@ref) that can serve as either start or stop
+vertices (depending on the context) of one branch of a [`RoutingChannel`](@ref).
+"""
 struct PortVertices
     indices :: Vector{Int64}
 end

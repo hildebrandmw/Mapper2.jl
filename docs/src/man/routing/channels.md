@@ -7,8 +7,6 @@ Routing.RoutingChannel
 ## API
 
 ```@docs
-Routing.start_vertices
-Routing.stop_vertices
 Routing.isless(::Routing.RoutingChannel, ::Routing.RoutingChannel)
 ```
 
@@ -16,4 +14,11 @@ Routing.isless(::Routing.RoutingChannel, ::Routing.RoutingChannel)
 
 ```@docs
 Routing.BasicChannel
+```
+
+## Helpful Types
+
+```@docs
+Routing.ChannelIndex
+Routing.PortVertices
 ```

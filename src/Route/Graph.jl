@@ -9,7 +9,7 @@ struct RoutingGraph
     Adjacency information of routing resources, encode as a 
     `LightGraphs.SimpleDiGraph`.
     """
-    graph   ::SimpleDiGraph{Int64}
+    graph :: SimpleDiGraph{Int64}
 
     """
     Translation information mapping elements on the parent `TopLevel` to indices
@@ -18,7 +18,7 @@ struct RoutingGraph
     Implemented as a `Dict{Path{<:Union{Port,Link,Component}}, Int64}` where the
     values in the dict are the vertex index in `graph` of the key.
     """
-    map     ::Dict{PPLC, Int64}
+    map :: Dict{PPLC, Int64}
 
     function RoutingGraph(graph::AbstractGraph, map::Dict{P,Int64}) where {P <: Path}
 
@@ -36,6 +36,10 @@ end
 
 """
 Return the `map` of a [`RoutingGraph`](@ref)
+
+Method List
+-----------
+$(METHODLIST)
 """
 getmap(graph::RoutingGraph) = graph.map
 
@@ -60,13 +64,11 @@ function translate_routes(r::RoutingGraph, graphs::Vector{<:SparseDiGraph})
     return routes
 end
 
-"""
-    build_routing_mux(c::Component)
 
-Return a RoutingGraph for a mux component. Consists of all ports and a single
-node inside. Path for the inside nodes points to the component `c` in the
-original architecture.
-"""
+# Make a vertex for each port and a single vertex in the middle.
+# Connect all inputs with an edge input -> middle
+#
+# Connect all outputs with an edge middle -> output
 function build_routing_mux(c::Component)
     # Assert that this component has not children or intra-component routing
     assert_no_children(c)
@@ -81,9 +83,9 @@ function build_routing_mux(c::Component)
         node_index = i+1
         m[Path{Port}(p)] = node_index
 
-        if v.class == :output
+        if v.class == Output
             add_edge!(g, 1, node_index)
-        elseif v.class == :input
+        elseif v.class == Input
             add_edge!(g, node_index, 1)
         else
             throw(KeyError(v.class))
@@ -93,13 +95,7 @@ function build_routing_mux(c::Component)
     return RoutingGraph(g,m)
 end
 
-"""
-    build_routing_blackbox(c::Component)
-
-Return a RoutingGraph for a blackbox component. Consists of one node for
-each top level port of the component and no edges. No vertices are created
-for non-top level ports.
-"""
+# Create a graph with vertices for each port and no edges.
 function build_routing_blackbox(c::Component)
     # Get all of the ports for this component. 
     ports = keys(c.ports)
@@ -153,7 +149,7 @@ function add_subgraphs!(top::RoutingGraph, prefixes, subgraphs::Vector{<:Routing
         # Create dictionary records for each of the new nodes.
         record!(top.map, subgraph.map, offset, prefix)
         # Record all the edges from the subgraph - account for offset.
-        for edge in LightGraphs.edges(subgraph.graph)
+        for edge in edges(subgraph.graph)
             add_edge!(top.graph, src(edge) + offset, dst(edge) + offset)
         end
     end

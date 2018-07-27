@@ -179,6 +179,8 @@ export  # Types
         Port,
         Link,
         # Port Methods
+        Input,
+        Output,
         invert,
         # Link Methods
         isaddresslink,

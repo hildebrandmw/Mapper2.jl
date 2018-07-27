@@ -32,8 +32,8 @@ function build_mappable()
     component = Component("simple", metadata = Dict("mappable" => true))
 
     # Now all we need to do is add an input and output port.
-    add_port(component, "in", "input")
-    add_port(component, "out", "output")
+    add_port(component, "in", Input)
+    add_port(component, "out", Output)
 
     # And we're done, a simple component is build with just a single input and
     # output port.
@@ -59,8 +59,8 @@ function build_tile()
 
     # Declare the 4 input and 4 output ports
     for direction in ("north", "east", "south", "west")
-        add_port(tile, "$(direction)_in", "input")
-        add_port(tile, "$(direction)_out", "output")
+        add_port(tile, "$(direction)_in", Input)
+        add_port(tile, "$(direction)_out", Output)
     end
 
     # Instantiate the mappable primitive and add it as a subcomponent of the tile.

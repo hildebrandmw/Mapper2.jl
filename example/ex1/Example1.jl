@@ -18,11 +18,7 @@ export  build_input_primitive,
         make_edges,
         # Map
         make_map,
-        make_fanout,
-        # Placement
-        place,
-        # Routing
-        route
+        make_fanout
 
 # Extensions of the base Mapper types
 struct TestArchitecture <: Architecture end

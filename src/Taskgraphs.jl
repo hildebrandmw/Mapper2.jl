@@ -1,4 +1,3 @@
-
 """
 Simple container representing a task in a taskgraph.
 """
@@ -28,11 +27,19 @@ struct TaskgraphEdge
     end
 end
 
-"Return the names of sources of a `TaskgraphEdge`."
-getsources(t::TaskgraphEdge) = t.sources
+"""
+$(SIGNATURES)
 
-"Return the names of sinks of a `TaskgraphEdge`."
-getsinks(t::TaskgraphEdge)   = t.sinks
+Return the names of sources of a `TaskgraphEdge`.
+"""
+getsources(taskgraph_edge::TaskgraphEdge) = taskgraph_edge.sources
+
+"""
+$(SIGNATURES)
+
+Return the names of sinks of a `TaskgraphEdge`.
+"""
+getsinks(taskgraph_edge::TaskgraphEdge) = taskgraph_edge.sinks
 
 """
 Data structure encoding tasks and their relationships.
@@ -41,23 +48,23 @@ struct Taskgraph
     "The name of the taskgraph"
     name :: String
 
-    "Nodes in the taskgraph. Type: `Dict{String, TaskgraphNode}`"
-    nodes           ::Dict{String, TaskgraphNode}
+    "Nodes in the taskgraph. Type: [`Dict{String, TaskgraphNode}`](@ref TaskgraphNode)"
+    nodes :: Dict{String, TaskgraphNode}
 
-    "Edges in the taskgraph. Type: `Vector{TaskgraphEdge}`"
-    edges           ::Vector{TaskgraphEdge}
+    "Edges in the taskgraph. Type: [`Vector{TaskgraphEdge}`](@ref TaskgraphEdge)"
+    edges :: Vector{TaskgraphEdge}
 
     """
     Outgoing adjacency list mapping node names to edge indices. 
     Type: `Dict{String, Vector{Int64}}`
     """
-    node_edges_out  ::Dict{String, Vector{Int}}
+    node_edges_out :: Dict{String, Vector{Int}}
 
     """
     Incoming adjacency list mapping node names to edge indices. 
     Type: `Dict{String, Vector{Int64}}`
     """
-    node_edges_in   ::Dict{String, Vector{Int}}
+    node_edges_in :: Dict{String, Vector{Int}}
 
     function Taskgraph(name = "noname")
         new(name,
@@ -188,42 +195,21 @@ in_edges(t::Taskgraph, task::TaskgraphNode) = in_edges(t, task.name)
 in_edge_indices(t::Taskgraph, task::String) = t.node_edges_in[task]
 in_edge_indices(t::Taskgraph, task::TaskgraphNode) = in_edge_indices(t, task.name)
 
-hasnode(t::Taskgraph, node::String) = haskey(t.nodes, node)
+"""
+$(SIGNATURES)
 
-@doc """
-    out_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
+Return `true` if `taskgraph` has a task named `node`.
+"""
+hasnode(taskgraph::Taskgraph, node::String) = haskey(taskgraph.nodes, node)
 
-Return `Vector{TaskgraphEdge}` for which `task` is a source."
-""" out_edges
+"""
+$(SIGNATURES)
 
-@doc """
-    in_edges(t::Taskgraph, task::Union{String,TaskgraphNode})
-
-Return `Vector{TaskgraphEdge}` for which `task` is a sink.
-""" in_edges
-
-@doc """
-    hasnode(t::Taskgraph, node::String)
-
-Return `true` if `t` has a task named `node`.
-""" hasnode
-
-@doc """
-    outneighbors(t::Taskgraph, node)
-
-Return a collection of nodes from `t` for which are the sink of an edge starting
-at `node`.
-""" outnodes
-
-@doc """
-    inneighbors(t::Taskgraph, node)
-
-    Return a collection of nodes from `t` for which are the source of an edge ending
-at `node`.
-""" innodes
-
-function outnode_names(t::Taskgraph, node)
-    edges = out_edges(t, node)
+Return `Set{String}` of names of unique nodes that are the sink of an edges 
+starting at `node`.
+"""
+function outnode_names(taskgraph::Taskgraph, node)
+    edges = out_edges(taskgraph, node)
     node_names = Set{String}()
     for edge in edges
         union!(node_names, getsinks(edge))
@@ -231,13 +217,25 @@ function outnode_names(t::Taskgraph, node)
     return node_names
 end
 
-function outnodes(t::Taskgraph, node)
-    names = outnode_names(t, node)
-    return [getnode(t, name) for name in names]
+"""
+$(SIGNATURES)
+
+Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are 
+the sink of an edge starting at `node`.
+"""
+function outnodes(taskgraph::Taskgraph, node)
+    names = outnode_names(taskgraph, node)
+    return [getnode(taskgraph, name) for name in names]
 end
 
-function innode_names(t::Taskgraph, node)
-    edges = in_edges(t, node)
+"""
+$(SIGNATURES)
+
+Return `Set{String}` of names of unique nodes that are the source of an edges 
+ending at `node`.
+"""
+function innode_names(taskgraph::Taskgraph, node)
+    edges = in_edges(taskgraph, node)
     node_names = Set{String}()
     for edge in edges
         union!(node_names, getsources(edge))
@@ -245,8 +243,14 @@ function innode_names(t::Taskgraph, node)
     return node_names
 end
 
-function innodes(t::Taskgraph, node)
-    names = innode_names(t, node)
-    return [getnode(t, name) for name in names]
+"""
+$(SIGNATURES)
+
+Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are 
+the source of an edge ending at `node`.
+"""
+function innodes(taskgraph::Taskgraph, node)
+    names = innode_names(taskgraph, node)
+    return [getnode(taskgraph, name) for name in names]
 end
 

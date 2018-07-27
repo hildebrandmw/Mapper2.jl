@@ -104,7 +104,7 @@ end
 
         SA.record(m, sa)
         # Route and see that post-routing number of links is correct.
-        route(m)
+        route!(m)
         @test MapperCore.total_global_links(m) == 15
     end
 
@@ -146,7 +146,7 @@ end
 
         SA.record(m, sa)
         # Route and see that post-routing number of links is correct.
-        route(m)
+        route!(m)
         @test MapperCore.total_global_links(m) <= 27
     end
 end

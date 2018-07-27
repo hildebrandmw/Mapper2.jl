@@ -5,8 +5,8 @@ function build_primitive()
     component = Component("primitive", metadata = metadata)
     # Instantiate two output and two input ports.
     # Make the metadata for the two input ports slightly different to test routing
-    add_port(component, "in", "input")
-    add_port(component, "out", "output")
+    add_port(component, "in", Input)
+    add_port(component, "out", Output)
     
     check(component)
     return component
@@ -24,8 +24,8 @@ function build_tile()
     # Make the metadata for the two input ports slightly different to test routing
     dirs = ("north", "east", "south", "west", "up", "down")
     for dir in dirs
-        add_port(component, "$(dir)_in", "input")
-        add_port(component, "$(dir)_out", "output")
+        add_port(component, "$(dir)_in", Input)
+        add_port(component, "$(dir)_out", Output)
     end
 
     # instantiate a mux 

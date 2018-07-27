@@ -45,13 +45,13 @@ end
 @testset "Testing Ports" begin
     name = "test"
     meta = Dict("bob" => 10)
-    p = Port(name, :input, meta)
-    @test checkclass(p, :source) == true
-    @test checkclass(p, :sink) == false
+    p = Port(name, Input; metadata = meta)
+    @test checkclass(p, MapperCore.Source) == true
+    @test checkclass(p, MapperCore.Sink) == false
 
     pi = MapperCore.invert(p)
     @test pi.name == name
-    @test pi.class == :output
+    @test pi.class == Output
     @test pi.metadata == meta
 
     # Error with incorrect class

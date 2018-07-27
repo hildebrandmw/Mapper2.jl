@@ -5,19 +5,6 @@ const PKGDIR = dirname(SRCDIR)
 using Reexport
 
 using Logging
-function set_logging(level) 
-    if level == :debug
-        disable_logging(Logging.Debug-10)
-    elseif level == :info
-        disable_logging(Logging.Info-10)
-    elseif level == :warn
-        disable_logging(Logging.Warn-10)
-    elseif level == :error
-        disable_logging(Logging.Error-10)
-    else
-        throw(KeyError(level))
-    end
-end
 
 # Aux modules
 include("Helper.jl")
@@ -35,6 +22,7 @@ include("Place/SA/SA.jl")
 include("Route/Route.jl")
 
 # exports from Helper.
+# TODO: DO we really need these exports?
 export  Address,
         SparseDiGraph,
         has_vertex,

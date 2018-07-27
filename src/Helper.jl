@@ -1,7 +1,14 @@
 module Helper
 
-using Reexport
-@reexport using DocStringExtensions
+using DocStringExtensions
+
+# Manually reexport used names in DocStringExtensions
+export  DOCSTRING,
+        TYPEDEF,
+        FIELDS,
+        METHODLIST,
+        SIGNATURES,
+        @template
 
 export  Address,
         emptymeta,
@@ -17,6 +24,7 @@ export  Address,
         dim_min
 
 # Convenience mapping
+# TODO: Think about replacing this because it could cause confusion ... 
 const Address = CartesianIndex
 
 macro SetupDocStringTemplates()

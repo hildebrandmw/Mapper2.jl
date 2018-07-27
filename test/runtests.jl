@@ -1,7 +1,8 @@
 using Mapper2
 using Test
 
-Mapper2.set_logging(:debug)
+using Logging
+disable_logging(Logging.BelowMinLevel)
 
 # Add path to example architecture to the LOAD_PATH variable
 for i in 1:2

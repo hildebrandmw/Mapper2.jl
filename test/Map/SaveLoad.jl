@@ -10,7 +10,7 @@ This file tests the save and load feature of the Mapper.
     Mapper2.SA.place!(sm, move_attempts = 5000)
     # Record the placed sm into map m
     Mapper2.SA.record(m, sm)
-    m = route(m)
+    route!(m)
     # Save the placement
     save(m, "tests")
 

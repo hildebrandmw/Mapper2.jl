@@ -288,7 +288,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
     return nothing
 end
 
-function route(p::Pathfinder, rs::RoutingStruct)
+function route!(p::Pathfinder, rs::RoutingStruct)
     iterations_per_update = 10
     num_congested_links = 0
 

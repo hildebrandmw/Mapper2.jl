@@ -7,9 +7,7 @@ export  build_primitive,
         build_arch,
         # taskgraph
         make_taskgraph,
-        make_map,
-        place,
-        route
+        make_map
 
 
 struct Test3d <: Architecture end

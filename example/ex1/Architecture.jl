@@ -35,10 +35,10 @@ function build_general_primitive()
     component = Component("general_primitive", metadata = metadata)
     # Instantiate two output and two input ports.
     # Make the metadata for the two input ports slightly different to test routing
-    add_port(component, "in", "input", 2, metadata = Dict("capacity" => 1))
-    add_port(component, "out[0]", "output",
+    add_port(component, "in", Input, 2, metadata = Dict("capacity" => 1))
+    add_port(component, "out[0]", Output,
              metadata = Dict("class" => "A", "capacity" => 1))
-    add_port(component, "out[1]", "output",
+    add_port(component, "out[1]", Output,
              metadata = Dict("class" => "B", "capacity" => 1))
     
     check(component)
@@ -48,7 +48,7 @@ end
 function build_input_primitive()
     metadata = Dict("task" => "input")
     component = Component("input_primitive", metadata = metadata)
-    add_port(component, "out", "output", metadata = Dict("capacity" => 1))
+    add_port(component, "out", Output, metadata = Dict("capacity" => 1))
     check(component)
     return component
 end
@@ -56,7 +56,7 @@ end
 function build_output_primitive()
     metadata = Dict("task" => "output")
     component = Component("output_primitive", metadata = metadata)
-    add_port(component, "in", "input", metadata = Dict("capacity" => 1))
+    add_port(component, "in", Input, metadata = Dict("capacity" => 1))
     check(component)
     return component
 end
@@ -70,8 +70,8 @@ function build_io_tile()
     # Create IO ports for the four directions
     dir_tuple = ("north", "east", "south", "west")
     for dir in dir_tuple
-        add_port(tile, "$(dir)_in", "input")
-        add_port(tile, "$(dir)_out", "output")
+        add_port(tile, "$(dir)_in", Input)
+        add_port(tile, "$(dir)_out", Output)
     end
     # Instantiate an input primitive and output primitive
     add_child(tile, build_input_primitive(), "input")
@@ -96,8 +96,8 @@ function build_general_tile()
     # Create IO ports for the four directions
     dir_tuple = ("north", "east", "south", "west")
     for dir in dir_tuple
-        add_port(tile, "$(dir)_in", "input")
-        add_port(tile, "$(dir)_out", "output")
+        add_port(tile, "$(dir)_in", Input)
+        add_port(tile, "$(dir)_out", Output)
     end
     # Instantiate a General Component
     add_child(tile, build_general_primitive(), "general")
@@ -123,8 +123,8 @@ function build_super_tile()
     # Create IO ports for the four directions
     dir_tuple = ("north", "east", "south", "west")
     for dir in dir_tuple
-        add_port(tile, "$(dir)_in", "input")
-        add_port(tile, "$(dir)_out", "output")
+        add_port(tile, "$(dir)_in", Input)
+        add_port(tile, "$(dir)_out", Output)
     end
     # Instantiate a General Component
     add_child(tile, build_general_primitive(), "general", 2)
@@ -155,8 +155,8 @@ function build_double_general_tile()
     add_child(tile, build_general_tile(), "general")
     metadata = Dict{String,Any}("capacity" => 5)
     for dir in dir_tuple
-        add_port(tile, "$(dir)_in", "input")
-        add_port(tile, "$(dir)_out", "output")
+        add_port(tile, "$(dir)_in", Input)
+        add_port(tile, "$(dir)_out", Output)
         add_link(tile, "general.$(dir)_out", "$(dir)_out", metadata = metadata)
         add_link(tile, "$(dir)_in", "general.$(dir)_in", metadata = metadata)
     end
@@ -176,8 +176,8 @@ function build_routing_tile()
     a_metadata = Dict("capacity" => 5, "class" => "A", "cost" => 1.0)
     b_metadata = Dict("capacity" => 5, "class" => "B", "cost" => 10.0)
     for (i,dir) in enumerate(dir_tuple)
-        add_port(tile, "$(dir)_in", "input")
-        add_port(tile, "$(dir)_out", "output")
+        add_port(tile, "$(dir)_in", Input)
+        add_port(tile, "$(dir)_out", Output)
         add_child(tile, build_mux(1,1), "mux_$(dir)", 2)
 
         add_link(tile, "$(dir)_in",

@@ -1,5 +1,5 @@
 function add_port(c::Component, name, class; metadata = emptymeta())
-    add_port(c, Port(name, class, metadata))
+    add_port(c, Port(name, class; metadata = metadata))
 end
 
 function add_port(c::Component, name, class, number; metadata = emptymeta())
@@ -8,9 +8,9 @@ function add_port(c::Component, name, class, number; metadata = emptymeta())
         port_name = "$name[$(i-1)]"
         # Choose whether to iterate through metadata or not.
         if typeof(metadata) <: Dict
-            add_port(c, Port(port_name, class, metadata))
+            add_port(c, Port(port_name, class, metadata = metadata))
         else
-            add_port(c, Port(port_name, class, metadata[i]))
+            add_port(c, Port(port_name, class, metadata = metadata[i]))
         end
     end
     return nothing
@@ -74,13 +74,13 @@ portpath_promote(s::Vector{String})     = [Path{Port}(i) for i in s]
 function check_directions(c, sources, sinks) 
     for src in sources
         port = get_relative_port(c, src)
-        if !checkclass(port, :source)
+        if !checkclass(port, Source)
             error("$src is not a valid source port for component $(c.name).")
         end
     end
     for snk in sinks
         port = get_relative_port(c, snk)
-        if !checkclass(port, :sink)
+        if !checkclass(port, Sink)
             error("$snk is not a valid sink port for component $(c.name).")
         end
     end
@@ -251,8 +251,8 @@ end
 function build_mux(inputs, outputs; metadata = emptymeta())
     name = "mux_" * string(inputs) * "_" * string(outputs)
     component = Component(name, primitive = "mux", metadata = metadata)
-    add_port(component, "in", "input", inputs, metadata = metadata)
-    add_port(component, "out", "output", outputs, metadata = metadata)
+    add_port(component, "in", Input, inputs, metadata = metadata)
+    add_port(component, "out", Output, outputs, metadata = metadata)
     return component
 end
 

@@ -105,8 +105,8 @@ rules(::Hexagonal2D) = (
 # Build mappable component
 function mappable(color :: SquareColor)
     component = Component("square", metadata = Dict("color" => color))
-    add_port(component, "in", "input")
-    add_port(component, "out", "output")
+    add_port(component, "in", Input)
+    add_port(component, "out", Output)
 
     return component
 end
@@ -118,8 +118,8 @@ function build_tile(color :: SquareColor, style :: ArchitectureStyle)
     # Ports
     directions = portnames(style)
     for direction in directions
-        add_port(tile, "$(direction)_in", "input")
-        add_port(tile, "$(direction)_out", "output")
+        add_port(tile, "$(direction)_in", Input)
+        add_port(tile, "$(direction)_out", Output)
     end
 
     # Sub-components
