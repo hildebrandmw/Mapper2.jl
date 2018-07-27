@@ -110,7 +110,7 @@ end
         Quarters()
     )
 
-    m = NewMap(A,T)
+    m = Map(A,T)
 
     # Build the SA Struct
     sa_struct = SA.SAStruct(m)
@@ -218,27 +218,27 @@ end
 
     # Build the maps.
     maps = [
-        (NewMap(
+        (Map(
             architecture(4, Rectangle2D(), ChessboardColor()),
             taskgraph(16, 20, Quarters())
         ), euclidean),
 
-        (NewMap(
+        (Map(
             architecture(4, Rectangle2D(), HashColor()),
             taskgraph(16, 20, Quarters())
         ), euclidean),
 
-        (NewMap(
+        (Map(
             architecture(3, Rectangle3D(), ChessboardColor()),
             taskgraph(27, 40, Quarters())
         ), euclidean),
 
-        (NewMap(
+        (Map(
             architecture(3, Rectangle3D(), HashColor()),
             taskgraph(27, 40, Quarters())
         ), euclidean),
 
-        (NewMap(
+        (Map(
             architecture(4, Hexagonal2D(), ChessboardColor()),
             taskgraph(16, 24, Quarters())
         ), hexagonal),

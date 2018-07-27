@@ -118,9 +118,6 @@ Default: `true`
 """
 needsrouting(::Type{<:AA}, edge::TE) = true
 
-
-
-
 #-------------------------------------------------------------------------------
 # Exports
 #-------------------------------------------------------------------------------
@@ -148,7 +145,6 @@ export  # Types
         getedges,
         getnode,
         getedge,
-        getoffset,
         nodenames,
         num_nodes,
         num_edges,
@@ -196,9 +192,10 @@ export  # Types
         # Verification
         check_routing,
         # Methods
+        getoffset,
         checkclass,
         ports,
-        portnames,
+        portpaths,
         addresses,
         pathtype,
         children,
@@ -237,9 +234,8 @@ export  # Types
         build_component_table,
 
         ### Map ###
-        Map,
         Mapping,
-        NewMap,
+        Map,
         NodeMap,
         EdgeMap,
         save,

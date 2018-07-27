@@ -92,7 +92,7 @@ end
     )
 
     for (A, T, movegen) in iterator
-        m = NewMap(A,T)
+        m = Map(A,T)
 
         sa = SA.SAStruct(m)
         move_generator = movegen(sa)
@@ -131,7 +131,7 @@ end
     )
 
     for (A, T, movegen) in iterator3d
-        m = NewMap(A,T)
+        m = Map(A,T)
 
         sa = SA.SAStruct(m)
         move_generator = movegen(sa)

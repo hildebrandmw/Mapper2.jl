@@ -7,8 +7,9 @@ want to use custom methods during placement or routing.
 """
 abstract type Architecture end
 
+# Make an enum to indicate "Source" or "Sink". Move convenient that using symbols
 """
-Enum for indicating driver directions.
+Enum indicating a direction. Values: `Source`, `Sink`.
 """
 @enum Direction Source Sink
 
@@ -16,17 +17,13 @@ Enum for indicating driver directions.
 #                                  PORT TYPES                                  #
 ################################################################################
 
-"""
-Classification of port types.
-"""
+"Classification of port types."
 @enum PortClass Input Output
 
 struct Port
     name        ::String
 
-    """
-    The class of this port. Must be a [`PortClass`](@ref)
-    """
+    "The class of this port. Must be a [`PortClass`](@ref)'"
     class       ::PortClass
     metadata    ::Dict{String,Any}
 
@@ -129,13 +126,30 @@ links(c::AbstractComponent) = values(c.links)
 #-------------------------------------------------------------------------------
 # Component
 #-------------------------------------------------------------------------------
+"""
+Basic building block of architecture models. Can be used to construct
+hierarchical models.
+"""
 struct Component <: AbstractComponent
     name :: String
     primitive :: String
+    "Sub-components of this component. Indexed by instance name."
     children :: Dict{String, Component}
+    "Ports instantiated directly by this component. Indexed by instance name."
     ports :: Dict{String, Port}
+    "Links instantiated directly by this component. Indexed by instance name." 
     links :: Dict{String, Link}
+    """
+    Record of the `Link` (by name) attached to a `Port`, keyed by `Path{Port}`.
+    Length of each `Path{Port}` must be 1 or 2, to reference ports either 
+    instantiated by this component directly, or by one of this component's
+    immediate children.j
+    """
     portlink :: Dict{Path{Port}, Link}
+
+    """
+    `Dict{String,Any}` for holding any extra data needed by the user.
+    """
     metadata :: Dict{String, Any}
 end
 
@@ -144,11 +158,12 @@ function Component(
         primitive   ::String = "",
         metadata = Dict{String, Any}(),
     )
-    # Add all component level ports to the ports of this component.
+
     children    = Dict{String, Component}()
     ports       = Dict{String, Port}()
     links       = Dict{String, Link}()
     portlink    = Dict{Path{Port}, String}()
+
     # Return the newly constructed type.
     return Component(
         name,
@@ -170,63 +185,79 @@ macro component_str(s) :(Path{Component}($s)) end
 macro link_str(s) :(Path{Link}($s)) end
 macro port_str(s) :(Path{Port}($s)) end
 
-function get_relative_port(c::AbstractComponent, p::Path{Port})
+function relative_port(component::AbstractComponent, portpath::Path{Port})
     # If the port is defined in the component, just return the port itself
-    if length(p) == 1
-        return c[p]
+    if length(portpath) == 1
+        return component[portpath]
     # If the port is defined one level down in the component hierarchy,
     # extract the port from the level and "invert" it so the directionality
     # of the port is relative to the component "c"
-    elseif length(p) == 2
-        return invert(c[p])
+    elseif length(portpath) == 2
+        return invert(component[portpath])
     else
-        error("Invalid relative port path $p for component $(c.name)")
+        error("Invalid relative port path $portpath for component $(component.name)")
     end
 end
 
-@doc """
-    Component
-
-Basic building block of architecture models. Can be used to construct
-hierarchical models.
-
-Components may be indexed using: `ComponentPath`, `PortPath{ComponentPath}`,
-and `LinkPath{ComponentPath}`.
-""" Component
 
 #-------------------------------------------------------------------------------
 ports(c::Component) = values(c.ports)
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
-portnames(c::Component) = collect(keys(c.ports))
-function portnames(c::Component, classes)
-    return [k for (k,v) in c.ports if v.class in classes]
+portpaths(component) = [Path{Port}(name) for name in keys(component.ports)]
+function portpaths(component, classes) 
+    [Path{Port}(k) for (k,v) in component.ports if v.class in classes]
 end
-
 connected_ports(a::AbstractComponent) = collect(keys(a.portlink))
 
 @doc """
-    ports(c::Component, [classes])
+    ports(component, [classes])
 
 Return an iterator for all the ports of the given component. Ports of children
 are not given. If `classes` are provided, only ports matching the specified
 classes will be returned.
 """ ports
 
-#-------------------------------------------------------------------------------
+@doc """
+    portpaths(component, [classes])::Vector{Path{Port}}
+
+Return `Path`s to all ports immediately instantiated in `component`.
+""" portpaths
+
+#------------------------------------------------------------------------------
 # TopLevel
 #-------------------------------------------------------------------------------
+"""
+Top level component for an architecture mode. Main difference is between a
+`TopLevel` and a `Component` is that children of a `TopLevel` are accessed
+via address instead of instance name. A `TopLevel` also does not have any
+ports of its own.
+
+Parameter `D` is the dimensionality of the `TopLevel`.
+"""
 struct TopLevel{A <: Architecture,D} <: AbstractComponent
+
     name :: String
+
+    "Direct children of the `TopLevel`, indexed by instance name."
     children :: Dict{String, Component}
+
+    "Translation from child instance name to the `Address` that child occupies."
     child_to_address :: Dict{String, Address{D}}
+
+    "Translation from `Address` to the `Component` at that address."
     address_to_child :: Dict{Address{D}, String} 
+
+    "`Link`s instantiated directly by the `TopLevel`."
     links :: Dict{String, Link}
+
+    "Record of which `Link`s are attached to which `Port`s. Indexed by `Path{Port}."
     portlink :: Dict{Path{Port}, Link}
     metadata :: Dict{String, Any}
 
     # --Constructor
     function TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A,D}
+        # Create a bunch of empty items.
         links           = Dict{String, Link}()
         portlink        = Dict{Path{Port}, Link}()
         children        = Dict{String, Component}()
@@ -260,20 +291,51 @@ Base.string(::Type{Port})       = "Port"
 Base.string(::Type{Link})       = "Link"
 
 """
-    addresses(t::TopLevel)
+$(SIGNATURES)
 
-Return an iterator of all addresses with subcomponents of `t`.
+Return an iterator of all addresses with subcomponents in `toplevel`.
 """
-addresses(t::TopLevel) = keys(t.address_to_child)
-Base.isassigned(t::TopLevel, a::Address) = haskey(t.address_to_child, a)
+addresses(toplevel::TopLevel) = keys(toplevel.address_to_child)
+portpaths(toplevel::TopLevel) = Vector{Path{Port}}()
 
-getaddress(t::TopLevel, p::Path) = getaddress(t, first(p))
-getaddress(t::TopLevel, s::String) = t.child_to_address[s]
-hasaddress(t::TopLevel, p::Path) = hasaddress(t, first(p))
-hasaddress(t::TopLevel, s::String) = haskey(t.child_to_address, s)
 
-getchild(t::TopLevel, a::Address) = t.children[t.address_to_child[a]]
-getname(t::TopLevel, a::Address) = t.address_to_child[a]
+"""
+    getaddress(item)
+
+Single argument version: Return an address encapsulated in `item`.
+
+    getaddress(item, index)
+
+Get an address from `item` referenced by `index`.
+
+Method List
+-----------
+$(METHODLIST)
+"""
+function getaddress end
+
+"""
+    hasaddress(toplevel, path)
+
+Return `true` if the item referenced by `path` has an `Address`.
+"""
+function hasaddress end
+
+"""
+    isaddress(toplevel, address)
+
+Return `true` if `address` exists in `toplevel`.
+"""
+function isaddress end
+
+
+getaddress(toplevel::TopLevel, path::Path) = getaddress(toplevel, first(path))
+getaddress(toplevel::TopLevel, str::String) = toplevel.child_to_address[str]
+hasaddress(toplevel::TopLevel, path::Path) = hasaddress(toplevel, first(path))
+hasaddress(toplevel::TopLevel, str::String) = haskey(toplevel.child_to_address, str)
+isaddress(toplevel, address) = haskey(toplevel.address_to_child, address)
+
+getname(toplevel::TopLevel, a::Address) = toplevel.address_to_child[a]
 function Base.size(t::TopLevel{A,D}) where {A,D} 
     return dim_max(addresses(t)) .- dim_min(addresses(t)) .+ Tuple(1 for _ in 1:D)
 end
@@ -316,37 +378,36 @@ Return the top level component of `toplevel` at `address`.
 ################################################################################
 
 """
-    walk_children(c::Component)
+    walk_children(component::AbstractComponent, [address]) :: Vector{Path{Component}}
 
-Return `Vector{ComponentPath}` enumerating paths to all the children of `c`.
-Paths are returned relative to `c`.
+Return relative paths to all the children of `component`. If `address` is given 
+return relative paths to all components at `address`.
 """
 function walk_children(component::AbstractComponent)
-    # This is performed as a BFS walk through the sub-component hierarchy of c.
-    components = [Path{Component}()]
-    queue = [Path{Component}(id) for id in keys(component.children)]
-    while !isempty(queue)
-        path = popfirst!(queue)
-        push!(components, path)
-        # Need to push child the child name to the component path to get the
-        # component path relative to component
-        this_component = component[path]
-        newpaths = [catpath(path, Path{Component}(child)) for child in childnames(this_component)]
-        append!(queue, newpaths)
+    # Recurse on all children. 
+    paths = Vector{Path{Component}}()
+    for (name, child) in component.children
+        # Recurse on all children - append each child's instance name in front
+        # of the path.
+        child_paths = catpath.(name, walk_children(child))
+        append!(paths, child_paths)
     end
-    return components
+    # Append an empty path for this component.
+    push!(paths, Path{Component}())
+    return paths
 end
 
-function walk_children(tl::TopLevel, a::Address)
+function walk_children(toplevel::TopLevel, address::Address)
     # Walk the component at this address
-    paths = walk_children(tl[a])
-    component_path = tl.address_to_child[a]
+    paths = walk_children(toplevel[address])
+    component_name = toplevel.address_to_child[address]
     # Append the first part of the component path to each of the sub paths.
-    return catpath.(Ref(Path{Component}(component_path)), paths)
+    return catpath.(component_name, paths)
 end
 
 function connected_components(tl::TopLevel{A,D}) where {A,D}
     # Construct the associative for the connected components.
+    # Use a set to automatically deal with duplicates.
     cc = Dict{Address{D}, Set{Address{D}}}()
     # Iterate through all links - record adjacency information
     for link in links(tl)
@@ -418,52 +479,13 @@ isfree(c::AbstractComponent, p::Path{Port}) = !haskey(c.portlink, p)
 ################################################################################
 # Documentation for TopLevel
 ################################################################################
-@doc """
-    TopLevel{A <: Architecture, D}
-
-Top level component for an architecture mode. Main difference is between a
-`TopLevel` and a `Component` is that children of a `TopLevel` are accessed
-via address instead of instance name. A `TopLevel` also does not have any
-ports of its own.
-
-Parameter `D` is the dimensionality of the `TopLevel`.
-
-A `TopLevel{A,D}` may be indexed using: 
-[`AddressPath{D}`](@ref AddressPath),
-[`PortPath{AddressPath{D}}`](@ref PortPath), and 
-[`LinkPath{AddressPath{D}}`](@ref LinkPath).
-
-# Constructor
-    TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A <: Architecture,D}
-
-Return an empty `TopLevel` with the given name and `metadata`.
-
-# Constructor functions
-The following functions may be used to add subcomponents and connect 
-subcomponents together:
-
-
-# Analysis routines for TopLevel
-
-
-# Fields
-* `name::String` - The name of the TopLevel.
-* `children::Dict{CartesinIndex{D},Component}` - Record of the subcomponents accessed
-    by address.
-* `links::Dict{String,Link{AddressPath{D}}}` - Record of links between ports of
-    immediate children.
-* `port_link::Dict{PortPath{AddressPath{D}},String}` - Look up giving the `Link`
-    in the `links` field connected to the provided port.
-* `metadata::Dict{String,Any}()` - Any extra data associated with the
-    data structure.
-""" TopLevel
 
 @doc """
-    connected_components(tl::TopLevel{A,D})
+    connected_components(toplevel::TopLevel{A,D})::Dict{Address{D}, Set{Address{D}}
 
-Return `d = Dict{Address{D},Set{Address{D}}` where key `k` is a 
-valid address of `tl` and where `d[k]` is the set of valid addresses of `tl` 
-whose components are the destinations of links originating at address `k`.
+Return `d` where key `k` is a valid address of `tl` and where `d[k]` is the set 
+of valid addresses of `tl` whose components are the destinations of links 
+originating at address `k`.
 """ connected_components
 
 @doc """
@@ -471,8 +493,6 @@ whose components are the destinations of links originating at address `k`.
 
 Search the metadata of field of `c` for `key`. If `c.metadata[key]` does not
 exist, return `false`. Otherwise, return `f(value, c.metadata[key])`.
-
-If `isempty(key) == true`, will return `true` regardless of `value` and `f`.
 """ search_metadata
 
 @doc """
@@ -481,24 +501,3 @@ If `isempty(key) == true`, will return `true` regardless of `value` and `f`.
 Call `search_metadata` on each subcomponent of `c`. Return `true` if function
 call return `true` for any subcomponent.
 """ search_metadata!
-
-# Assertion Methods
-@doc """
-    assert_no_children(c::AbstractComponent)
-
-Return `true` if `c` has no children. Otherwise, return `false` and log an
-error.
-""" assert_no_children
-
-@doc """
-    assert_no_intrarouting(c::AbstractComponent)
-
-Return `true` if `c` has not internal links. Otherwise, return `false` and
-log an error.
-""" assert_no_intrarouting
-
-@doc """
-    isfree(c::AbstractComponent, p::PortPath)
-
-Return `true` if portpath `p` is assigned a link in component `c`.
-""" isfree

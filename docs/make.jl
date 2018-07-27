@@ -10,13 +10,17 @@ makedocs(
         "Manual" => [
             "Architecture Modeling" => [
                 "man/architecture/types.md", 
+                "man/architecture/components.md",
+                "man/architecture/constructors.md",
             ],
             "man/taskgraph.md",
+            "man/map.md",
             "man/extensions.md",
             "Simulated Annealing Placement" => [
                 "man/SA/placement.md", 
                 "man/SA/sastruct.md",
                 "man/SA/methods.md",
+                "man/SA/types.md",
                 "man/SA/distance.md",
                 "man/SA/move_generators.md",
                 "man/SA/map_tables.md",
@@ -28,6 +32,7 @@ makedocs(
                 "man/routing/channels.md",
                 "man/routing/graph.md",
             ],
+            "man/helper.md",
         ],
     ]
 )

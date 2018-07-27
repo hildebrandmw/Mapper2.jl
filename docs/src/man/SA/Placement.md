@@ -4,6 +4,12 @@
 SA.place!
 ```
 
+## SAState
+
+```@docs
+SA.SAState
+```
+
 ## Warming
 
 Warming involve increasing the temperature of the simulated annealing system

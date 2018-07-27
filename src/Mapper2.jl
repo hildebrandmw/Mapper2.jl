@@ -50,11 +50,6 @@ export  Address,
 @reexport using .SA
 
 # Default Placement Algorithm
-"""
-    place!(map::Map{A}; kwargs...) where {A <: Architecture}
-
-Run mutating placement on `map`. Defaults to SA.place!.
-"""
 place!(map::Map{<:Architecture}; kwargs...) = SA.place!(map; kwargs...)
 
 ###########

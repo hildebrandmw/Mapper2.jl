@@ -1,67 +1,78 @@
-function add_port(c::Component, name, class; metadata = emptymeta())
-    add_port(c, Port(name, class; metadata = metadata))
+################################################################################
+# add_port
+################################################################################
+
+function add_port(component::Component, name, class; metadata = emptymeta())
+    add_port(component, Port(name, class; metadata = metadata))
 end
 
-function add_port(c::Component, name, class, number; metadata = emptymeta())
-    number < 1 && throw(DomainError())
-    for i in 1:number
-        port_name = "$name[$(i-1)]"
+function add_port(component::Component, name, class, number; metadata = emptymeta())
+    for i in 0:number-1
+        portname = "$name[$(i)]"
         # Choose whether to iterate through metadata or not.
         if typeof(metadata) <: Dict
-            add_port(c, Port(port_name, class, metadata = metadata))
+            port = Port(portname, class, metadata = metadata)
         else
-            add_port(c, Port(port_name, class, metadata = metadata[i]))
+            port = Port(portname, class, metadata = metadata[i+1])
         end
+        add_port(component, port)
     end
     return nothing
 end
 
-function add_port(c::Component, port::Port)
-    if haskey(c.ports, port.name)
-        error("Port: $(port.name) already exists in component $(c.name)")
+function add_port(component::Component, port::Port)
+    if haskey(component.ports, port.name)
+        error("Port: $(port.name) already exists in component $(component.name)")
     end
-    c.ports[port.name] = port
+    component.ports[port.name] = port
 end
 
-function add_child(c::Component, child::Component, name::String, number)
-    number < 1 && throw(DomainError())
+################################################################################
+# add_child
+################################################################################
+
+function add_child(component::Component, child::Component, name::String, number)
     for i in 0:number-1
-        subname = "$name[$i]"
-        add_child(c, child, subname)
+        add_child(component, child, "$name[$i]")
     end
     return nothing
 end
 
-function add_child(c::Component, child::Component, name::String)
-    if haskey(c.children, name)
-        error("Component $(c.name) already has a child named $name.")
+function add_child(component::Component, child::Component, name::String)
+    if haskey(component.children, name)
+        error("Component $(c.name) already has a child $name.")
     end
-    c.children[name] = deepcopy(child)
+    component.children[name] = deepcopy(child)
     return nothing
 end
 
-function add_child(t        ::TopLevel, 
-                   child    ::Component, 
-                   address  ::Address, 
-                   name     ::String = string(address))
+function add_child(
+        toplevel :: TopLevel, 
+        child :: Component, 
+        address :: Address, 
+        name :: String = string(address)
+    )
     
-    if haskey(t.children, name)
-        error("TopLevel $(t.name) already has a child named $name.")
+    if haskey(toplevel.children, name)
+        error("TopLevel $(toplevel.name) already has a child named $name.")
     end
-    if haskey(t.address_to_child, address)
-        error("TopLevel $(t.name) already has a child assigned to address $address.")
+    if haskey(toplevel.address_to_child, address)
+        error("""
+              TopLevel $(toplevel.name) already has a child assigned to 
+              address $address.
+              """)
     end
 
-    t.children[name]            = deepcopy(child)
+    toplevel.children[name] = deepcopy(child)
     # Maintain cross references between child names and addresses
-    t.child_to_address[name]    = address
-    t.address_to_child[address] = name
+    toplevel.child_to_address[name] = address
+    toplevel.address_to_child[address] = name
     return nothing
 end
 
-#--------------------------------------------------------------------------------
-# Link constructors
-#--------------------------------------------------------------------------------
+################################################################################
+# add_link
+################################################################################
 
 # Convenience functions allowing add_link to be called with
 #   - String, vector of string, PortPath, vector of PortPath and have
@@ -71,41 +82,44 @@ portpath_promote(s::Path{Port})         = [s]
 portpath_promote(s::String)             = [Path{Port}(s)]
 portpath_promote(s::Vector{String})     = [Path{Port}(i) for i in s]
 
-function check_directions(c, sources, sinks) 
-    for src in sources
-        port = get_relative_port(c, src)
+function check_directions(component, sources, sinks) 
+    for source in sources
+        port = relative_port(component, source)
         if !checkclass(port, Source)
-            error("$src is not a valid source port for component $(c.name).")
+            error("$source is not a valid source port for component $(component.name).")
         end
     end
-    for snk in sinks
-        port = get_relative_port(c, snk)
+    for sink in sinks
+        port = relative_port(component, sink)
         if !checkclass(port, Sink)
-            error("$snk is not a valid sink port for component $(c.name).")
+            error("$sink is not a valid sink port for component $(component.name).")
         end
     end
 end
 
 function add_link(
-        c :: AbstractComponent, 
+        component :: AbstractComponent, 
         src_any, 
         dest_any, 
         safe = false; 
         metadata = emptymeta(), 
-        linkname = "",
+        linkname = nothing,
     )
 
+    # Promote the passed sources and destinations to Vector{Path{Port}}
     sources = portpath_promote(src_any)
     sinks = portpath_promote(dest_any)
+
     # Check port directions
-    check_directions(c, sources, sinks)
+    check_directions(component, sources, sinks)
 
     # check if port is available for a new link
     for port in Iterators.flatten((sources, sinks))
-        if !isfree(c, port)
+        if !isfree(component, port)
             safe ? (return false) : error("$port already has a connection.")
         end
     end
+
     # Check if we're trying to connect ports beyond just immedate hierarchy.
     for port in Iterators.flatten((sources, sinks))
         if length(port) == 0 || length(port) > 2
@@ -121,34 +135,42 @@ function add_link(
     # create link
 
     # provide default name
-    if isempty(linkname)
-        linkname = "link[$(length(c.links)+1)]"
+    if linkname == nothing
+        linkname = "link[$(length(component.links)+1)]"
     end
 
-    if haskey(c.links, linkname)
+    if haskey(component.links, linkname)
         if safe
             return false
         else
-            error("Link name: $linkname already exists in component $(c.name)")
+            error("Link name: $linkname already exists in component $(component.name)")
         end
     end
 
     newlink = Link(linkname, sources, sinks, metadata)
     # Create a key for this link and add it to the component.
-    c.links[linkname] = newlink
+    component.links[linkname] = newlink
     # Assign the link to all top level ports.
     for port in Iterators.flatten((sources, sinks))
         # Register the link in the portlink dictionary
-        c.portlink[port] = newlink
+        component.portlink[port] = newlink
     end
     return true
 end
 
 tautology(args...) = true
 
+"""
+Single rule for connecting ports at the [`TopLevel`](@ref)
+"""
 struct Offset
+    "Offset to add to a source address to reach a destination address"
     offset      :: Address
+
+    "Name of the source port to start a link at."
     source_port :: String
+
+    "Name of the destination port to end a link at."
     dest_port   :: String
 
     # Do conversions to correct types.
@@ -169,16 +191,21 @@ end
 # Allow passing of iterators as a constructor.
 Offset(A, B, C) = [Offset(a, b, c) for (a,b,c) in zip(A, B, C)]
 
-
+"""
+Global connection rule for connecting ports at the [`TopLevel`](@ref)
+"""
 struct ConnectionRule
-    # Vector of offsets to be applied if all below filters pass.
+    """
+    `Vector{Offset}` - Collection of [`Offset`] rules to be applied to all
+    source addresses that pass the filtering stage.
+    """
     offsets :: Vector{Offset}
 
-    # Allow filtering of addresses.
+    "`Function` - Filter for source addresses. Default: `true`"
     address_filter :: Function
-    # Filter source components
+    "`Function` - Filter for source components. Default: `true`"
     source_filter :: Function
-    # Filter destination components
+    "`Function` - Filter for destination components. Default: `true`"
     dest_filter :: Function
 end
 
@@ -193,18 +220,41 @@ function ConnectionRule(
     ConnectionRule(offsets, address_filter, source_filter, dest_filter)
 end
 
-function connection_rule(tl::TopLevel, rule :: Vector{Offset}; kwargs...)
-    connection_rule(tl, ConnectionRule(rule); kwargs...)
+"""
+    connection_rule(toplevel, rule::ConnectionRule; metadata = emptymeta())
+
+Apply `rule::ConnectionRule` to `toplevel`. Source addresses will
+first be filtered by `rule.address_filter`. Then, for each filtered
+address, the [`Component`] at that address will be passed to 
+`rule.source_filter`. 
+
+If the component passes, all elements in `rule.offsets` will be 
+applied, assuming the component at destination address passes
+`rule.dest_filter`. A new link will then be created provided it is
+safe to do so.
+
+Method List
+-----------
+$(METHODLIST)
+""" 
+function connection_rule end
+
+function connection_rule(toplevel::TopLevel, rule :: Vector{Offset}; kwargs...)
+    connection_rule(toplevel, ConnectionRule(rule); kwargs...)
 end
 
-function connection_rule(tl::TopLevel, rule::ConnectionRule; metadata = emptymeta())
+function connection_rule(
+        toplevel::TopLevel, 
+        rule::ConnectionRule; 
+        metadata = emptymeta()
+    )
     # Count variable for verification - reports the number of links created.
     count = 0
 
     #for src_address in setdiff(valid_addresses, invalid_addresses)
-    for src_address in Iterators.filter(rule.address_filter, addresses(tl))
+    for src_address in Iterators.filter(rule.address_filter, addresses(toplevel))
         # Get the source component
-        src = getchild(tl, src_address)
+        src = toplevel[src_address]
         # Check if the source component fulfills the requirement.
         rule.source_filter(src) || continue
 
@@ -216,10 +266,10 @@ function connection_rule(tl::TopLevel, rule::ConnectionRule; metadata = emptymet
 
             # Check destination address
             dst_address = src_address + offset
-            haskey(tl.address_to_child, dst_address) || continue
+            isaddress(toplevel, dst_address) || continue
 
             # check destination component
-            dst = getchild(tl, dst_address)
+            dst = toplevel[dst_address]
             rule.dest_filter(dst) || continue
 
             # check port existence
@@ -229,13 +279,14 @@ function connection_rule(tl::TopLevel, rule::ConnectionRule; metadata = emptymet
 
             # Build the name for these ports at the top level. If they are
             # free - connect them.
-            src_prefix = tl.address_to_child[src_address]
-            dst_prefix = tl.address_to_child[dst_address]
+            src_prefix = getname(toplevel, src_address)
+            dst_prefix = getname(toplevel, dst_address)
+
             src_port_path = Path{Port}(src_prefix, src_port)
             dst_port_path = Path{Port}(dst_prefix, dst_port)
-            if isfree(tl, src_port_path) && isfree(tl, dst_port_path)
+            if isfree(toplevel, src_port_path) && isfree(toplevel, dst_port_path)
                 # level ports container. If not, initialize them.
-                add_link(tl, src_port_path, [dst_port_path])
+                add_link(toplevel, src_port_path, [dst_port_path])
                 count += 1
             end
         end
@@ -261,13 +312,14 @@ end
 ################################################################################
 
 @doc """
-    add_port(c::Component, name, class, number; metadata = emptymeta())
+    add_port(component, name, class, [number]; metadata = emptymeta())
 
 Add `number` ports with the given `name` and `class`. Ports names will be the
-provided suffix with bracket-vector notation.
+provided suffix with bracket-vector notation. If `number` is not given, the
+port will be added directly.
 
-For example, the function call `add_port(c, "test", "input", 3)` should add
-3 `input` ports to component `c` with names: `test[2], test[1], test[0]`.
+For example, the function call `add_port(component, "test", "input", 3)` should 
+add 3 `input` ports to component `c` with names: `test[2], test[1], test[0]`.
 
 If `metadata` is given, it will be assigned to each instantiated port. If
 `metadata` is a vector with `length(metadata) == number`, than entries of
@@ -275,15 +327,15 @@ If `metadata` is given, it will be assigned to each instantiated port. If
 """ add_port
 
 @doc """
-    add_child(c::Component, child::Component, name, number = 1)
+    add_child(component, child::Component, name, [number])
 
-Add a child component with the given instance `name` to a component. If
-number > 1, vectorize instantiation names. Throw error if `name` is already
-used as an instance name for a child.
+Add a deepcopy child component with the given instance `name` to a component. If
+`number` is provided, vectorize instantiation names. Throw error if `name` is 
+already used as an instance name for a child.
 """ add_child
 
 @doc """
-    add_link(c::Component, src, dest; metadata = emptymeta(), linkname = "")
+    add_link(component, src, dest; metadata = emptymeta(), linkname = "")
 
 Construct a link with the given metadata from the source ports to the 
 destination ports. 
@@ -309,7 +361,3 @@ will be named `in[0], in[1], … , in[inputs-1]` and outputs will be named
 If `metdata` is supplied, the dictionary will be attached to the mux component
 itself as well as all ports and links in the mux component.
 """ build_mux
-
-@doc """
-TODO
-""" connection_rule

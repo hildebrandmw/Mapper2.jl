@@ -17,3 +17,12 @@ This package may be installed from the Julia REPL using the command:
 ```julia
 Pkg.clone("https://github.com/hildebrandmw/Mapper2.jl")
 ```
+
+# Architecture Types
+
+Much of the behavior of this module can be affected by defining a custom  subtype
+of [`Architecture`](@ref) and extending various methods.
+
+```@docs
+MapperCore.Architecture
+```

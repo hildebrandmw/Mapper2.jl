@@ -12,7 +12,7 @@ export  build_primitive,
 
 struct Test3d <: Architecture end
 
-make_map() = NewMap(build_arch(), make_taskgraph())
+make_map() = Map(build_arch(), make_taskgraph())
         
 include("Architecture.jl")
 include("Taskgraph.jl")

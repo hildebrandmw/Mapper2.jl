@@ -30,4 +30,6 @@ applied without sacrificing the generality of placement when it cannot.
 
 ## Construction Pipeline
 
-TODO
+```@docs
+SA.task_equivalence_classes
+```

@@ -1,4 +1,4 @@
-function getoffset(a::TopLevel{A,D}) where {A,D} 
+function getoffset(a::TopLevel{A,D}) where {A,D}
     return one(Address{D}) - Address(dim_min(addresses(a)))
 end
 
@@ -7,8 +7,8 @@ end
 
 Return a `Vector{Path{Component}}` of paths to mappable components at `address`.
 """
-function mappables(a::TopLevel{A,D}, address::Address{D}) where {A,D}
-    return [p for p in walk_children(a, address) if ismappable(A, a[p])]
+function mappables(topleve::TopLevel{A,D}, address::Address{D}) where {A,D}
+    return [p for p in walk_children(topleve, address) if ismappable(A, topleve[p])]
 end
 
 """
@@ -20,11 +20,11 @@ not be checked.
 
 Returns a `Vector{PortPath}` of unused ports.
 """
-function check(c::AbstractComponent)
+function check(component::AbstractComponent)
     # Gather all visible ports of `c` and all connected visible ports of `c`.
     # The unused ports are just the set diference.
-    all_ports  = get_visible_ports(c)
-    used_ports = connected_ports(c)
+    all_ports  = visible_ports(component)
+    used_ports = connected_ports(component)
 
     unused_ports = setdiff(all_ports, used_ports)
 
@@ -32,85 +32,93 @@ function check(c::AbstractComponent)
     if length(unused_ports) > 0
         @debug begin
             n_unused = length(unused_ports)
-            str = "Component $(c.name) has $(n_unused) unused ports. $unused_ports"
+            str = "Component $(component.name) has $(n_unused) unused ports. $unused_ports"
         end
     end
     return unused_ports
 end
 
 ################################################################################
-# get_visible_ports
+# visible_ports
 
-function get_visible_ports(c::Component)
+function visible_ports(component::AbstractComponent)
     # Get ports defined at this level of hierarchy
-    portpaths = [Path{Port}(i) for i in portnames(c)]
+    paths = portpaths(component)
     # Collect all external ports of children.
-    for (name,child) in c.children
-        for port in portnames(child)
-            path = Path{Port}([name, port])
-            push!(portpaths, path)
+    for (name, child) in component.children
+        for port in portpaths(child)
+            path = catpath(name, port)
+            push!(paths, path)
         end
     end
-    return portpaths
-end
-
-function get_visible_ports(t::TopLevel{A,D}) where {A,D}
-    portpaths = Path{Port}[]
-
-    for (name,child) in t.children
-        for port in portnames(child)
-            path = Path{Port}([name, port])
-            push!(portpaths, path)
-        end
-    end
-    return portpaths
+    return paths
 end
 
 @doc """
-    get_visible_ports(a::AbstractComponent)
+    visible_ports(component::AbstractComponent)
 
-Return `Vector{PortPath}` of the ports of `a` and the ports of the children of `a`.
-""" get_visible_ports
+Return `Vector{PortPath}` of the ports of `component` and the ports of the 
+children of `component`.
+""" visible_ports
 
 
 ################################################################################
 # Connectedness methods.
 ################################################################################
 
-function connectedlink(t::TopLevel, portpath::Path{Port}, dir)
+function connectedlink(
+        toplevel :: TopLevel, 
+        portpath :: Path{Port}, 
+        portclass :: PortClass
+    )
     # Extract the port type of the top level definition.
-    port = t[portpath] 
+    port = toplevel[portpath]
 
-    # If the port direction differs from "dir", then we must go up one level
+    # If the port direction differs from "class", then we must go up one level
     # in the component hierarchy to get the attached link.
-    up_one = port.class == dir
+    up_one = port.class == portclass
 
     split_amount = up_one ? 2 : 1
     cpath, ppath = splitpath(portpath, split_amount)
 
-    component = t[cpath]
+    # Get the component type and look up the port name in the "portlink" 
+    # dictionary to get its connected link.
+    component = toplevel[cpath]
     link = component.portlink[ppath]
+
+    # Prefix the name of the component to the link's name to get the full path
+    # relative to the toplevel.
     return catpath(cpath, Path{Link}(link.name))
 end
 
-function connectedports(t::TopLevel, linkpath, dir::Symbol)
-    link = t[linkpath]
+function connectedports(
+        toplevel :: TopLevel, 
+        linkpath :: Path{Link}, 
+        class :: PortClass
+    )
+    link = toplevel[linkpath]
     # Check directionality
-    if dir == :input
-        linkiter = sources(link)
-    elseif dir == :output
-        linkiter = dests(link)
+    if class == Input
+        ports = sources(link)
+    elseif class == Output
+        ports = dests(link)
     else
         throw(DomainError())
     end
+
+    # Strip the name of the link to just get the prefix.
+    linkprefix = striplast(linkpath)
+    return catpath.(Ref(linkprefix), ports)
+
     # If the link is global, its sources and destinations are already full
     # address paths, just return these arrays directly.
     #
     # Otherwise, need to prefix the paths local to the link with the path to
     # the component where the links are defined.
-    isgloballink(linkpath) && (return linkiter)
-    linkprefix = striplast(linkpath)
-    return [catpath(linkprefix, i) for i in linkiter]
+
+    # isgloballink(linkpath) && (return ports)
+    # linkprefix = striplast(linkpath)
+    # return [catpath(linkprefix, i) for i in ports]
 end
 
 ################################################################################
@@ -124,9 +132,14 @@ function isconnected(t::TopLevel, a::Path, b::Path)
     return false
 end
 
-function isconnected(t::TopLevel, portpath::Path{Port}, linkpath::Path{Link})
+function isconnected(
+        toplevel :: TopLevel, 
+        portpath :: Path{Port}, 
+        linkpath :: Path{Link}
+    )
+
     # Get the output link connected to the port
-    actuallink = connectedlink(t, portpath, Output)
+    actuallink = connectedlink(toplevel, portpath, Output)
     if linkpath != actuallink
         @error """
             $portpath is not connected to $linkpath.
@@ -135,7 +148,7 @@ function isconnected(t::TopLevel, portpath::Path{Port}, linkpath::Path{Link})
             """
         return false
     end
-    actualports = connectedports(t, linkpath, :input)
+    actualports = connectedports(toplevel, linkpath, Input)
     if portpath ∉ actualports
         @error """
             $linkpath is not connected to $portpath.
@@ -146,9 +159,13 @@ function isconnected(t::TopLevel, portpath::Path{Port}, linkpath::Path{Link})
     return true
 end
 
-function isconnected(t::TopLevel, linkpath::Path{Link}, portpath::Path{Port})
+function isconnected(
+        toplevel :: TopLevel, 
+        linkpath :: Path{Link}, 
+        portpath :: Path{Port}
+    )
     # Get the output link connected to the port
-    actuallink = connectedlink(t, portpath, Input)
+    actuallink = connectedlink(toplevel, portpath, Input)
     if linkpath != actuallink
         @error """
             $portpath is not connected to $linkpath.
@@ -157,7 +174,7 @@ function isconnected(t::TopLevel, linkpath::Path{Link}, portpath::Path{Port})
             """
         return false
     end
-    actualports = connectedports(t, linkpath, :output)
+    actualports = connectedports(toplevel, linkpath, Output)
     if portpath ∉ actualports
         @error """
             $linkpath is not connected to $portpath.
@@ -168,42 +185,57 @@ function isconnected(t::TopLevel, linkpath::Path{Link}, portpath::Path{Port})
     return true
 end
 
-function isconnected(t::TopLevel, portpath::Path{Port}, cpath::Path{Component})
-    component = t[cpath]
-    cports = portnames(component, (Input,)) 
-    cportpaths = [catpath(cpath, Path{Port}(c)) for c in cports]
-    if portpath ∉ cportpaths
-        @error "$portpath is not an input of $cpath."
+function isconnected(
+        toplevel :: TopLevel,
+        portpath :: Path{Port},
+        #cpath::Path{Component}
+        componentpath :: Path{Component}
+    )
+
+    # Check if the port is an input of the component by collecting all of the
+    # inputs ports of the component and checking for path equality.
+    component = toplevel[componentpath]
+    component_inputs = catpath.(Ref(componentpath), portpaths(component, (Input,)))
+
+    if portpath ∉ component_inputs
+        @error "$portpath is not an input of $componentpath."
         return false
     end
     return true
 end
 
-function isconnected(t::TopLevel, cpath::Path{Component}, portpath::Path{Port})
-    component = t[cpath]
-    cports = portnames(component, (Output,))
-    cportpaths = [catpath(cpath, Path{Port}(c)) for c in cports]
-    if portpath ∉ cportpaths
-        @error "$portpath is not an input of $cpath."
+function isconnected(
+        toplevel :: TopLevel,
+        componentpath :: Path{Component},
+        portpath :: Path{Port}
+    )
+
+    # Do the same trick as above - get all the output ports of the component
+    # by path and check if the given portpath is in them.
+    component = toplevel[componentpath]
+    component_outputs = catpath.(Ref(componentpath), portpaths(component, (Output,)))
+
+    if portpath ∉ component_outputs
+        @error "$portpath is not an input of $componentpath."
         return false
     end
     return true
 end
 
 @doc """
-    isconnected(t::TopLevel, a::AbstractPath, b::AbstractPath)
+    isconnected(toplevel, a::AbstractPath, b::AbstractPath)
 
-Return `true` if architectural component referenced by path `a` is 
-architecturally connected to that referenced by path `b`. 
+Return `true` if architectural component referenced by path `a` is
+architecturally connected to that referenced by path `b`.
 
 The order of the arguments is important for directed components. For example,
-if `a` references a port that is a source for link `b` in `t::TopLevel`, then
+if `a` references a port that is a source for link `b` in `toplevel`, then
 
 ```julia
-julia> isconnected(t, a, b)
+julia> isconnected(toplevel, a, b)
 true
 
-julia> isconnected(t, b, a)
+julia> isconnected(toplevel, b, a)
 false
 ```
 

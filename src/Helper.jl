@@ -53,7 +53,7 @@ macro SetupDocStringTemplates()
     end)
 end
 
-"Return an empty `Dict{Sring,Any}()` for `metadata` fields."
+"Return an empty `Dict{String,Any}()` for `metadata` fields."
 emptymeta() = Dict{String,Any}()
 
 wrap_vector(v) = [v]

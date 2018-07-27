@@ -62,7 +62,7 @@ Mapper2.getcapacity(::Type{Chess}, args...) = 5
 function build_map(dim, ntasks, nedges)
     arch = architecture(dim, Val{2}(), ChessboardColor())
     taskgraph = build_taskgraph(ntasks, nedges)
-    return NewMap(arch, taskgraph)
+    return Map(arch, taskgraph)
 end
 
 end

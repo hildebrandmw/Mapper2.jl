@@ -55,13 +55,13 @@ struct Taskgraph
     edges :: Vector{TaskgraphEdge}
 
     """
-    Outgoing adjacency list mapping node names to edge indices. 
+    Outgoing adjacency list mapping node names to edge indices.
     Type: `Dict{String, Vector{Int64}}`
     """
     node_edges_out :: Dict{String, Vector{Int}}
 
     """
-    Incoming adjacency list mapping node names to edge indices. 
+    Incoming adjacency list mapping node names to edge indices.
     Type: `Dict{String, Vector{Int64}}`
     """
     node_edges_in :: Dict{String, Vector{Int}}
@@ -132,51 +132,102 @@ Taskgraph(nodes, edges) = Taskgraph("noname", nodes, edges)
 # METHODS FOR THE TASKGRAPH
 ################################################################################
 # -- Some accessor methods.
-getnodes(t::Taskgraph) = values(t.nodes)
-getedges(t::Taskgraph) = t.edges
-getnode(t::Taskgraph, node::String) = t.nodes[node]
-getedge(t::Taskgraph, i::Integer) = t.edges[i]
+
+"""
+$(SIGNATURES)
+
+Return an iterator of [`TaskgraphNode`](@ref) yielding all nodes in `taskgraph`.
+"""
+getnodes(taskgraph::Taskgraph) = values(taskgraph.nodes)
+
+"""
+$(SIGNATURES)
+
+Return an iterator of [`TaskgraphEdge`](@ref) yielding all edges in `taskgraph`.
+"""
+getedges(taskgraph::Taskgraph) = taskgraph.edges
+
+"""
+$(SIGNATURES)
+
+Return the [`TaskgraphNode`](@ref) in `taskgraph` with `name`.
+"""
+getnode(taskgraph::Taskgraph, name::String) = taskgraph.nodes[name]
+
+"""
+$(SIGNATURES)
+
+Return the [`TaskgraphEdge`](@ref) in `taskgraph` with `index`.
+"""
+getedge(taskgraph::Taskgraph, index::Integer) = taskgraph.edges[index]
 
 # -- helpful query methods.
-nodenames(t::Taskgraph) = keys(t.nodes)
-num_nodes(t::Taskgraph) = length(getnodes(t))
-num_edges(t::Taskgraph) = length(getedges(t))
+"""
+$(SIGNATURES)
 
-getsources(t::Taskgraph, te::TaskgraphEdge) = (t.nodes[n] for n in getsources(te))
-getsinks(t::Taskgraph, te::TaskgraphEdge) = (t.nodes[n] for n in getsinks(te))
+Return an iterator yielding all names of nodes in `taskgraph`.
+"""
+nodenames(taskgraph::Taskgraph) = keys(taskgraph.nodes)
 
 """
-    add_node(t::Taskgraph, task::TaskgraphNode)
+$(SIGNATURES)
 
-Add a `task` to `t`. Error if node already exists.
+Return the number of nodes in `taskgraph`.
 """
-function add_node(t::Taskgraph, task::TaskgraphNode)
-    if haskey(t.nodes, task.name)
-        error("Task $(task.name) already exists in taskgraph.")
+num_nodes(taskgraph::Taskgraph) = length(taskgraph.nodes)
+
+"""
+$(SIGNATURES)
+
+Return the number of edges in `taskgraph`.
+"""
+num_edges(taskgraph::Taskgraph) = length(taskgraph.edges)
+
+"""
+$(SIGNATURES)
+
+Return `Vector{TaskgraphNode}` of sources for `edge`.
+"""
+getsources(taskgraph::Taskgraph, edge::TaskgraphEdge) = (taskgraph.nodes[n] for n in getsources(edge))
+
+"""
+$(SIGNATURES)
+
+Return `Vector{TaskgraphNode}` of sinks for `edge`.
+"""
+getsinks(taskgraph::Taskgraph, edge::TaskgraphEdge) = (taskgraph.nodes[n] for n in getsinks(edge))
+
+"""
+$(SIGNATURES)
+
+Add a `node` to `taskgraph`. Error if node already exists.
+"""
+function add_node(taskgraph::Taskgraph, node::TaskgraphNode)
+    if haskey(taskgraph.nodes, node.name)
+        error("Task $(node.name) already exists in taskgraph.")
     end
-    t.nodes[task.name] = task
+    taskgraph.nodes[node.name] = node
     # Create adjacency list entries for the new nodes
-    t.node_edges_out[task.name] = TaskgraphEdge[]
-    t.node_edges_in[task.name]  = TaskgraphEdge[]
+    taskgraph.node_edges_out[node.name] = TaskgraphEdge[]
+    taskgraph.node_edges_in[node.name]  = TaskgraphEdge[]
     return nothing
 end
 
 """
-    add_edge(t::Taskgraph, edge::TaskgraphEdge)
+$(SIGNATURES)
 
-Add a `edge` to `t`. Multiple edges from the same source to destination are
-allowed.
+Add a `edge` to `taskgraph`.
 """
-function add_edge(t::Taskgraph, edge::TaskgraphEdge)
+function add_edge(taskgraph::Taskgraph, edge::TaskgraphEdge)
     # Update the edge array
-    push!(t.edges, edge)
-    index = length(t.edges)
+    push!(taskgraph.edges, edge)
+    index = length(taskgraph.edges)
     # Update the adjacency lists.
     for source in edge.sources
-        push!(t.node_edges_out[source], index)
+        push!(taskgraph.node_edges_out[source], index)
     end
     for sink in edge.sinks
-        push!(t.node_edges_in[sink], index)
+        push!(taskgraph.node_edges_in[sink], index)
     end
     return nothing
 end
@@ -205,7 +256,7 @@ hasnode(taskgraph::Taskgraph, node::String) = haskey(taskgraph.nodes, node)
 """
 $(SIGNATURES)
 
-Return `Set{String}` of names of unique nodes that are the sink of an edges 
+Return `Set{String}` of names of unique nodes that are the sink of an edges
 starting at `node`.
 """
 function outnode_names(taskgraph::Taskgraph, node)
@@ -220,7 +271,7 @@ end
 """
 $(SIGNATURES)
 
-Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are 
+Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are
 the sink of an edge starting at `node`.
 """
 function outnodes(taskgraph::Taskgraph, node)
@@ -231,7 +282,7 @@ end
 """
 $(SIGNATURES)
 
-Return `Set{String}` of names of unique nodes that are the source of an edges 
+Return `Set{String}` of names of unique nodes that are the source of an edges
 ending at `node`.
 """
 function innode_names(taskgraph::Taskgraph, node)
@@ -246,7 +297,7 @@ end
 """
 $(SIGNATURES)
 
-Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are 
+Return [`Vector{TaskgraphNode}`](@ref TaskgraphNode) of unique nodes that are
 the source of an edge ending at `node`.
 """
 function innodes(taskgraph::Taskgraph, node)

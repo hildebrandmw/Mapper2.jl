@@ -1,32 +1,77 @@
-passfail(b::Bool) = b ? "passed" : "failed"
+passfail(b) = b ? "passed" : "failed"
 
 ################################################################################
 # Routing Checks
 ################################################################################
-function check_routing(m::Map; quiet = false)
-    port_okay       = check_ports(m)
-    capacity_okay   = check_capacity(m)
-    graph_okay      = check_routing_connectivity(m)
-    arch_okay       = check_architecture_connectivity(m)
-    resource_okay   = check_architecture_resources(m)
+"""
+$(SIGNATURES)
+
+Check routing in `map`. Return `true` if `map` passes all checks. Otherwise,
+return `false`. If `quiet = false`, print status of each test to `STDOUT`.
+
+Checks performed:
+
+* [`check_placement`](@ref)
+* [`check_ports`](@ref)
+* [`check_capacity`](@ref)
+* [`check_architecture_connectivity`](@ref)
+* [`check_routing_connectivity`](@ref)
+* [`check_architecture_resources`](@ref)
+"""
+function check_routing(map::Map; quiet = false)
+    placement_okay  = check_placement(map)
+    port_okay       = check_ports(map)
+    capacity_okay   = check_capacity(map)
+    graph_okay      = check_routing_connectivity(map)
+    arch_okay       = check_architecture_connectivity(map)
+    resource_okay   = check_architecture_resources(map)
 
     if !quiet
         @info """
             Routing Summary
             ---------------
+            Placement Check:    $(passfail(placement_okay))
             Congestion Check:   $(passfail(capacity_okay))
-
             Port Check:         $(passfail(port_okay))
-
             Graph Connectivity: $(passfail(graph_okay))
-
             Architecture Check: $(passfail(arch_okay))
-
             Resource Check:     $(passfail(resource_okay))
             """
     end
 
-    return foldl(&, (capacity_okay, port_okay, graph_okay, arch_okay, resource_okay))
+    return all((
+        placement_okay, 
+        capacity_okay, 
+        port_okay, 
+        graph_okay, 
+        arch_okay, 
+        resource_okay
+    ))
+end
+
+
+"""
+$(SIGNATURES)
+
+Ensure that each [`TaskgraphNode`](@ref) is mapped to a valid component.
+"""
+function check_placement(map::Map{A}) where A
+    pass = true
+    # Iterate through all tasks in the taskgraph. Get the component they are 
+    # mapped to and call "canmap".
+    for (name, node) in map.taskgraph.nodes
+        path = getpath(map, name)
+        component = map.architecture[path]
+
+        if !canmap(A, node, component)
+            @error """
+                TaskgraphNode $(node.name) cannot be mapped to component $path.
+                """
+            pass = false
+        end
+    end
+
+    return pass
 end
 
 """
@@ -39,12 +84,12 @@ following checks:
 * All sources and destinations for each task channel has been assigned to
     a port.
 """
-function check_ports(m::Map{A}) where A
-    edges = m.mapping.edges
-    arch  = m.architecture
-    tg    = m.taskgraph
+function check_ports(map::Map{A}) where A
+    edges = map.mapping.edges
+    arch  = map.architecture
+    taskgraph    = map.taskgraph
 
-    taskgraph_edges = getedges(tg)
+    taskgraph_edges = getedges(taskgraph)
 
     success = true
     for (i,routing_graph) in enumerate(edges)
@@ -52,7 +97,7 @@ function check_ports(m::Map{A}) where A
         needsrouting(A, taskgraph_edges[i]) || continue
 
         # Get the taskgraph sources and sinks
-        channel = getedge(tg, i) 
+        channel = getedge(taskgraph, i) 
 
         taskgraph_sources = getsources(channel)
         taskgraph_sinks   = getsinks(channel)
@@ -63,7 +108,7 @@ function check_ports(m::Map{A}) where A
         # Check that source ports are valid for the location of the placed tasks.
         for source in taskgraph_sources
             # Get the mapped component path
-            sourcepath = getpath(m, source)
+            sourcepath = getpath(map, source)
             found = false
             for rs in routing_sources
                 if striplast(rs) == sourcepath && is_source_port(A, arch[rs], channel)
@@ -89,7 +134,7 @@ function check_ports(m::Map{A}) where A
 
         for sink in taskgraph_sinks
             # Get the mapped component path
-            sinkpath = getpath(m, sink)
+            sinkpath = getpath(map, sink)
             found = false
             for rs in routing_sinks
                 if striplast(rs) == sinkpath && is_sink_port(A, arch[rs], channel)
@@ -235,22 +280,22 @@ function check_routing_connectivity(m::Map{A}) where A
 end
 
 """
-    check_architecture_resources(m::Map)
+    check_architecture_resources(map::Map)
 
 Traverse the routing graph for each channel in `m.taskgraph`. Check:
 
 * The routing resources used by each channel are valid for that type of channel.
 """
-function check_architecture_resources(m::Map{A}) where A
-    edges = m.mapping.edges
-    arch  = m.architecture
+function check_architecture_resources(map::Map{A}) where A
+    mapping_edges = map.mapping.edges
+    architecture = map.architecture
 
     success = true
-    for (i, edge) in enumerate(edges)
-        tg_edge = getedge(m.taskgraph, i) 
-        for v in vertices(edge)
+    for (i, mapping_edge) in enumerate(mapping_edges)
+        taskgraph_edge = getedge(map.taskgraph, i) 
+        for v in vertices(mapping_edge)
             # Checking routing
-            if !canuse(A, arch[v], tg_edge)
+            if !canuse(A, architecture[v], taskgraph_edge)
                 success = false
                 @error """
                     Taskgraph edge number $i can not use resource $v. 

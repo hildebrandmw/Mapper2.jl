@@ -5,7 +5,7 @@ finer control during placement.
 
 ## Move Methods
 ```@docs
-SA.assign
+SA.assign(::SA.SAStruct, ::Any, ::Any)
 SA.move
 SA.swap
 ```

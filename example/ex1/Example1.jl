@@ -23,8 +23,8 @@ export  build_input_primitive,
 # Extensions of the base Mapper types
 struct TestArchitecture <: Architecture end
 
-make_map() = NewMap(build_test_arch(), make_taskgraph())
-make_fanout() = NewMap(build_test_arch(), make_fanout_taskgraph())
+make_map() = Map(build_test_arch(), make_taskgraph())
+make_fanout() = Map(build_test_arch(), make_fanout_taskgraph())
 
 include("Architecture.jl")
 include("Taskgraph.jl")

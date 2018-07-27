@@ -11,6 +11,7 @@ MapperCore.Port
 MapperCore.checkclass
 MapperCore.invert
 MapperCore.PortClass
+MapperCore.Direction
 ```
 
 ## Link

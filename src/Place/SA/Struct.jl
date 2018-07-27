@@ -1,37 +1,106 @@
 ################################################################################
 # Abstract Types for Placement
 ################################################################################
+
+##########
+# SANode #
+##########
+
+"""
+Abstract super types for the `SA` representation of `TaskgraphNodes`.
+
+API
+---
+* [`location`](@ref)
+* [`assign`](@ref)
+* [`getclass`](@ref)
+* [`setclass!`](@ref)
+
+Implementations
+---------------
+* [`BasicNode`](@ref)
+"""
 abstract type SANode end
+
+# API
+"""
+    location(node::SANode{T}) :: T
+
+Return the location of `node`. Must be parameterized by `T`.
+"""
+function location end
+
+"""
+    assign(node::SANode{T}, location::T)
+
+Set the location of `node` to `location`.
+"""
+function assign end
+
+"""
+    getclass(node)
+
+Return the class of `node`.
+"""
+function getclass end
+
+"""
+    setclass!(node, class::Integer)
+
+Set the class of `node` to `class`.
+"""
+function setclass! end
+
+#############
+# SAChannel #
+#############
+"""
+[`SAStruct`](@ref) representation of a [`TaskgraphEdge`](@ref). Comes in two
+varieties: [`TwoChannel](@ref) and [`MultiChannel`](@ref)
+"""
 abstract type SAChannel end
+
+"""
+Abstract supertype for channels with only one source and sink.
+
+Required Fields
+---------------
+* `source::Int64`
+* `sink::Int64`
+
+Implementations
+---------------
+* [`BasicChannel`](@ref)
+"""
 abstract type TwoChannel <: SAChannel end
+
+"""
+Abstract supertype for channels with multiple sources/sinks.
+
+Required Fields
+---------------
+* `sources::Vector{Int}`
+* `sinks::Vector{Int}`
+
+Implementations
+---------------
+* [`BasicMultiChannel`](@ref)
+"""
 abstract type MultiChannel <: SAChannel end
+
 abstract type AddressData end
 
 
-@doc """
-Fields required by specialized SANode types:
-* `address::CartesianIndex{D}` where `D` is the dimension of the architecture.
-* `component_index<:Integer`
-* `out_links::Vector{Int64}`
-* `in_links::Vector{Int64}`
-""" SANode
-
-@doc """
-Fields required by specialized SANode types:
-* `sources::Vector{Int64}`
-* `sinks::Vector{Int64}`
-""" SAChannel
-
-@doc """
-Container allowing specific data to be associated with addresses in the
-SAStruct. Useful for processor specific mappings such as core frequency or
-leakage.
-""" AddressData
-
-@doc """
-Default mapping doesn't use address specific data for its mapping objective.
-The placeholder is just this empty type.
-""" EmptyAddressData
+# @doc """
+# Container allowing specific data to be associated with addresses in the
+# SAStruct. Useful for processor specific mappings such as core frequency or
+# leakage.
+# """ AddressData
+# 
+# @doc """
+# Default mapping doesn't use address specific data for its mapping objective.
+# The placeholder is just this empty type.
+# """ EmptyAddressData
 
 
 ################################################################################
@@ -107,7 +176,7 @@ Base.eltype(sa_struct::SAStruct) = location_type(sa_struct.maptable)
 ################################################################################
 
 """
-The standard implementation of `SANode`.
+The standard implementation of [`SANode`](@ref).
 """
 mutable struct BasicNode{T} <: SANode
     "Location this node is assigned in the architecture. Must be parametric."
@@ -125,8 +194,10 @@ end
 @inline assign(n::SANode, l)          = (n.location = l)
 @inline getclass(n::SANode)           = n.class
 @inline setclass!(n::SANode, class)   = n.class = class
-@inline getaddress(n::SANode)         = getaddress(n.location)
-@inline getindex(n::SANode)           = getindex(n.location)
+
+# Derived methods
+@inline MapperCore.getaddress(n) = getaddress(location(n))
+@inline getindex(n::SANode) = getindex(location(n))
 
 isnormal(node::SANode) = isnormal(class(node))
 isnormal(class::Int64) = class > 0
@@ -147,11 +218,13 @@ end
 # Basis SA Edge
 ################################################################################
 
+"Basic Implementation of [`TwoChannel`](@ref)"
 struct BasicChannel <: TwoChannel
     source::Int64
     sink  ::Int64
 end
 
+"Basic Implementation of [`MultiChannel`](@ref)"
 struct BasicMultiChannel <: MultiChannel
     sources ::Vector{Int64}
     sinks   ::Vector{Int64}
@@ -189,23 +262,15 @@ end
 ################################################################################
 
 struct EmptyAddressData <: AddressData end
-"""
-    build_address_data(::Type{A}, arch::TopLevel, pathtable) where A <: Architecture
 
-Default constructor for address data. Creates an array with a similar structure
-to `pathtable`. For each path in `pathtable`, calls:
-```
-build_address_data(A, component)
-```
-"""
 function build_address_data(
         ::Type{A}, 
-        arch::TopLevel{A,D}, 
+        toplevel::TopLevel{A,D}, 
         pathtable;
         isflat = false
     ) where {A,D}
 
-    comp(a) = [build_address_data(A, arch[path]) for path in pathtable[a]]
+    comp(a) = [build_address_data(A, toplevel[path]) for path in pathtable[a]]
     address_data = Dict(
         a => comp(a) 
         for a in CartesianIndices(pathtable)
@@ -338,20 +403,9 @@ function SAStruct(
     return sa
 end
 
-"""
-    cleargrid(sa::SAStruct)
+cleargrid(sa::SAStruct) = clear(sa.grid)
+clear(x::Array{T}) where T = x .= zero(T)
 
-Set all entries in `sa.grid` to 0.
-"""
-@inline cleargrid(sa::SAStruct) = clear(sa.grid)
-@inline clear(x::Array{T}) where T = x .= zero(T)
-
-
-"""
-    preplace(m::Map, sa::SAStruct)
-
-Take the placement information in `m` and apply it to `sa`.
-"""
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
 
@@ -374,12 +428,6 @@ end
 ################################################################################
 # Write back method
 ################################################################################
-"""
-    record(m::Map{A,D}, sa::SAStruct)
-
-Record the mapping from `sa` into the `mapping` field of `m`. Also confirms the
-legality of the placement.
-"""
 function record(m::Map{A,D}, sa::SAStruct) where {A,D}
     verify_placement(m, sa)
     mapping = m.mapping

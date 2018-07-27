@@ -23,7 +23,7 @@ function make_map(;width = 4, height = 4, ntasks = 10, nedges = 20)
     arch = build_arch(width, height)
     taskgraph = make_taskgraph(ntasks, nedges)
 
-    return NewMap(arch, taskgraph)
+    return Map(arch, taskgraph)
 end
 
 end
