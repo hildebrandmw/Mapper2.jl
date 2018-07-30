@@ -19,7 +19,7 @@ using Mapper2
 # Mapper.
 @enum SquareColor White Black Gray
 
-struct Chess <: Architecture end
+struct Chess <: RuleSet end
 
 export  Chess,
         # Colors
@@ -37,14 +37,14 @@ include("Taskgraph.jl")
 include("Architecture.jl")
 
 # Extend "ismappable" 
-Mapper2.ismappable(::Type{Chess}, x::Component) = haskey(x.metadata, "color")
+Mapper2.ismappable(::Chess, x::Component) = haskey(x.metadata, "color")
 
 # Two tasks are equivalent if they have the same color.
-function Mapper2.isequivalent(::Type{Chess}, a::TaskgraphNode, b::TaskgraphNode) 
+function Mapper2.isequivalent(::Chess, a::TaskgraphNode, b::TaskgraphNode) 
     a.metadata["color"] == b.metadata["color"]
 end
 
-function Mapper2.canmap(::Type{Chess}, t::TaskgraphNode, c::Component)
+function Mapper2.canmap(::Chess, t::TaskgraphNode, c::Component)
     haskey(c.metadata, "color") || return false
 
     task_color = t.metadata["color"]
@@ -54,7 +54,7 @@ function Mapper2.canmap(::Type{Chess}, t::TaskgraphNode, c::Component)
     return task_color == Gray || (task_color == component_color)
 end
 
-Mapper2.getcapacity(::Type{Chess}, args...) = 5
+Mapper2.getcapacity(::Chess, args...) = 5
 
 ################################################################################
 # Map

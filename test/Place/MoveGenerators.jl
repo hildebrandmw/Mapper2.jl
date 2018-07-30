@@ -110,7 +110,7 @@ end
         Quarters()
     )
 
-    m = Map(A,T)
+    m = Map(Chess(), A,T)
 
     # Build the SA Struct
     sa_struct = SA.SAStruct(m)
@@ -219,26 +219,31 @@ end
     # Build the maps.
     maps = [
         (Map(
+            Chess(),
             architecture(4, Rectangle2D(), ChessboardColor()),
             taskgraph(16, 20, Quarters())
         ), euclidean),
 
         (Map(
+            Chess(), 
             architecture(4, Rectangle2D(), HashColor()),
             taskgraph(16, 20, Quarters())
         ), euclidean),
 
         (Map(
+            Chess(),
             architecture(3, Rectangle3D(), ChessboardColor()),
             taskgraph(27, 40, Quarters())
         ), euclidean),
 
         (Map(
+            Chess(),
             architecture(3, Rectangle3D(), HashColor()),
             taskgraph(27, 40, Quarters())
         ), euclidean),
 
         (Map(
+            Chess(),
             architecture(4, Hexagonal2D(), ChessboardColor()),
             taskgraph(16, 24, Quarters())
         ), hexagonal),
@@ -264,11 +269,11 @@ end
             # Search through all the addresses in the architecture. Get the ones 
             # where the mappable component has the color in question.
             if color == Gray
-                addrs = collect(addresses(m.architecture))
+                addrs = collect(addresses(m.toplevel))
             else
                 addrs = [
-                    a for a in addresses(m.architecture) 
-                    if search_metadata!(m.architecture[a], "color", color, ==)
+                    a for a in addresses(m.toplevel) 
+                    if search_metadata!(m.toplevel[a], "color", color, ==)
                 ]
             end
 

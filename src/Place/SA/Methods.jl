@@ -59,17 +59,13 @@ Ideas include:
 2. Make this a "generated" function based on all the types of the channels and
     build a "case" statement out of it.
 =#
-@propagate_inbounds function channel_cost(
-        ::Type{A}, 
-        sa_struct::SAStruct, 
-        idx::Int
-    ) where {A <: Architecture}
+@propagate_inbounds function channel_cost(sa_struct::SAStruct, idx::Int)
 
-    return channel_cost(A, sa_struct, sa_struct.channels[idx])
+    return channel_cost(sa_struct, sa_struct.channels[idx])
 end
 
 """
-    channel_cost(::Type{A}, sa_struct, channel :: SAChannel) where {A <: Architecture}
+    channel_cost(sa_struct{T}, channel :: SAChannel) where {T <: RuleSet}
 
 Return the cost of `channel`. Default implementation accumulates the distances
 between the source and sink addresses of the channel using `sa_struct.distance`.
@@ -78,22 +74,14 @@ Method List
 -----------
 $(METHODLIST)
 """
-@propagate_inbounds function channel_cost(
-        ::Type{<:Architecture},
-        sa_struct::SAStruct,
-        channel::TwoChannel
-    )
+@propagate_inbounds function channel_cost(sa_struct::SAStruct, channel::TwoChannel)
 
     a = sa_struct.nodes[channel.source]
     b = sa_struct.nodes[channel.sink]
     return Float64(getdistance(sa_struct.distance, a, b))
 end
 
-@propagate_inbounds function channel_cost(
-        ::Type{<:Architecture}, 
-        sa_struct::SAStruct, 
-        channel::MultiChannel
-    )
+@propagate_inbounds function channel_cost(sa_struct::SAStruct, channel::MultiChannel)
 
     cost = 0.0
     for src in channel.sources, snk in channel.sinks
@@ -105,9 +93,9 @@ end
 end
 
 """
-    address_cost(::Type{A}, sa_struct, node :: SANode) where {A <: Architecture}
+    address_cost(sa_struct{T}, node :: SANode) where {T <: RuleSet}
 
-Return the address cost for `node` for architecture `A`. Default return value
+Return the address cost for `node` for RuleSet `T`. Default return value
 is `zero(Float64)`.
 
 Called by default during [`node_cost`](@ref) and [`node_pair_cost`](@ref)
@@ -116,10 +104,10 @@ Method List
 -----------
 $(METHODLIST)
 """
-address_cost(::Type{<:Architecture}, sa_struct::SAStruct, node::SANode) = zero(Float64)
+address_cost(sa_struct::SAStruct, node::SANode) = zero(Float64)
 
 """
-    aux_cost(::Type{A}, sa_struct) where {A <: Architecture}
+    aux_cost(sa_struct{T}) where {T <: RuleSet}
 
 Return an auxiliary cost associated with the entire mapping of the `sa_struct`.
 May use any field of `sa_struct` but may only mutate `sa_struct.aux`.
@@ -130,24 +118,23 @@ Method List
 -----------
 $(METHODLIST)
 """
-aux_cost(::Type{<:Architecture}, sa_struct::SAStruct) = zero(Float64)
+aux_cost(sa_struct::SAStruct) = zero(Float64)
 
-map_cost(sa_struct::SAStruct{A}) where A = map_cost(A, sa_struct)
-function map_cost(::Type{A}, sa_struct::SAStruct) where {A <: Architecture}
-    cost = aux_cost(A, sa_struct)
+function map_cost(sa_struct::SAStruct)
+    cost = aux_cost(sa_struct)
     for i in eachindex(sa_struct.channels)
-        cost += channel_cost(A, sa_struct, i)
+        cost += channel_cost(sa_struct, i)
     end
     for n in sa_struct.nodes
-        cost += address_cost(A, sa_struct, n)
+        cost += address_cost(sa_struct, n)
     end
     return cost
 end
 
 """
-    node_cost(::Type{A}, sa_struct, idx) where {A <: AbstractArchitecture}
+    node_cost(sa_struct{T}, idx) where {T <: RuleSet}
 
-Return the cost of the node with index `idx` in architecture `A`.
+Return the cost of the node with index `idx` in ruleset `T`.
 
 Default implementation sums the node's:
 * incoming channels
@@ -159,22 +146,18 @@ Method List
 -----------
 $(METHODLIST)
 """
-@propagate_inbounds function node_cost(
-        ::Type{A}, 
-        sa_struct::SAStruct, 
-        idx::Integer
-    ) where {A <: Architecture}
+@propagate_inbounds function node_cost(sa_struct::SAStruct, idx::Integer)
 
     # Unpack node data type.
     n = sa_struct.nodes[idx]
-    cost = aux_cost(A, sa_struct)
+    cost = aux_cost(sa_struct)
     for channel in n.outchannels
-        cost += channel_cost(A, sa_struct, channel)
+        cost += channel_cost(sa_struct, channel)
     end
     for channel in n.inchannels
-        cost += channel_cost(A, sa_struct, channel)
+        cost += channel_cost(sa_struct, channel)
     end
-    cost += address_cost(A, sa_struct, n)
+    cost += address_cost(sa_struct, n)
 
     return cost
 end
@@ -191,7 +174,7 @@ Node pair cost is slightly more subtle than just each independent node cost if
         twice.
 =#
 """
-    node_pair_cost(::Type{A}, sa_struct, idx1, idx2) where {A <: Architecture}
+    node_pair_cost(sa_struct{T}, idx1, idx2) where {T <: RuleSet}
 
 Compute the cost of the pair of nodes with indices `idx1` and `idx2`. Call this
 function when computing the cost of two nodes because in general, the total
@@ -201,28 +184,22 @@ Method List
 -----------
 $(METHODLIST)
 """
-@propagate_inbounds function node_pair_cost(
-        ::Type{A}, 
-        sa_struct::SAStruct, 
-        idx1,
-        idx2,
-    ) where {A <: Architecture}
-
-    cost = node_cost(A, sa_struct, idx1)
+@propagate_inbounds function node_pair_cost(sa_struct::SAStruct, idx1, idx2)
+    cost = node_cost(sa_struct, idx1)
     # Get the two node types for calculating the cost of the second node.
     a = sa_struct.nodes[idx1]
     b = sa_struct.nodes[idx2]
 
     for channel in b.outchannels
         if !in(channel, a.inchannels)
-            cost += channel_cost(A, sa_struct, channel)
+            cost += channel_cost(sa_struct, channel)
         end
     end
     for channel in b.inchannels
         if !in(channel, a.outchannels)
-            cost += channel_cost(A, sa_struct, channel)
+            cost += channel_cost(sa_struct, channel)
         end
     end
-    cost += address_cost(A, sa_struct, b)
+    cost += address_cost(sa_struct, b)
     return cost
 end

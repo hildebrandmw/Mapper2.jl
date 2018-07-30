@@ -88,7 +88,7 @@ Keyword Arguments
 
     Default: [`DefaultSADone`](@ref)
 """
-function place!(m::Map{<:Architecture}; seed = rand(UInt64), kwargs...)
+function place!(m::Map; seed = rand(UInt64), kwargs...)
     # Configure random seed.
     @info "Using Seed: $seed"
     srand(seed)

@@ -55,15 +55,15 @@ $(SIGNATURES)
 
 Ensure that each [`TaskgraphNode`](@ref) is mapped to a valid component.
 """
-function check_placement(map::Map{A}) where A
+function check_placement(map::Map)
     pass = true
     # Iterate through all tasks in the taskgraph. Get the component they are 
     # mapped to and call "canmap".
     for (name, node) in map.taskgraph.nodes
         path = getpath(map, name)
-        component = map.architecture[path]
+        component = map.toplevel[path]
 
-        if !canmap(A, node, component)
+        if !canmap(rules(map), node, component)
             @error """
                 TaskgraphNode $(node.name) cannot be mapped to component $path.
                 """
@@ -84,9 +84,9 @@ following checks:
 * All sources and destinations for each task channel has been assigned to
     a port.
 """
-function check_ports(map::Map{A}) where A
+function check_ports(map::Map)
     edges = map.mapping.edges
-    arch  = map.architecture
+    toplevel  = map.toplevel
     taskgraph    = map.taskgraph
 
     taskgraph_edges = getedges(taskgraph)
@@ -94,7 +94,7 @@ function check_ports(map::Map{A}) where A
     success = true
     for (i,routing_graph) in enumerate(edges)
         # Skip this edge if it wasn't supposed to be routed.
-        needsrouting(A, taskgraph_edges[i]) || continue
+        needsrouting(rules(map), taskgraph_edges[i]) || continue
 
         # Get the taskgraph sources and sinks
         channel = getedge(taskgraph, i) 
@@ -111,7 +111,7 @@ function check_ports(map::Map{A}) where A
             sourcepath = getpath(map, source)
             found = false
             for rs in routing_sources
-                if striplast(rs) == sourcepath && is_source_port(A, arch[rs], channel)
+                if striplast(rs) == sourcepath && is_source_port(rules(map), toplevel[rs], channel)
                     found = true
                     delete!(routing_sources, rs)
                     break
@@ -137,7 +137,7 @@ function check_ports(map::Map{A}) where A
             sinkpath = getpath(map, sink)
             found = false
             for rs in routing_sinks
-                if striplast(rs) == sinkpath && is_sink_port(A, arch[rs], channel)
+                if striplast(rs) == sinkpath && is_sink_port(rules(map), toplevel[rs], channel)
                     found = true
                     delete!(routing_sinks, rs)
                     break
@@ -167,11 +167,11 @@ end
 
 Performs the following checks:
 
-* The number of channels assigned to each routing resource in `m.architecture`
+* The number of channels assigned to each routing resource in `m.toplevel`
     does not exceed the stated capacity of that resource.
 """
-function check_capacity(m::Map{A}) where A
-    arch    = m.architecture
+function check_capacity(m::Map)
+    toplevel    = m.toplevel
     edges   = m.mapping.edges
 
     times_resource_used = Dict{Any,Int}()
@@ -188,7 +188,7 @@ function check_capacity(m::Map{A}) where A
     congested_edges = Set{Int}() 
     for (path, occupancy) in times_resource_used
         # record congested edges
-        if occupancy > getcapacity(A, arch[path])
+        if occupancy > getcapacity(rules(m), toplevel[path])
             push!(congested_edges, resource_to_edge[path]...)
         end
     end
@@ -213,9 +213,9 @@ Traverse the routing for each channel in `m.taskgraph`. Check:
 * The nodes on each side of an edge in the routing graph are actually connected
     in the underlying architecture.
 """
-function check_architecture_connectivity(m::Map{A}) where A
+function check_architecture_connectivity(m::Map)
     # Get the edge mapping
-    arch  = m.architecture
+    toplevel  = m.toplevel
     edges = m.mapping.edges
 
     taskgraph_edges = getedges(m.taskgraph)
@@ -223,10 +223,10 @@ function check_architecture_connectivity(m::Map{A}) where A
     success = true
     for (index, edge) in enumerate(edges)
         # Skip if edge did not need to be routed.
-        needsrouting(A, taskgraph_edges[index]) || continue
+        needsrouting(rules(m), taskgraph_edges[index]) || continue
 
         for i in vertices(edge), j in outneighbors(edge, i)
-            if !isconnected(arch, i, j)
+            if !isconnected(toplevel, i, j)
                 success = false
             end
         end
@@ -244,7 +244,7 @@ Perform the following check:
 * Ensure there is a valid path from each source of the routing graph to each
     destination of the routing graph.
 """
-function check_routing_connectivity(m::Map{A}) where A
+function check_routing_connectivity(m::Map)
     edges = m.mapping.edges
 
     taskgraph_edges = getedges(m.taskgraph)
@@ -253,7 +253,7 @@ function check_routing_connectivity(m::Map{A}) where A
     # Construct a lightgraph from the sparsegraph
     for (i,edge) in enumerate(edges)
         # Skip edges that did not need to be routed.
-        needsrouting(A, taskgraph_edges[i]) || continue
+        needsrouting(rules(m), taskgraph_edges[i]) || continue
 
         g, d = make_lightgraph(edge)
 
@@ -286,16 +286,16 @@ Traverse the routing graph for each channel in `m.taskgraph`. Check:
 
 * The routing resources used by each channel are valid for that type of channel.
 """
-function check_architecture_resources(map::Map{A}) where A
+function check_architecture_resources(map::Map)
     mapping_edges = map.mapping.edges
-    architecture = map.architecture
+    toplevel = map.toplevel
 
     success = true
     for (i, mapping_edge) in enumerate(mapping_edges)
         taskgraph_edge = getedge(map.taskgraph, i) 
         for v in vertices(mapping_edge)
             # Checking routing
-            if !canuse(A, architecture[v], taskgraph_edge)
+            if !canuse(rules(map), toplevel[v], taskgraph_edge)
                 success = false
                 @error """
                     Taskgraph edge number $i can not use resource $v. 

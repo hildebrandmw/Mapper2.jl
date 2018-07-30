@@ -154,7 +154,7 @@ function architecture(
     # Get the number of dimensions for this architecture.
     N = nd(style)
 
-    arch = TopLevel{Chess, N}("architecture")
+    arch = TopLevel{N}("architecture")
 
     # Instantiate squares
     for address in CartesianIndices(Tuple(tiles_per_side for _ in 1:N))

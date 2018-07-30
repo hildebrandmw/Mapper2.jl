@@ -30,27 +30,27 @@ struct TypedRoutingChannel <: RoutingChannel
     end
 end
 
-function Mapper2.routing_channel(::Type{A}, start, stop, edge::TaskgraphEdge) where {A <: TestArchitecture} 
+function Mapper2.routing_channel(::TestRuleSet, start, stop, edge::TaskgraphEdge)
     TypedRoutingChannel(start, stop, edge)
 end
-function Mapper2.getcapacity(::Type{A}, item) where {A <: TestArchitecture}
+function Mapper2.getcapacity(::TestRuleSet, item)
     return get(item.metadata, "capacity", 10)
 end
 
 # Provide custom annotation methods.
-function Mapper2.annotate(::Type{A},port::Port) where {A <: TestArchitecture}
-    capacity = getcapacity(A, port)
+function Mapper2.annotate(ruleset::TestRuleSet, port::Port)
+    capacity = getcapacity(ruleset, port)
     class    = get(port.metadata, "class", "all")
     cost     = get(port.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)
 end
-function Mapper2.annotate(::Type{A},link::Link) where {A <: TestArchitecture}
-    capacity = getcapacity(A, link)
+function Mapper2.annotate(ruleset::TestRuleSet, link::Link)
+    capacity = getcapacity(ruleset, link)
     class    = get(link.metadata, "class", "all")
     cost     = get(link.metadata, "cost", 1.0)
     TypedRoutingLink(cost,capacity,class)
 end
-function Mapper2.annotate(::Type{A}, component::Component) where {A <: TestArchitecture}
+function Mapper2.annotate(::TestRuleSet, component::Component)
     @assert component.primitive == "mux"
     return TypedRoutingLink(1.0,10,"all")
 end
@@ -71,21 +71,8 @@ function check_class(item, edge)
     end
 end
 
-function Mapper2.canuse(::Type{A}, item::Union{Port,Link}, edge::TaskgraphEdge) where
-        A <: TestArchitecture
-    return check_class(item, edge)
-end
-function Mapper2.canuse(::Type{A}, item::TypedRoutingLink, edge::TypedRoutingChannel) where
-        A <: TestArchitecture
-    return check_class(item.class, edge.class)
-end
-function Mapper2.is_source_port(::Type{A}, 
-                                     port::Port, 
-                                     edge::TaskgraphEdge) where A <: TestArchitecture
-    return check_class(port, edge)
-end
-function Mapper2.is_sink_port(::Type{A}, 
-                                   port::Port, 
-                                   edge::TaskgraphEdge) where A <: TestArchitecture
-    return check_class(port, edge)
-end
+Mapper2.canuse(::TestRuleSet, item::Union{Port,Link}, edge::TaskgraphEdge) = check_class(item, edge)
+Mapper2.canuse(::TestRuleSet, item::TypedRoutingLink, edge::TypedRoutingChannel) = check_class(item.class, edge.class)
+
+Mapper2.is_source_port(::TestRuleSet, port::Port, edge::TaskgraphEdge) = check_class(port, edge)
+Mapper2.is_sink_port(::TestRuleSet, port::Port, edge::TaskgraphEdge) = check_class(port, edge)

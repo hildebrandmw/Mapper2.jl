@@ -27,8 +27,6 @@ export  route!,
         routing_channel,
         annotate
 
-const AA = Architecture
-
 abstract type AbstractRoutingAlgorithm end
 
 """
@@ -100,7 +98,7 @@ The following are also included if `routing_error == false`.
 
 * `routing_global_links` - The number of global links used in the final routing.
 """
-function route!(m::Map{A,D}) where {A,D}
+function route!(m::Map)
     # Build the routing structure
     routing_struct, struct_time, struct_bytes, _, _  = @timed RoutingStruct(m)
     # Default to Pathfinder
@@ -134,13 +132,13 @@ function route!(m::Map{A,D}) where {A,D}
     return nothing
 end
 
-routing_algorithm(m::Map{A,D}, rs) where {A <: AA, D} = Pathfinder(m, rs)
+routing_algorithm(m::Map, rs) = Pathfinder(m, rs)
 
 ################################################################################
 # REQUIRED METHODS
 ################################################################################
 """
-    annotate(::Type{A}, item::Union{Port,Link,Component}) where {A <: Architecture}
+    annotate(ruleset::RuleSet, item::Union{Port,Link,Component})
 
 Return some [`<:RoutingLink`](@ref RoutingLink) for `item`.  If 
 `item <: Component`, it is a primitive. If not other primitives have been 
@@ -148,14 +146,15 @@ defined, it will be a `mux`.
 
 See: [`BasicRoutingLink`](@ref)
 
-Default: `BasicRoutingLink(capacity = getcapacity(A, item))
+Default: `BasicRoutingLink(capacity = getcapacity(ruleset, item))
 """
-function annotate(::Type{A}, item::Union{Port,Link,Component}) where A <: AA
-    BasicRoutingLink(capacity = getcapacity(A, item))
+function annotate(ruleset::RuleSet, item::Union{Port,Link,Component})
+    BasicRoutingLink(capacity = getcapacity(ruleset, item))
 end
 
+
 """
-    canuse(::Type{<:Architecture}, link::RoutingLink, channel::RoutingChannel)::Bool
+    canuse(ruleset::RuleSet, link::RoutingLink, channel::RoutingChannel)::Bool
 
 Return `true` if `channel` can be routed using `link`.
 
@@ -163,6 +162,6 @@ See: [`RoutingLink`](@ref), [`RoutingChannel`](@ref)
 
 Default: `true`
 """
-MapperCore.canuse(::Type{A}, link::RoutingLink, channel::RoutingChannel) where A <: AA = true
+MapperCore.canuse(::RuleSet, link::RoutingLink, channel::RoutingChannel) = true
 
 end

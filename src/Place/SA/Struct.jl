@@ -133,16 +133,18 @@ Keyword Arguments:
     needed for specializations of placement. Default: `nothing`.
 """
 struct SAStruct{
-        A <: Architecture, 
+        T <: RuleSet,
         U <: SADistance,
         D,
         D1,
         N <: SANode,
         L <: SAChannel, 
         M <: AbstractMapTable,
-        T <: AddressData,
+        A <: AddressData,
         Q
     }
+
+    ruleset::T
 
     "`Vector{N}`: Container of nodes."
     nodes :: Vector{N}
@@ -151,7 +153,7 @@ struct SAStruct{
     maptable :: M
     distance :: U
     grid :: Array{Int64,D1}
-    address_data :: T
+    address_data :: A
     aux :: Q
     # Map back fields
     pathtable :: Array{Vector{Path{Component}}, D}
@@ -159,11 +161,11 @@ struct SAStruct{
 end
 
 # Convenience decoding methods
-dimension(::SAStruct{A,U,D})  where {A,U,D} = D
-architecture(::SAStruct{A})   where {A} = A
+dimension(::SAStruct{T,U,D})  where {T,U,D} = D
+rulse(sa_struct::SAStruct) = sa_struct.ruleset
 nodetype(s::SAStruct) = typeof(s.nodes)
 channeltype(s::SAStruct) = typeof(s.channels)
-distancetype(::SAStruct{A,U}) where {A,U} = U
+distancetype(::SAStruct{T,U}) where {T,U} = U
 
 isflat(x) = false
 isflat(::SAStruct{A,U,D,D}) where {A,U,D} = true
@@ -205,13 +207,13 @@ isnormal(class::Int64) = class > 0
 # -------------
 # Construction
 # -------------
-function buildnode(::Type{A}, n::TaskgraphNode, x) where {A <: Architecture}
+function buildnode(::RuleSet, n::TaskgraphNode, x)
     return BasicNode(x, 0, Int64[], Int64[])
 end
 
-function setup_node_build(::Type{A}, t::Taskgraph, D, isflat::Bool) where A <: Architecture
+function setup_node_build(ruleset::RuleSet, t::Taskgraph, D, isflat::Bool)
     init = isflat ? zero(CartesianIndex{D}) : Location{D}()
-    return [buildnode(A, n, init) for n in getnodes(t)]
+    return [buildnode(ruleset, n, init) for n in getnodes(t)]
 end
 
 ################################################################################
@@ -230,7 +232,7 @@ struct BasicMultiChannel <: MultiChannel
     sinks   ::Vector{Int64}
 end
 
-function setup_channel_build(::Type{A}, taskgraph) where A <: Architecture
+function setup_channel_build(ruleset::RuleSet, taskgraph)
     edges = getedges(taskgraph)
     nodes = getnodes(taskgraph)
     node_dict = Dict(n.name => i for (i,n) in enumerate(nodes))
@@ -242,10 +244,10 @@ function setup_channel_build(::Type{A}, taskgraph) where A <: Architecture
         [node_dict[i] for i in edge.sinks]
     end
     # Pass this to the `build_channels` function
-    return build_channels(A, edges, sources, sinks)
+    return build_channels(ruleset, edges, sources, sinks)
 end
 
-function build_channels(::Type{A}, edges, sources, sinks) where A <: Architecture
+function build_channels(ruleset::RuleSet, edges, sources, sinks)
 
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
@@ -264,13 +266,13 @@ end
 struct EmptyAddressData <: AddressData end
 
 function build_address_data(
-        ::Type{A}, 
-        toplevel::TopLevel{A,D}, 
+        ruleset::RuleSet,
+        toplevel::TopLevel{D}, 
         pathtable;
         isflat = false
-    ) where {A,D}
+    ) where D
 
-    comp(a) = [build_address_data(A, toplevel[path]) for path in pathtable[a]]
+    comp(a) = [build_address_data(ruleset, toplevel[path]) for path in pathtable[a]]
     address_data = Dict(
         a => comp(a) 
         for a in CartesianIndices(pathtable)
@@ -285,39 +287,31 @@ function build_address_data(
     end
 end
 
-# Define two methods to correctly handle the flat architecture case where the
-# elements of `pathtable` are just Path{Component} instead of 
-# Vector{Path{Component}}
-call_address_data(arch::TopLevel{A}, path::Path) where A = build_address_data(A, arch[path])
-function call_address_data(arch::TopLevel{A}, paths::Vector{<:Path}) where A
-    return [build_address_data(A, arch[path]) for path in paths]
-end
-
 ################################################################################
 # Constructor for the SA Structure
 ################################################################################
 function SAStruct(
-        m::Map{A,D};
-        distance = BasicDistance(m.architecture),
+        m::Map{D};
+        distance = BasicDistance(m.toplevel),
         # Enable the flat-architecture optimization.
         enable_flattness = true,
         # Enable address-specific data.
         enable_address = false,
         aux = nothing,
         kwargs...
-    ) where {A,D}
+    ) where {D}
 
     @debug "Building SA Placement Structure\n"
 
     # Unpack some data structures for easier reference.
-    arch = m.architecture
+    toplevel = m.toplevel
     taskgraph = m.taskgraph
 
     # Create an array mapping Addresses to Vector{Path{Component}} where each
-    # Path{Component} is a mappable component in the architecture.
+    # Path{Component} is a mappable component in the toplevel.
     #
     # Note that address translation happens here. That is, if there are addresses
-    # in the parent architecture that nave zero or negative indices, the addresses
+    # in the parent toplevel that nave zero or negative indices, the addresses
     # are shifted in the `pathtable` so the lowest potential address is (1,1,1 ...)
     #
     # While this sounds like it may be confusing, it actually works out quite 
@@ -328,7 +322,7 @@ function SAStruct(
     #   destruction, use the overloaded "getindex" methods usint the 
     #   Path{Component} objects and evertyhing tends to magically work itself
     #   out.
-    pathtable = build_pathtable(arch)
+    pathtable = build_pathtable(toplevel, rules(m))
 
     # If the maximum number of components is 1, we can apply the fast-node
     # optimizations. This lets us get rid of some vectors and store more data
@@ -338,11 +332,11 @@ function SAStruct(
 
     # Build SA Node types and make a record mapping node name to the index of
     # that nodes representation in this data structure.
-    nodes = setup_node_build(A, taskgraph, D, isflat)
+    nodes = setup_node_build(rules(m), taskgraph, D, isflat)
     tasktable = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
 
     # Build Channel
-    channels = setup_channel_build(A, taskgraph)
+    channels = setup_channel_build(rules(m), taskgraph)
     @debug """
         Node Type: $(typeof(nodes))
         Edge Type: $(typeof(channels))
@@ -354,14 +348,14 @@ function SAStruct(
     #----------------------------------------------------#
     # Obtain task equivalence classes from the taskgraph #
     #----------------------------------------------------#
-    equivalence_classes = task_equivalence_classes(A, taskgraph)
+    equivalence_classes = task_equivalence_classes(taskgraph, rules(m))
 
     # Assign each node with its given classification.
     for (index, class) in enumerate(equivalence_classes.classes)
         setclass!(nodes[index], class)
     end
 
-    maptable = MapTable(arch, equivalence_classes, pathtable, isflat = isflat)
+    maptable = MapTable(toplevel, rules(m), equivalence_classes, pathtable, isflat = isflat)
     if isflat
         grid = zeros(size(pathtable)...)
     else
@@ -370,13 +364,13 @@ function SAStruct(
     end
 
     if enable_address
-        address_data = build_address_data(A, arch, pathtable, isflat = isflat)
+        address_data = build_address_data(rules(m), toplevel, pathtable, isflat = isflat)
     else
         address_data = EmptyAddressData()
     end
 
     sa = SAStruct{
-        A,                    # Architecture Type
+        typeof(rules(m)),     # RuleSet Type
         typeof(distance),     # Encoding of Tile Distance
         D,                    # Dimensionality of the Architecture
         ndims(grid),          # Architecture Dimensionality + 1
@@ -386,6 +380,7 @@ function SAStruct(
         typeof(address_data),  # Type of address data
         typeof(aux),
      }(
+        rules(m),
         nodes,
         channels,
         maptable,
@@ -409,9 +404,9 @@ clear(x::Array{T}) where T = x .= zero(T)
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
 
-    offset = getoffset(m.architecture)
+    offset = getoffset(m.toplevel)
     for (taskname, path) in m.mapping.nodes
-        address = getaddress(m.architecture, path) + offset
+        address = getaddress(m.toplevel, path) + offset
         component = findfirst(isequal(path), sa.pathtable[address])
         # Get the index to assign
         index = sa.tasktable[taskname]
@@ -428,7 +423,7 @@ end
 ################################################################################
 # Write back method
 ################################################################################
-function record(m::Map{A,D}, sa::SAStruct) where {A,D}
+function record(m::Map, sa::SAStruct)
     verify_placement(m, sa)
     mapping = m.mapping
     tasktable_rev = rev_dict(sa.tasktable)
@@ -437,7 +432,7 @@ function record(m::Map{A,D}, sa::SAStruct) where {A,D}
         # Get the mapping for the node
         address   = getaddress(node)
         pathindex = getindex(node)
-        # Get the component name in the original architecture
+        # Get the component name in the original toplevel
         path = sa.pathtable[address][pathindex]
         task_node_name  = tasktable_rev[index]
         # Create an entry in the "Mapping" data structure
@@ -471,24 +466,24 @@ function record_channels!(nodes, channels)
 end
 
 
-function build_pathtable(arch::TopLevel{A,D}) where {A,D}
-    offset = getoffset(arch)
+function build_pathtable(toplevel::TopLevel{D}, ruleset::RuleSet) where D
+    offset = getoffset(toplevel)
     @debug "Architecture Offset: $offset"
     # Get the dimensions of the addresses to build the array that is going to
     # hold the component table. Get the inside tuple for creation.
-    table_dims = dim_max(addresses(arch)) .+ offset.I
+    table_dims = dim_max(addresses(toplevel)) .+ offset.I
     pathtable = fill(Path{Component}[], table_dims...)
 
-    for (name, component) in arch.children
+    for (name, component) in toplevel.children
         # Collect full paths for all components that are mappable.
         paths = [
             catpath(name, p) 
             for p in walk_children(component) 
-            if ismappable(A, component[p])
+            if ismappable(ruleset, component[p])
         ]
 
-        # Account for architecture to array address offset
-        pathtable[getaddress(arch, name) + offset] = paths
+        # Account for toplevel to array address offset
+        pathtable[getaddress(toplevel, name) + offset] = paths
     end
     # Condense the mappable path table to reduce its memory footprint
     intern(pathtable)
@@ -499,7 +494,7 @@ end
     equivalence_classes(A::Type{T}, taskgraph) where {T <: Architecture}
 
 Separate the nodes in the taskgraph into equivalence classes based on the rules
-defined by the architecture. Expects the architecture to have defined the
+defined by the toplevel. Expects the toplevel to have defined the
 following two methods:
 
 * `isspecial(::Type{T}, t::TaskgraphNode)::Bool` - Returns whether or not the
@@ -518,10 +513,7 @@ Returns a tuple of 3 elements:
     Take the negative of the index to get the number for the equivalence class.
 
 """
-function task_equivalence_classes(
-            ::Type{A}, 
-            taskgraph::Taskgraph,
-           ) where {A <: Architecture}
+function task_equivalence_classes(taskgraph::Taskgraph, ruleset::RuleSet)
 
     @debug "Classifying Taskgraph Nodes"
     # Allocate the node class vector. This maps task indices to a unique
@@ -533,10 +525,10 @@ function task_equivalence_classes(
     special_reps = TaskgraphNode[]
     # Start iterating through the nodes in the taskgraph.
     for (index,node) in enumerate(getnodes(taskgraph))
-        if isspecial(A, node)
+        if isspecial(ruleset, node)
             # Set this to the index of an existing node if it exists. Otherwise,
             # add this node as a representative and give it the next index.
-            i = findfirst(x -> isequivalent(A, x, node), special_reps)
+            i = findfirst(x -> isequivalent(ruleset, x, node), special_reps)
             if i == nothing
                 push!(special_reps, node)
                 i = length(special_reps)
@@ -545,7 +537,7 @@ function task_equivalence_classes(
             classes[index] = -i
         else
             # Same as with the special nodes.
-            i = findfirst(x -> isequivalent(A, x, node), normal_reps)
+            i = findfirst(x -> isequivalent(ruleset, x, node), normal_reps)
             if i == nothing
                 push!(normal_reps, node)
                 i = length(normal_reps)
@@ -577,8 +569,8 @@ end
 ################################################################################
 # Verification routine for SA Placement
 ################################################################################
-function verify_placement(m::Map{A,D}, sa::SAStruct{A}) where A where D
-    # Assert that the SAStruct belongs to the same architecture
+function verify_placement(m::Map, sa::SAStruct)
+    # Assert that the SAStruct belongs to the same toplevel
     @debug "Verifying Placement"
 
     bad_nodes = check_grid_population(sa)
@@ -658,24 +650,24 @@ function check_consistency(sa::SAStruct)
     return bad_nodes
 end
 
-function check_mapability(m::Map{A,D}, sa::SAStruct) where {A,D}
+function check_mapability(m::Map, sa::SAStruct)
 
     bad_nodes = Int64[]
-    arch = m.architecture
+    toplevel = m.toplevel
     # Iterate through each node in the SA
     for (index, (m_node_name, m_node)) in enumerate(m.taskgraph.nodes)
         sa_node = sa.nodes[index]
         # Get the mapping for the node
         address = getaddress(sa_node)
         pathindex = getindex(sa_node)
-        # Get the component name in the original architecture
+        # Get the component name in the original toplevel
         path = sa.pathtable[address][pathindex]
-        # Get the component from the architecture
-        component = arch[path]
-        if !canmap(A, m_node, component)
+        # Get the component from the toplevel
+        component = toplevel[path]
+        if !canmap(rules(m), m_node, component)
             push!(bad_nodes, index)
             @warn """
-                Node index $m_node_name incorrectly assigned to architecture
+                Node index $m_node_name incorrectly assigned to toplevel
                 node $(path).
                 """
         end

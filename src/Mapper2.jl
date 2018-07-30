@@ -50,7 +50,7 @@ export  Address,
 @reexport using .SA
 
 # Default Placement Algorithm
-place!(map::Map{<:Architecture}; kwargs...) = SA.place!(map; kwargs...)
+place!(map::Map; kwargs...) = SA.place!(map; kwargs...)
 
 ###########
 # ROUTING #

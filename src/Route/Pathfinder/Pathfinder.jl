@@ -6,7 +6,8 @@ end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
-mutable struct Pathfinder{A,Q} <: AbstractRoutingAlgorithm
+mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
+    ruleset::T
     historical_cost :: Vector{Float64}
     congestion_cost_factor :: Float64
     historical_cost_factor :: Float64
@@ -19,13 +20,14 @@ mutable struct Pathfinder{A,Q} <: AbstractRoutingAlgorithm
 
     # Constructor
     function Pathfinder(
-            m::Map{A}, 
+            m::Map, 
             routing_struct::RoutingStruct;
             iteration_limit = 100,
             channels_to_route = ChannelIndex.(1:length(routing_struct.channels)),
             congestion_cost_factor = 3.0,
             historical_cost_factor = 3.0
-        ) where A
+        )
+        ruleset = rules(m)
         routing_graph = getgraph(routing_struct)
         num_vertices = nv(routing_graph.graph)
 
@@ -37,7 +39,8 @@ mutable struct Pathfinder{A,Q} <: AbstractRoutingAlgorithm
         predecessor = zeros(Int64, num_vertices)
         pq          = binary_minheap(CostVertex)
 
-        return new{A,typeof(pq)}(
+        return new{typeof(ruleset),typeof(pq)}(
+            ruleset,
             historical_cost,
             congestion_cost_factor,
             historical_cost_factor,
@@ -49,6 +52,8 @@ mutable struct Pathfinder{A,Q} <: AbstractRoutingAlgorithm
             pq,)
     end
 end
+
+MapperCore.rules(p::Pathfinder) = p.ruleset
 
 "Return the Architecture type for the given Pathfinder structure."
 getarchitecture(::Pathfinder{A}) where {A} = A
@@ -199,7 +204,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
                 # Add all the neighbors of these nodes to the priority queue.
                 for u in outneighbors(graph, j)
                     link = getlink(r,u)
-                    if !discovered[u] && canuse(A, link, task)
+                    if !discovered[u] && canuse(rules(p), link, task)
                         new_cost = linkcost(p,r,u)
                         push!(pq, CostVertex(new_cost,u,j))
                     end
@@ -239,7 +244,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
             predecessor[v.index] = v.predecessor
             for u in outneighbors(graph, v.index)
                 link_type = getlink(r,u)
-                if !discovered[u] && canuse(A, link_type, task)
+                if !discovered[u] && canuse(rules(p), link_type, task)
                     # Compute the cost of taking the new vertex and add it
                     # to the queue.
                     new_cost = v.cost + linkcost(p,r,u)

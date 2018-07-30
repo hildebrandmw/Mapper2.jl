@@ -120,7 +120,7 @@ function routing_skeleton(c::Component)
     return f(c)
 end
 
-function routing_skeleton(tl::TopLevel{A,D}) where {A,D}
+function routing_skeleton(tl::TopLevel)
     # Return an empty graph
     g = DiGraph(0)
     m = Dict{Path,Int}()

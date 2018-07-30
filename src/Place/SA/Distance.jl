@@ -72,7 +72,7 @@ maxdistance(sa_struct, A::BasicDistance) = maximum(A.table)
 ################################################################################
 # BFS Routines for building the distance look up table
 ################################################################################
-function BasicDistance(toplevel::TopLevel{A,D}) where {A,D}
+function BasicDistance(toplevel::TopLevel{D}) where D
     # The data type for the LUT
     element_type = UInt8
     # Pre-allocate the table. Get the size of the `toplevel` to figure out
@@ -134,7 +134,7 @@ function bfs!(distance::Array{U,N}, source::Address{D}, neighbors) where {U,N,D}
     return nothing
 end
 
-function neighbor_dict(toplevel::TopLevel{A,D}) where {A,D}
+function neighbor_dict(toplevel::TopLevel)
     @debug "Building Neighbor Table"
     # Get the connected component dictionary
     cc = MapperCore.connected_components(toplevel)

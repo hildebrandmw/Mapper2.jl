@@ -11,6 +11,17 @@ using DataStructures
 using Logging
 using Serialization
 
+"""
+    RuleSet
+
+Abstract supertype for controlling dispatch to specialized functions for
+architecture interpretation. Create a custom concrete subtype of this if you
+want to use custom methods during placement or routing.
+"""
+abstract type RuleSet end
+
+struct DefaultRuleSet <: RuleSet end
+
 include("Taskgraphs.jl")
 
 # Architecture includes
@@ -28,95 +39,95 @@ include("Map/Inspection.jl")
 # Mapping methods
 #-------------------------------------------------------------------------------
 
-const AA = Architecture
 const TN = TaskgraphNode
 const TE = TaskgraphEdge
 const PLC = Union{Port,Link,Component}
 
 # Placement Queries
 """
-    isspecial(::Type{A}, t::TaskgraphNode) :: Bool where {A <: Architecture}
+    isspecial(ruleset::RuleSet, taskgraphnode::TaskgraphNode) :: Bool
 
-Return `true` to disable move distance contraction for `t` during placement. 
+Return `true` to disable move distance contraction for `taskgraphnode` during
+placement under `ruleset`.
 
 Default: `false`
 """
-isspecial(::Type{<:AA}, t::TN) = false
+isspecial(::RuleSet, t::TN) = false
 
 """
-    isequivalent(::Type{A}, a::TaskgraphNode, b::TaskgraphNode) :: Bool where {A <: Architecture}
+    isequivalent(ruleset::RuleSet, a::TaskgraphNode, b::TaskgraphNode) :: Bool
 
 Return `true` if `TaskgraphNodes` `a` and `b` are semantically equivalent for
 placement.
 
 Default: `true`
 """
-isequivalent(::Type{<:AA}, a::TN, b::TN) = true
+isequivalent(::RuleSet, a::TN, b::TN) = true
 
 """
-    ismappable(::Type{A}, c::Component) :: Bool where {A <: Architecture}
+    ismappable(ruleset::RuleSet, component::Component) :: Bool
 
-Return `true` if some task can be mapped to `c`.
+Return `true` if some task can be mapped to `component` under `ruleset`.
 
 Default: `true`
 """
-ismappable(::Type{<:AA}, c::Component) = true
+ismappable(::RuleSet, c::Component) = true
 
 """
-    canmap(::Type{A}, t::TaskgraphNode, c::Component) :: Bool where {A <: Architecture}
+    canmap(ruleset::RuleSet, t::TaskgraphNode, c::Component) :: Bool
 
-Return `true` if `t` can be mapped to `c`.
+Return `true` if `t` can be mapped to `c` under `ruleset`.
 
 Default: `true`
 """
-canmap(::Type{<:AA}, t::TN, c::Component) = true 
+canmap(::RuleSet, t::TN, c::Component) = true
 
 # Routing Queries
 
 """
-    canuse(::Type{A}, item::Union{Port,Link,Component}, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+    canuse(ruleset::RuleSet, item::Union{Port,Link,Component}, edge::TaskgraphEdge)::Bool
 
-Return `true` if `edge` can use `item` as a routing resource.
+Return `true` if `edge` can use `item` as a routing resource under `ruleset`.
 
 Default: `true`
 """
-canuse(::Type{<:AA}, item::PLC, edge::TE) = true
+canuse(::RuleSet, item::PLC, edge::TE) = true
 
 """
-    getcapacity(::Type{A}, item::Union{Port,Link,Component}) where {A <: Architecture}
+    getcapacity(ruleset::RuleSet, item::Union{Port,Link,Component})
 
-Return the capacity of routing resource `item`.
+Return the capacity of routing resource `item` under `ruleset`.
 
 Default: `1`
 """
-getcapacity(::Type{<:AA}, item) = 1
+getcapacity(::RuleSet, item) = 1
 
 """
-    is_source_port(::Type{A}, port::Port, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+    is_source_port(ruleset::RuleSet, port::Port, edge::TaskgraphEdge)::Bool
 
-Return `true` if `port` is a valid source port for `edge`.
+Return `true` if `port` is a valid source port for `edge` under `ruleset`.
 
 Default: `true`
 """
-is_source_port(::Type{<:AA}, port::Port, edge::TE) = true
+is_source_port(::RuleSet, port::Port, edge::TE) = true
 
 """
-    is_sink_port(::Type{A}, port::Port, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+    is_sink_port(ruleset::RuleSet, port::Port, edge::TaskgraphEdge)::Bool
 
-Return `true` if `port` is a vlid sink port for `edge`.
+Return `true` if `port` is a vlid sink port for `edge` under `ruleset`.
 
 Default: `true`
 """
-is_sink_port(::Type{<:AA}, port::Port, edge::TE) = true
+is_sink_port(::RuleSet, port::Port, edge::TE) = true
 
 """
-    needsrouting(::Type{A}, edge::TaskgraphEdge)::Bool where {A <: Architecture}
+    needsrouting(ruleset::RuleSet, edge::TaskgraphEdge)::Bool
 
-Return `true` if `edge` needs to be routed.
+Return `true` if `edge` needs to be routed under `ruleset`.
 
 Default: `true`
 """
-needsrouting(::Type{<:AA}, edge::TE) = true
+needsrouting(::RuleSet, edge::TE) = true
 
 #-------------------------------------------------------------------------------
 # Exports
@@ -124,7 +135,7 @@ needsrouting(::Type{<:AA}, edge::TE) = true
 
 export  isspecial,
         isequivalent,
-        ismappable, 
+        ismappable,
         canmap,
         canuse,
         is_sink_port,
@@ -161,7 +172,6 @@ export  # Types
         in_nodes,
 
         ### Architecture Exports ###
-        Architecture,
         # Path Types
         AbstractPath,
         Path,
@@ -186,6 +196,7 @@ export  # Types
         AbstractComponent,
         TopLevel,
         Component,
+        isaddress,
         @port_str,
         @link_str,
         @component_str,
@@ -234,10 +245,12 @@ export  # Types
         build_component_table,
 
         ### Map ###
+        RuleSet,
         Mapping,
         Map,
         NodeMap,
         EdgeMap,
+        rules,
         save,
         load
 end

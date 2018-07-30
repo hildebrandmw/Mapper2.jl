@@ -1,14 +1,14 @@
-function getoffset(a::TopLevel{A,D}) where {A,D}
+function getoffset(a::TopLevel{D}) where D
     return one(Address{D}) - Address(dim_min(addresses(a)))
 end
 
 """
-    mappables(a::TopLevel{A,D}, address::Address{D})
+    mappables(a::TopLevel{D}, address::Address{D})
 
 Return a `Vector{Path{Component}}` of paths to mappable components at `address`.
 """
-function mappables(topleve::TopLevel{A,D}, address::Address{D}) where {A,D}
-    return [p for p in walk_children(topleve, address) if ismappable(A, topleve[p])]
+function mappables(toplevel::TopLevel{D}, ruleset::RuleSet, address::Address{D}) where {D}
+    return [p for p in walk_children(topleve, address) if ismappable(A, toplevel[p])]
 end
 
 """

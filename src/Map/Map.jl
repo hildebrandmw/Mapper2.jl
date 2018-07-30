@@ -35,26 +35,32 @@ Base.setindex!(m::Mapping, v, i::Integer) = setindex!(m.edges, v, i)
 """
 Top level data structure. Summary of parameters:
 
-* `A` - The architecture type used for the mapping.
+* `T` - The [`RuleSet`](@ref) used to control placement and routing.
 * `D` - The number of dimensions in the architecture (will usually be 2 or 3).
 """
-mutable struct Map{A,D}
+mutable struct Map{D, T <: RuleSet}
+    "[`RuleSet`](@ref) for assigning `taskgraph` to `toplevel`."
+    ruleset :: T
+
     "[`TopLevel{A,D}`](@ref) - The `TopLevel` to be used for the mapping."
-    architecture::TopLevel{A,D}
+    toplevel::TopLevel{D}
 
     "The [`Taskgraph`](@ref) to map to the `toplevel`."
     taskgraph   ::Taskgraph
     options     ::Dict{Symbol, Any}
 
-    "How `taskgraph` is mapped to `architecture`."
+    "How `taskgraph` is mapped to `toplevel`."
     mapping     ::Mapping
     metadata    ::Dict{String,Any}
 end
 
-function Map(architecture::TopLevel{A,D}, 
-                taskgraph   ::Taskgraph;
-                options     = Dict{Symbol,Any}(),
-                metadata    = Dict{String,Any}(),) where {A,D}
+function Map(
+        ruleset::T,
+        toplevel::TopLevel{D}, 
+        taskgraph   ::Taskgraph;
+        options     = Dict{Symbol,Any}(),
+        metadata    = Dict{String,Any}(),
+    ) where {T <: RuleSet,D}
 
     # Create a new Mapping data type for the new map
     # Get the node names
@@ -62,7 +68,8 @@ function Map(architecture::TopLevel{A,D},
     edges = [SparseDiGraph{PPLC}() for i in 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)
     return Map(
-        architecture,
+        ruleset,
+        toplevel,
         taskgraph,
         options,
         mapping,
@@ -70,23 +77,25 @@ function Map(architecture::TopLevel{A,D},
       )
 end
 
+rules(map::Map) = map.ruleset
+
 ################################################################################
 # Methods for interacting with the Map.
 ################################################################################
 getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
 getpath(m::Map, i::Integer) = getpath(m.mapping, i)
-getaddress(map::Map, nodename::String) = getaddress(map.architecture, getpath(map, nodename))
+getaddress(map::Map, nodename::String) = getaddress(map.toplevel, getpath(map, nodename))
 
-function isused(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
+function isused(m::Map{D}, addr::CartesianIndex{D}) where D
     for path in values(m.mapping.nodes)
-        getaddress(m.architecture, path) == addr && return true
+        getaddress(m.toplevel, path) == addr && return true
     end
     return false
 end
 
-function gettask(m::Map{A,D}, addr::CartesianIndex{D}) where {A,D}
+function gettask(m::Map{D}, addr::CartesianIndex{D}) where D
     for (taskname, path) in m.mapping.nodes
-        if getaddress(m.architecture, path) == addr
+        if getaddress(m.toplevel, path) == addr
             return  getnode(m.taskgraph, taskname)
         end
     end

@@ -23,10 +23,12 @@ include("Taskgraph.jl")
 include("Architecture/Architecture.jl")
 
 # Placement
-include("Place/Placement.jl")
 include("Place/MoveGenerators.jl")
 include("Place/InitialPlacement.jl")
 
 # Maps
 include("Map/IntegrationTest.jl")
 include("Map/SaveLoad.jl")
+
+# Long placements
+include("Place/Placement.jl")

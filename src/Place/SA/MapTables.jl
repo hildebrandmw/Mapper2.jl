@@ -190,11 +190,12 @@ end
 
 
 function MapTable(
-        toplevel::TopLevel{A,D},
+        toplevel::TopLevel{D},
+        ruleset::RuleSet,
         equivalence_classes,
         pathtable;
         isflat = false,
-    ) where {A,D}
+    ) where D
 
 
     # For each normal node class C, create an array the same size as the
@@ -204,7 +205,7 @@ function MapTable(
         map(pathtable) do paths
             [index 
              for (index,path) in enumerate(paths) 
-             if canmap(A, node, toplevel[path])
+             if canmap(ruleset, node, toplevel[path])
             ]
         end
     end
@@ -215,7 +216,7 @@ function MapTable(
         locations_for_node = Location{D}[]
         for address in CartesianIndices(pathtable)
             for (index, path) in enumerate(pathtable[address])
-                if canmap(A, node, toplevel[path])
+                if canmap(ruleset, node, toplevel[path])
                     push!(locations_for_node, Location(address, index))
                 end
             end

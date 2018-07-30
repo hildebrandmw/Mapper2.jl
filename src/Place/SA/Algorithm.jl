@@ -144,7 +144,7 @@ end
 ####################
 
 """
-Type that controls the length contraction mechanism of Simulated Annealing 
+Type that controls the length contraction mechanism of Simulated Annealing
 placement.
 
 API
@@ -275,7 +275,7 @@ function place!(
     initial_move_limit = distancelimit(movegen, sa_struct)
 
     # Initialize structure to help during placement.
-    cost = map_cost(A, sa_struct)
+    cost = map_cost(sa_struct)
     cookie = MoveCookie(sa_struct)
 
     # Main Simulated Annealing Loop
@@ -340,7 +340,7 @@ function place!(
         # Post iteration routines #
         ###########################
         # Update cost for numerical stability reasons
-        state.objective = map_cost(A, sa_struct)
+        state.objective = map_cost(sa_struct)
         # Sanity Check
 
         if !isapprox(objective, state.objective)
@@ -362,7 +362,7 @@ function place!(
         else
             state.recent_deviation = sum_cost_difference / accepted_moves
         end
-        state.aux_cost = aux_cost(A, sa_struct)
+        state.aux_cost = aux_cost(sa_struct)
 
         # Adjust temperature
         state.warming ? warm!(warmer, state) : cool!(cooler, state)
@@ -390,11 +390,11 @@ end
 # Movement related functions
 ################################################################################
 @propagate_inbounds function move_with_undo(
-        sa_struct::SAStruct{A},
+        sa_struct::SAStruct,
         cookie,
         index::Int64,
         new_location
-    ) where A
+    )
 
     node = sa_struct.nodes[index]
 
@@ -407,9 +407,9 @@ end
     if occupying_node_index == 0
         cookie.move_was_swap = false
 
-        base_cost = node_cost(A, sa_struct, index)
+        base_cost = node_cost(sa_struct, index)
         move(sa_struct, index, new_location)
-        moved_cost = node_cost(A, sa_struct, index)
+        moved_cost = node_cost(sa_struct, index)
 
         cookie.cost_of_move = moved_cost - base_cost
     else
@@ -421,11 +421,11 @@ end
         # Save the index of the occupying node
         cookie.index_of_other_node  = occupying_node_index
         # Compute the cost before the move
-        base_cost = node_pair_cost(A, sa_struct, index, occupying_node_index)
+        base_cost = node_pair_cost(sa_struct, index, occupying_node_index)
         # Swap nodes
         swap(sa_struct, index, occupying_node_index)
         # Get cost after move and store
-        moved_cost = node_pair_cost(A, sa_struct, index, occupying_node_index)
+        moved_cost = node_pair_cost(sa_struct, index, occupying_node_index)
         cookie.cost_of_move = moved_cost - base_cost
     end
     return true

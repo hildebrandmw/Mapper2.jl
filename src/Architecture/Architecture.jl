@@ -1,11 +1,3 @@
-"""
-    Architecture
-
-Abstract supertype for controlling dispatch to specialized functions for
-architecture interpretation. Create a custom concrete subtype of this if you
-want to use custom methods during placement or routing.
-"""
-abstract type Architecture end
 
 # Make an enum to indicate "Source" or "Sink". Move convenient that using symbols
 """
@@ -137,11 +129,11 @@ struct Component <: AbstractComponent
     children :: Dict{String, Component}
     "Ports instantiated directly by this component. Indexed by instance name."
     ports :: Dict{String, Port}
-    "Links instantiated directly by this component. Indexed by instance name." 
+    "Links instantiated directly by this component. Indexed by instance name."
     links :: Dict{String, Link}
     """
     Record of the `Link` (by name) attached to a `Port`, keyed by `Path{Port}`.
-    Length of each `Path{Port}` must be 1 or 2, to reference ports either 
+    Length of each `Path{Port}` must be 1 or 2, to reference ports either
     instantiated by this component directly, or by one of this component's
     immediate children.j
     """
@@ -205,7 +197,7 @@ ports(c::Component) = values(c.ports)
 ports(c::Component, classes) = Iterators.filter(x -> x.class in classes, values(c.ports))
 
 portpaths(component) = [Path{Port}(name) for name in keys(component.ports)]
-function portpaths(component, classes) 
+function portpaths(component, classes)
     [Path{Port}(k) for (k,v) in component.ports if v.class in classes]
 end
 connected_ports(a::AbstractComponent) = collect(keys(a.portlink))
@@ -235,7 +227,7 @@ ports of its own.
 
 Parameter `D` is the dimensionality of the `TopLevel`.
 """
-struct TopLevel{A <: Architecture,D} <: AbstractComponent
+struct TopLevel{D} <: AbstractComponent
 
     name :: String
 
@@ -246,7 +238,7 @@ struct TopLevel{A <: Architecture,D} <: AbstractComponent
     child_to_address :: Dict{String, Address{D}}
 
     "Translation from `Address` to the `Component` at that address."
-    address_to_child :: Dict{Address{D}, String} 
+    address_to_child :: Dict{Address{D}, String}
 
     "`Link`s instantiated directly by the `TopLevel`."
     links :: Dict{String, Link}
@@ -256,7 +248,7 @@ struct TopLevel{A <: Architecture,D} <: AbstractComponent
     metadata :: Dict{String, Any}
 
     # --Constructor
-    function TopLevel{A,D}(name, metadata = Dict{String,Any}()) where {A,D}
+    function TopLevel{D}(name, metadata = Dict{String,Any}()) where D
         # Create a bunch of empty items.
         links           = Dict{String, Link}()
         portlink        = Dict{Path{Port}, Link}()
@@ -264,13 +256,13 @@ struct TopLevel{A <: Architecture,D} <: AbstractComponent
         child_to_address = Dict{String, Address{D}}()
         address_to_child = Dict{Address{D}, String}()
 
-        return new{A,D}(
-            name, 
-            children, 
+        return new{D}(
+            name,
+            children,
             child_to_address,
             address_to_child,
-            links, 
-            portlink, 
+            links,
+            portlink,
             metadata
         )
     end
@@ -336,7 +328,7 @@ hasaddress(toplevel::TopLevel, str::String) = haskey(toplevel.child_to_address, 
 isaddress(toplevel, address) = haskey(toplevel.address_to_child, address)
 
 getname(toplevel::TopLevel, a::Address) = toplevel.address_to_child[a]
-function Base.size(t::TopLevel{A,D}) where {A,D} 
+function Base.size(t::TopLevel{D}) where D
     return dim_max(addresses(t)) .- dim_min(addresses(t)) .+ Tuple(1 for _ in 1:D)
 end
 
@@ -380,11 +372,11 @@ Return the top level component of `toplevel` at `address`.
 """
     walk_children(component::AbstractComponent, [address]) :: Vector{Path{Component}}
 
-Return relative paths to all the children of `component`. If `address` is given 
+Return relative paths to all the children of `component`. If `address` is given
 return relative paths to all components at `address`.
 """
 function walk_children(component::AbstractComponent)
-    # Recurse on all children. 
+    # Recurse on all children.
     paths = Vector{Path{Component}}()
     for (name, child) in component.children
         # Recurse on all children - append each child's instance name in front
@@ -405,7 +397,7 @@ function walk_children(toplevel::TopLevel, address::Address)
     return catpath.(component_name, paths)
 end
 
-function connected_components(tl::TopLevel{A,D}) where {A,D}
+function connected_components(tl::TopLevel{D}) where D
     # Construct the associative for the connected components.
     # Use a set to automatically deal with duplicates.
     cc = Dict{Address{D}, Set{Address{D}}}()
@@ -483,8 +475,8 @@ isfree(c::AbstractComponent, p::Path{Port}) = !haskey(c.portlink, p)
 @doc """
     connected_components(toplevel::TopLevel{A,D})::Dict{Address{D}, Set{Address{D}}
 
-Return `d` where key `k` is a valid address of `tl` and where `d[k]` is the set 
-of valid addresses of `tl` whose components are the destinations of links 
+Return `d` where key `k` is a valid address of `tl` and where `d[k]` is the set
+of valid addresses of `tl` whose components are the destinations of links
 originating at address `k`.
 """ connected_components
 

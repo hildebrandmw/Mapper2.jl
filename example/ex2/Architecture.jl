@@ -48,7 +48,7 @@ function build_tile()
 end
 
 function build_arch()
-    a = TopLevel{Test3d,3}("arch_3d")
+    a = TopLevel{3}("arch_3d")
     tile = build_tile()
 
     # Instantiate tiles

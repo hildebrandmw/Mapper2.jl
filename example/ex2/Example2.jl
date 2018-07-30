@@ -10,9 +10,9 @@ export  build_primitive,
         make_map
 
 
-struct Test3d <: Architecture end
+struct Test3d <: RuleSet end
 
-make_map() = Map(build_arch(), make_taskgraph())
+make_map() = Map(Test3d(), build_arch(), make_taskgraph())
         
 include("Architecture.jl")
 include("Taskgraph.jl")

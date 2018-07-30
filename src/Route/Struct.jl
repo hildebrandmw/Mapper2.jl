@@ -44,16 +44,16 @@ struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
     channel_index_to_taskgraph_index::Dict{Int,Int}
 end
 
-function RoutingStruct(map::Map{A,D}) where {A,D}
+function RoutingStruct(map::Map)
     # Unpack some fields from the map
-    architecture = map.architecture
+    toplevel = map.toplevel
     taskgraph    = map.taskgraph
     @debug "Building Resource Graph"
 
-    architecture_graph = routing_graph(architecture)
+    architecture_graph = routing_graph(toplevel)
     # Annotate the links in the routing graph with the custom structure defined
     # by the architecture type.
-    graph_vertex_annotations = annotate(architecture, architecture_graph)
+    graph_vertex_annotations = annotate(toplevel, rules(map), architecture_graph)
     # Get start and stop nodes for each taskgraph.
     channels, channel_dict = build_routing_taskgraph(map, architecture_graph)
     # Initialize the paths variable.
@@ -213,24 +213,24 @@ function record(m::Map, r::RoutingStruct)
     end
 end
 
-function get_routing_path(arch::TopLevel{A,D}, g, maprev) where {A,D}
-    routing_path = SparseDiGraph{Any}()
-    # Add vertices
-    for v in vertices(g)
-        path = maprev[v]
-        add_vertex!(routing_path, path)
-    end
-    # Add edges
-    for src in vertices(g), dst in outneighbors(g, src)
-        add_edge!(routing_path, maprev[src], maprev[dst])
-    end
-    return routing_path
-end
+# function get_routing_path(toplevel::TopLevel, g, maprev)
+#     routing_path = SparseDiGraph{Any}()
+#     # Add vertices
+#     for v in vertices(g)
+#         path = maprev[v]
+#         add_vertex!(routing_path, path)
+#     end
+#     # Add edges
+#     for src in vertices(g), dst in outneighbors(g, src)
+#         add_edge!(routing_path, maprev[src], maprev[dst])
+#     end
+#     return routing_path
+# end
 
 ################################################################################
 # Routing Link Annotation
 ################################################################################
-function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: Architecture
+function annotate(toplevel::TopLevel, ruleset::RuleSet, rg::RoutingGraph)
     @debug "Annotating Graph Links"
     maprev = rev_dict(rg.map)
 
@@ -238,7 +238,7 @@ function annotate(arch::TopLevel{A}, rg::RoutingGraph) where A <: Architecture
     routing_links_any = Vector{Any}(undef, nv(rg.graph))
 
     for (i, path) in maprev
-        routing_links_any[i] = annotate(A, arch[path])
+        routing_links_any[i] = annotate(ruleset, toplevel[path])
     end
     # Clean up types
     routing_links = typeunion(routing_links_any)
@@ -250,16 +250,17 @@ end
 ################################################################################
 # Routing Taskgraph Constructor
 ################################################################################
-function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Architecture}
+function build_routing_taskgraph(m::Map, r::RoutingGraph)
     # Debug printing
     @debug "Building Default Routing Taskgraph"
     # Unpack map
     taskgraph = m.taskgraph
-    arch      = m.architecture
+    toplevel = m.toplevel
+    ruleset = rules(m)
 
     # Get the list of channels that need routing.
     edges = getedges(taskgraph)
-    edge_indices_to_route = [i for (i,e) in enumerate(edges) if needsrouting(A, e)]
+    edge_indices_to_route = [i for (i,e) in enumerate(edges) if needsrouting(ruleset, e)]
 
     # Create routing channels for all edges that need routing.
     channels = map(edge_indices_to_route) do index
@@ -271,10 +272,10 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Archite
         sources = MapperCore.getpath.(Ref(m), getsources(edge))
         sinks   = MapperCore.getpath.(Ref(m), getsinks(edge))
         # Convert these to indices in the routing graph
-        start = collect_nodes(arch, r.map, edge, sources, MapperCore.Source)
-        stop  = collect_nodes(arch, r.map, edge, sinks, MapperCore.Sink)
+        start = collect_nodes(toplevel, ruleset, r.map, edge, sources, MapperCore.Source)
+        stop  = collect_nodes(toplevel, ruleset, r.map, edge, sinks, MapperCore.Sink)
         # Build the routing channel type
-        return routing_channel(A, start, stop, edge)
+        return routing_channel(ruleset, start, stop, edge)
     end
 
     # Create a dictionary mapping indices in the "channels" vector to indices
@@ -286,19 +287,20 @@ function build_routing_taskgraph(m::Map{A}, r::RoutingGraph) where {A <: Archite
 end
 
 function collect_nodes(
-        arch::TopLevel{A},
+        toplevel::TopLevel,
+        ruleset::RuleSet,
         pathmap,
         edge::TaskgraphEdge,
         paths,
         dir
-    ) where {A}
+    )
 
     nodes = Vector{PortVertices}()
     # Iterate through the source paths - get the port names.
     for path in paths
         # Get the component from the architecture
-        component = arch[path]
-        ports = get_routing_ports(A, edge, component, dir)
+        component = toplevel[path]
+        ports = get_routing_ports(ruleset, edge, component, dir)
 
         # The ports are just a collection of strings.
         #
@@ -317,15 +319,15 @@ function collect_nodes(
 end
 
 """
-    get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir::Direction)
+    get_routing_ports(ruleset::RuleSet, e::TaskgraphEdge, c::Component, dir::Direction)
 
 Return an array of the names of the ports of `c` that can serve as the correct
 function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
 """
-function get_routing_ports(::Type{A}, e::TaskgraphEdge, c::Component, dir) where A <: Architecture
+function get_routing_ports(ruleset::RuleSet, e::TaskgraphEdge, c::Component, dir)
     if dir == MapperCore.Source
-        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_source_port(A,v,e)]
+        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_source_port(ruleset,v,e)]
     elseif dir == MapperCore.Sink
-        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_sink_port(A,v,e)]
+        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_sink_port(ruleset,v,e)]
     end
 end

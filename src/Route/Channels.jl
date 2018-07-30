@@ -16,12 +16,12 @@ struct BasicChannel <: RoutingChannel
 end
 
 """
-    routing_channel(::Type{A}, start, stop, edge::TaskgraphEdge) where {A <: Architecture}
+    routing_channel(ruleset::RuleSet, start, stop, edge::TaskgraphEdge)
 
 Return `<:RoutingChannel` for `edge`. Arguments `start` and `stop` are return
 elements for `start_vertices` and `stop_vertices` respectively.
 """
-function routing_channel(::Type{A}, start, stop, edge) where {A<:Architecture}
+function routing_channel(::RuleSet, start, stop, edge)
     BasicChannel(start, stop)
 end
 

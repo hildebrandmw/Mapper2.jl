@@ -200,7 +200,7 @@ Test architecture. Consists of a 3x3 array of tiles consisting of a variety of
 structures intended to test various features of the Mapper.
 """
 function build_test_arch()
-    arch = TopLevel{TestArchitecture,2}("test_arch")
+    arch = TopLevel{2}("test_arch")
     # Add IO Tiles
     io_tile = build_io_tile()
     for address in (CartesianIndex(1,1), CartesianIndex(3,3))
