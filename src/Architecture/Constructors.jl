@@ -220,6 +220,9 @@ function ConnectionRule(
     ConnectionRule(offsets, address_filter, source_filter, dest_filter)
 end
 
+Base.iterate(c::ConnectionRule) = (c, nothing)
+Base.iterate(c::ConnectionRule, ::Any) = nothing
+
 """
     connection_rule(toplevel, rule::ConnectionRule; metadata = emptymeta())
 
