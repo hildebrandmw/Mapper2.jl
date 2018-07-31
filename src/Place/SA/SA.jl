@@ -111,8 +111,12 @@ end
 
 function warmup(m::Map; kwargs...)
     # Strip "move_attempts" from the kwargs and set it so a low value
-    stripped_kwargs = [k => kwargs[k] for k in keys(kwargs) if k != :move_attempts]
-    push!(stripped_kwargs, :move_attempts => 5000)
+    if length(kwargs) > 0
+        stripped_kwargs = [k => kwargs[k] for k in keys(kwargs) if k != :move_attempts]
+        push!(stripped_kwargs, :move_attempts => 5000)
+    else
+        stripped_kwargs = (move_attempts = 5000,)
+    end
 
     # Run placement.
     sa_struct = SAStruct(m; stripped_kwargs...)

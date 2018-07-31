@@ -11,6 +11,7 @@ include("Helper.jl")
 using .Helper
 
 include("MapperGraphs.jl")
+using .MapperGraphs
 
 # Central data types.
 include("MapperCore.jl")

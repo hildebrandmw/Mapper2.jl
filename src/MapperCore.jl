@@ -252,5 +252,6 @@ export  # Types
         EdgeMap,
         rules,
         save,
-        load
+        load,
+        getpath
 end

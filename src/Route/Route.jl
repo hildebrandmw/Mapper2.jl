@@ -75,11 +75,12 @@ include("Pathfinder/Pathfinder.jl")
 
 # Routing dispatch
 """
-    route!(map::Map)
+    route!(map::Map; meta_prefix = "")
 
-Run pathfinder routing directly on `map`.
+Run pathfinder routing directly on `map`. Keyword argument `meta_prefix` allows
+controlling the prefix of the `map.metadata` keys generated below.
 
-Recoreds the following metrics into `map.metadata`:
+Records the following metrics into `map.metadata`:
 
 * `routing_struct_time` - Time it took to build the [`RoutingStruct`](@ref)
 
@@ -98,7 +99,7 @@ The following are also included if `routing_error == false`.
 
 * `routing_global_links` - The number of global links used in the final routing.
 """
-function route!(m::Map)
+function route!(m::Map; meta_prefix = "")
     # Build the routing structure
     routing_struct, struct_time, struct_bytes, _, _  = @timed RoutingStruct(m)
     # Default to Pathfinder
@@ -107,26 +108,26 @@ function route!(m::Map)
     routing_error = false
     local route_time
     local route_bytes
-    # try
+    try
         _, route_time, route_bytes, _, _ = @timed route!(algorithm, routing_struct)
-    # catch err
-    #     @error err
-    #     routing_error = true
-    # end
+    catch err
+        @error err
+        routing_error = true
+    end
 
     # Record the final results.
     record(m, routing_struct)
     routing_passed = check_routing(m)
 
     # Save all of this to metadata.
-    m.metadata["routing_struct_time"]   = struct_time
-    m.metadata["routing_struct_bytes"]  = struct_bytes
-    m.metadata["routing_passed"]        = routing_passed
-    m.metadata["routing_error"]         = routing_error
+    m.metadata["$(meta_prefix)routing_struct_time"] = struct_time
+    m.metadata["$(meta_prefix)routing_struct_bytes"] = struct_bytes
+    m.metadata["$(meta_prefix)routing_passed"] = routing_passed
+    m.metadata["$(meta_prefix)routing_error"] = routing_error
     if !routing_error
-        m.metadata["routing_time"]      = route_time
-        m.metadata["routing_bytes"]     = route_bytes
-        m.metadata["routing_global_links"] = MapperCore.total_global_links(m)
+        m.metadata["$(meta_prefix)routing_time"] = route_time
+        m.metadata["$(meta_prefix)routing_bytes"] = route_bytes
+        m.metadata["$(meta_prefix)routing_global_links"] = MapperCore.total_global_links(m)
     end
 
     return nothing
