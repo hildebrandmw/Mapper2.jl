@@ -115,12 +115,12 @@ const __ROUTING_DICT = Dict(
 )
 
 # Constructor dispatch based on primitive type. Default to BlackBox
-function routing_skeleton(c::Component)
+function routing_skeleton(c::Component)::RoutingGraph
     f = get(__ROUTING_DICT, c.primitive, build_routing_blackbox)
     return f(c)
 end
 
-function routing_skeleton(tl::TopLevel)
+function routing_skeleton(tl::TopLevel)::RoutingGraph
     # Return an empty graph
     g = DiGraph(0)
     m = Dict{Path,Int}()
