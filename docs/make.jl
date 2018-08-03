@@ -32,7 +32,9 @@ makedocs(
                 "man/routing/channels.md",
                 "man/routing/graph.md",
             ],
+            "man/mappergraphs.md",
             "man/helper.md",
+            "man/paths.md",
         ],
     ]
 )

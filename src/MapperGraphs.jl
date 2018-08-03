@@ -1,5 +1,8 @@
 module MapperGraphs
 
+using ..Mapper2.Helper
+Helper.@SetupDocStringTemplates
+
 using LightGraphs
 
 # Additions to the light graphs API
@@ -39,24 +42,27 @@ export  AbstractGraph,
 ################################################################################
 # Subgraph for for lightgraphs
 ################################################################################
-struct AdjList{T}
+struct AdjacencyList{T}
     neighbors_in ::Vector{T}
     neighbors_out::Vector{T}
 end
 
-AdjList{T}() where T = AdjList(T[], T[])
+AdjacencyList{T}() where T = AdjacencyList(T[], T[])
 
+"""
+Graph representation with arbitrary vertices of type `T`.
+"""
 struct SparseDiGraph{T}
-    vertices::Dict{T,AdjList{T}}
+    vertices::Dict{T,AdjacencyList{T}}
 end
 
-SparseDiGraph{T}() where T = SparseDiGraph(Dict{T,AdjList{T}}())
+SparseDiGraph{T}() where T = SparseDiGraph(Dict{T,AdjacencyList{T}}())
 
 LightGraphs.has_vertex(g::SparseDiGraph, v) = haskey(g.vertices, v)
 
 function LightGraphs.add_vertex!(g::SparseDiGraph{T}, v) where T
     has_vertex(g, v) && return false
-    g.vertices[v] = AdjList{T}()
+    g.vertices[v] = AdjacencyList{T}()
     return true
 end
 
@@ -73,15 +79,26 @@ LightGraphs.outneighbors(g::SparseDiGraph, v) = g.vertices[v].neighbors_out
 LightGraphs.inneighbors(g::SparseDiGraph, v)  = g.vertices[v].neighbors_in
 LightGraphs.nv(g::SparseDiGraph) = length(g.vertices)
 
+"""
+    source_vertices(graph::SparseDiGraph{T}) :: Vector{T} where T
+
+Return the vertices of `graph` that have no incoming edges.
+"""
 source_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(inneighbors(g,v)) == 0]
+
+"""
+    sink_vertices(graph::SparseDiGraph{T}) :: Vector{T} where T
+
+Return the vertices of `graph` that have no outgoing edges.
+"""
 sink_vertices(g::SparseDiGraph) = [v for v in vertices(g) if length(outneighbors(g,v)) == 0]
 
 
 """
-    linearize(g::SparseDiGraph{T}) where T
+    linearize(graph::SparseDiGraph{T}) where T
 
-Return a Vector{T} of vertices of `g` in linearized traversal order if `g` is
-linear. Throw error if `g` is not linear.
+Return a Vector{T} of vertices of `graph` in linearized traversal order if 
+`graph` is linear. Throw error if `ggraph` is not a linear graph.
 """
 function linearize(g::SparseDiGraph{T}) where T
     # Do a check for an empty graph.
@@ -107,10 +124,10 @@ function linearize(g::SparseDiGraph{T}) where T
 end
 
 """
-    make_lightgraph(s::SparseDiGraph)
+    make_lightgraph(graph::SparseDiGraph{T}) where T :: (SimpleDiGraph, Dict{T,Int})
 
-Given `s`, return a tuple `(g,d` where lightgraph `g` and dictionary `d`
-where `g` is isomorphic to `s` and `d` maps vertices of `s` to vertices of `g`.
+Return tuple `(g, d)` where `g :: SimpleDiGraph` is a `LightGraph` ismorphic
+to `graph` and `d` maps vertices of `graph` to vertices of `g`.
 """
 function make_lightgraph(s::SparseDiGraph)
     g = DiGraph(nv(s))

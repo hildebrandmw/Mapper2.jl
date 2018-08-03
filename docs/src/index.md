@@ -18,11 +18,11 @@ This package may be installed from the Julia REPL using the command:
 Pkg.clone("https://github.com/hildebrandmw/Mapper2.jl")
 ```
 
-# Architecture Types
+# RuleSet Types
 
-Much of the behavior of this module can be affected by defining a custom  subtype
-of [`Architecture`](@ref) and extending various methods.
+Much of the behavior of this module can be affected by defining a custom subtype
+of [`RuleSet`](@ref) and extending various methods.
 
 ```@docs
-MapperCore.Architecture
+MapperCore.RuleSet
 ```

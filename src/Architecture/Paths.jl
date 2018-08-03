@@ -1,16 +1,20 @@
+"""
+Typed wrapper for `Vector{String}`.
+"""
 struct Path{T}
     steps   ::Vector{String}
-    # -- constructors
+
+    # Hooray for inner constructors!
     Path{T}() where T = new{T}(String[])
-    function Path{T}(s::Vector{<:AbstractString}) where T
-        new{T}(String.(s))
+    function Path{T}(strings::Vector{<:AbstractString}) where T
+        new{T}(String.(strings))
     end
 end
 
-function Path{T}(p::AbstractString) where T
-    return isempty(p) ? Path{T}() : Path{T}(split(p, "."))
+function Path{T}(string::AbstractString) where T
+    return isempty(string) ? Path{T}() : Path{T}(split(string, "."))
 end
-Path{T}(p::AbstractString...) where T = Path{T}(collect(p))
+Path{T}(strings::AbstractString...) where T = Path{T}(collect(strings))
 
 
 # only equal if types T are equal and steps are equal

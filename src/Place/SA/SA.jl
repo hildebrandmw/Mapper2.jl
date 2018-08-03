@@ -91,7 +91,7 @@ Keyword Arguments
 function place!(m::Map; seed = rand(UInt64), kwargs...)
     # Configure random seed.
     @info "Using Seed: $seed"
-    srand(seed)
+    Random.seed!(seed)
     # Record how long it takes to build the placement struct and the number
     # of bytes allocated to do so.
     sastruct, struct_time, struct_bytes, _, _ = @timed SAStruct(m; kwargs...)

@@ -35,3 +35,16 @@ SA.MultiChannel
 SA.BasicChannel
 SA.BasicMultiChannel
 ```
+
+## AddressData
+
+```@docs
+SA.AddressData
+SA.EmptyAddressData
+SA.DefaultAddressData
+```
+
+### Methods for custom extension
+```@docs
+SA.address_data
+```

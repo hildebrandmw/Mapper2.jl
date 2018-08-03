@@ -93,7 +93,7 @@ end
 end
 
 """
-    address_cost(sa_struct{T}, node :: SANode) where {T <: RuleSet}
+    address_cost(sa_struct{T}, node :: SANode, address_data::AddressData) where {T <: RuleSet}
 
 Return the address cost for `node` for RuleSet `T`. Default return value
 is `zero(Float64)`.
@@ -104,7 +104,11 @@ Method List
 -----------
 $(METHODLIST)
 """
-address_cost(sa_struct::SAStruct, node::SANode) = zero(Float64)
+address_cost(sa_struct::SAStruct, node::SANode, address_data::AddressData) = zero(Float64)
+address_cost(sa_struct::SAStruct, node::SANode, address_data::DefaultAddressData) = address_data[getlocation(node)]
+
+# Convenience wrapper.
+address_cost(sa_struct::SAStruct, node::SANode) = address_cost(sa_struct, node, sa_struct.address_data)
 
 """
     aux_cost(sa_struct{T}) where {T <: RuleSet}

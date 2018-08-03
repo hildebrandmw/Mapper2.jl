@@ -11,7 +11,6 @@ include("Helper.jl")
 using .Helper
 
 include("MapperGraphs.jl")
-using .MapperGraphs
 
 # Central data types.
 include("MapperCore.jl")
@@ -25,18 +24,6 @@ include("Route/Route.jl")
 # exports from Helper.
 # TODO: DO we really need these exports?
 export  Address,
-        SparseDiGraph,
-        has_vertex,
-        add_vertex!,
-        add_edge!,
-        vertices,
-        outneighbors,
-        inneighbors,
-        nv,
-        source_vertices,
-        sink_vertices,
-        linearize,
-        make_lightgraph,
         dim_max,
         dim_min,
         place!

@@ -55,15 +55,8 @@ end
 
 MapperCore.rules(p::Pathfinder) = p.ruleset
 
-"Return the Architecture type for the given Pathfinder structure."
 getarchitecture(::Pathfinder{A}) where {A} = A
 
-"""
-    channels_to_route(p::Pathfinder, routing_struct)
-
-Return an iterator of links to route given the `Pathfinder` state, the
-`RoutingStruct`, and the `iteration` number.
-"""
 function channels_to_route(p::Pathfinder, r::RoutingStruct)
     lt = (x,y) -> isless(getchannel(r, x), getchannel(r, y))
     sort!(p.channels_to_route, lt = lt)
@@ -71,11 +64,7 @@ function channels_to_route(p::Pathfinder, r::RoutingStruct)
     return p.channels_to_route
 end
 
-"""
-    soft_reset(p::Pathfinder)
 
-Reset the run-time structures in `p`.
-"""
 function soft_reset(p::Pathfinder)
     # Zero out the discovered vector.
     p.discovered .= false
@@ -86,22 +75,14 @@ function soft_reset(p::Pathfinder)
     return nothing
 end
 
-"""
-    rip_up_routes(p::Pathfinder, rs::RoutingStruct)
 
-Rip up all the routes.
-"""
 function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
     for channel in p.channels_to_route
         clear_route(rs, channel)
     end
 end
 
-"""
-    linkcost(pf::Pathfinder, rs::RoutingStruct, node::Integer)
 
-Return the cost of a routing resource `node` for the current routing state.
-"""
 function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     # Get the link info from the routing structure.
     link = getlink(rs, index)
@@ -112,6 +93,7 @@ function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     h = pf.historical_cost[index]
     return base_cost * p * h
 end
+
 
 function currentcost(pathfinder, routing_struct, link_idx)
     link = getlink(routing_struct, link_idx)
@@ -145,12 +127,7 @@ function routecost(
     return cost
 end
 
-"""
-    shortest_path(p::Pathfinder, r::RoutingStruct, channel::Integer)
-
-Run weighted shortest path routing computation on the routing structure given
-the current `Pathfinder` state.
-"""
+# Weighted shortest path
 function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
     A = getarchitecture(p)
     # Reset the runtime structures.

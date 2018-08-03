@@ -431,11 +431,6 @@ end
     return true
 end
 
-"""
-    undo_move(sa_struct::SAStruct, cookie)
-
-Undo the last move made to the `sa_struct` with the help of the `cookie`.
-"""
 @propagate_inbounds function undo_move(sa_struct::SAStruct, cookie)
     # If the last move was a swap, need a swap in order to undo it.
     if cookie.move_was_swap

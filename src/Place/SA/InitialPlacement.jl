@@ -1,12 +1,3 @@
-#=
-Authors:
-    Arthur Hlaing
-    Mark Hildebrand
-
-Provides a Bipartite matching routine to do initial placement of a taskgraph
-to an placement structure.
-=#
-
 function initial_placement!(placement_struct)
     # Build graph
     graph, node_dict, component_dict = build_graph(placement_struct)
@@ -17,32 +8,61 @@ function initial_placement!(placement_struct)
     return graph
 end
 
-function build_graph(sa::SAStruct)
-    #=
-    Build translation tables.
-    - Tasks will be mapped to vertices with an index number 2 higher than their
-    index in the SAstruct. (vertices 1 and 2 are reserved for source and sink)
-    - Will need to build a dictionary mapping tuples (Address, component_id) to
-    an integer to keep track of architecture components.
-    =#
+#=
+Build light graph and translation tables to pass to bipartite_match!
 
+
+
+        Taskgraph           Component
+        Node                Indices
+        Indices
+
+        /---- a    ⋯    1 ----\
+       /----- b    ⋯    2 -----\
+source ------ c    ⋯    3 ------- sink
+       \----- d    ⋯    4 -----/
+        \---- e    ⋯    5 ----/
+          ⋮                ⋮
+
+An edge is created from a TaskgraphNode on the left to a component index
+on the right if that Node can be mapped to the component represented by the 
+index.
+
+Note: Bipartite matching is based on a maximum network flow algorithm, which
+works with a single master source and master sink. Thus, we must observe the
+following invariants:
+
+* node index 1 is the ultimate source of the bipartite match.
+* node index 2 is the ultimate sink of the bipartite match.
+=#
+function build_graph(sa::SAStruct)
     # Offset for the source and sink nodes.
     sourcesink_offset = 2
-    # Create the node translation dictionary
-    node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
-    component_dict = Dict{Any, Int64}()
 
-    # Build the light graph
+    # Create the node translation dictionary
+    # Maps node_index to an index in the LightGraph
+    node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
+
+    # Maps Component to an index in the LightGraph
+    component_dict = Dict{eltype(sa), Int64}()
+
+    # Build the light graph. Initially populate with the master source, master
+    # sink, and vertices representing the TaskgraphNodes
     graph = DiGraph(sourcesink_offset + length(node_dict))
     edges_added = 0
 
     for (index, node) in enumerate(sa.nodes)
+        # Get the vertex number for this node.
         node_number = node_dict[index]
+
+        # Get all locations that this node type can be mapped to.
         for key in getlocations(sa.maptable, getclass(node))
+            # Add a vertex for the component if it hasn't been added yet.
             if !haskey(component_dict, key)
                 add_vertex!(graph)
                 component_dict[key] = nv(graph)
             end
+            # Add an edge from node to component.
             add_edge!(graph, node_number, component_dict[key])
             edges_added += 1
         end
@@ -67,8 +87,6 @@ function build_graph(sa::SAStruct)
     return graph, node_dict, component_dict
 end
 
-sa_canmap(a::Array) = (length(a) > 0)
-sa_canmap(a::Bool) = a
 
 function do_assignment(placement_struct, graph, node_dict, component_dict)
     # Reverse the node and component dictionaries.
@@ -93,9 +111,6 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
 end
 
 
-"""
-bipartite_match!(g::AbstractGraph)
-"""
 function bipartite_match!(g::AbstractGraph)
     ####################
     # Graph Definition #

@@ -56,7 +56,7 @@ function setclass! end
 #############
 """
 [`SAStruct`](@ref) representation of a [`TaskgraphEdge`](@ref). Comes in two
-varieties: [`TwoChannel](@ref) and [`MultiChannel`](@ref)
+varieties: [`TwoChannel`](@ref) and [`MultiChannel`](@ref)
 """
 abstract type SAChannel end
 
@@ -88,9 +88,45 @@ Implementations
 """
 abstract type MultiChannel <: SAChannel end
 
+###############
+# AddressData #
+###############
+
+"""
+Supertype for containers of data for address specific placement. There is no
+API for this type since the specific needs of address data vary between 
+applications. If a custom type is used, extend [`address_cost`] to get the
+desired behavior.
+
+Implementations
+---------------
+* [`EmptyAddressData`](@ref)
+* [`DefaultAddressData`](@ref)
+"""
 abstract type AddressData end
 
 
+"""
+Null representation of [`AddressData`](@ref). Used when there is no address
+data to be used during placement.
+"""
+struct EmptyAddressData <: AddressData end
+
+
+"""
+Default implementation of address data when it is to be used. In its normal
+state, it is just a wrapper for a `Dict` mapping addresses to a cost. Look
+at the implementation of [`address_cost`](@ref) to see how this is used. This
+function may be exteneded on `node` to provide different behavior.
+
+To use this type, the method [`address_data`](@ref) must be defined to
+encode the values for the dict.
+"""
+struct DefaultAddressData{U,T} <: AddressData
+    dict :: Dict{U,T}
+end
+
+getindex(A::DefaultAddressData{U}, i::U) where U = getindex(A.dict, i)
 # @doc """
 # Container allowing specific data to be associated with addresses in the
 # SAStruct. Useful for processor specific mappings such as core frequency or
@@ -263,7 +299,19 @@ end
 # Address Data
 ################################################################################
 
-struct EmptyAddressData <: AddressData end
+# Document the "address_data" that users must provide to opt-in to address
+# specific data generation.
+
+"""
+    address_data(ruleset::RuleSet, component::Component) :: T where T
+
+Return some token representing address specific data for `component` under 
+`ruleset`.
+"""
+function address_data end
+
+# Default to assigning zero(Float64) to all addresses
+address_data(ruleset::RuleSet, component::Component) = zero(Float64)
 
 function build_address_data(
         ruleset::RuleSet,
@@ -272,11 +320,11 @@ function build_address_data(
         isflat = false
     ) where D
 
-    comp(a) = [build_address_data(ruleset, toplevel[path]) for path in pathtable[a]]
+    data(address) = [address_data(ruleset, toplevel[path]) for path in pathtable[address]]
     address_data = Dict(
-        a => comp(a) 
-        for a in CartesianIndices(pathtable)
-        if length(pathtable[a]) > 0
+        addr => data(addr) 
+        for addr in CartesianIndices(pathtable)
+        if length(pathtable[addr]) > 0
     )
     # If the flat optimization is turned on - remove the vectors from the values
     # in the dictionary.

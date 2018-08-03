@@ -5,3 +5,4 @@
 *.json
 docs/build/
 docs/site/
+.DS_Store

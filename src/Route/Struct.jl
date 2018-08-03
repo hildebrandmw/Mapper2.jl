@@ -318,16 +318,25 @@ function collect_nodes(
     return nodes
 end
 
-"""
-    get_routing_ports(ruleset::RuleSet, e::TaskgraphEdge, c::Component, dir::Direction)
+# Get vector of ports of component "c" that can serve as source/sink for the 
+# taskgraph edge. 
+function get_routing_ports(
+        ruleset :: RuleSet, 
+        edge :: TaskgraphEdge, 
+        component :: Component, 
+        dir :: MapperCore.Direction
+    )
 
-Return an array of the names of the ports of `c` that can serve as the correct
-function for `e`, depending on the value fo `dir`. Valid inputs for `dir` are:
-"""
-function get_routing_ports(ruleset::RuleSet, e::TaskgraphEdge, c::Component, dir)
+    
     if dir == MapperCore.Source
-        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_source_port(ruleset,v,e)]
-    elseif dir == MapperCore.Sink
-        return [k for (k,v) in c.ports if checkclass(invert(v),dir) && is_sink_port(ruleset,v,e)]
+        return get_routing_ports(ruleset, edge, component, dir, is_source_port)
+    else
+        return get_routing_ports(ruleset, edge, component, dir, is_sink_port)
     end
 end
+
+get_routing_ports(ruleset, edge, component, dir, f::Function) = [
+        path
+        for (path, port) in component.ports
+        if checkclass(invert(port), dir) && f(ruleset, port, edge)
+    ]
