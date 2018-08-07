@@ -314,7 +314,8 @@ function place!(
         ##############
         while successful_moves < move_attempts
             # Try to generate a move. If it failed, try again.
-            @inbounds success = generate_move!(sa_struct, movegen, cookie)
+            #@inbounds success = generate_move!(sa_struct, movegen, cookie)
+            success = generate_move!(sa_struct, movegen, cookie)
             if !success
                 continue
             end

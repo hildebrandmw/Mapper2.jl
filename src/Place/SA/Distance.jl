@@ -49,10 +49,10 @@ function maxdistance end
     $(SIGNATURES)
 
 Basic implementation of [`SADistance`](@ref). Constructs a look up table of
-distances between all address pairs. Addresses have a distance of 1 if there 
+distances between all address pairs. Addresses have a distance of 1 if there
 exists even one link between components at those addresses.
 """
-struct BasicDistance{D} <: SADistance 
+struct BasicDistance{D} <: SADistance
     """
     Simple look up table indexed by pairs of addresses. Returned value is the
     distance between the two addresses.
@@ -62,17 +62,16 @@ struct BasicDistance{D} <: SADistance
     table :: Array{UInt8, D}
 end
 
-# Unwrap and 
-@propagate_inbounds @inline function getdistance(A::BasicDistance{D}, a, b) where D
-    A.table[getaddress(a), getaddress(b)] 
+# Unwrap and
+@propagate_inbounds @inline function getdistance(A::BasicDistance, a, b)
+    A.table[getaddress(a), getaddress(b)]
 end
-
 maxdistance(sa_struct, A::BasicDistance) = maximum(A.table)
 
 ################################################################################
 # BFS Routines for building the distance look up table
 ################################################################################
-function BasicDistance(toplevel::TopLevel{D}) where D
+function BasicDistance(toplevel::TopLevel, pathtable::PathTable)
     # The data type for the LUT
     element_type = UInt8
     # Pre-allocate the table. Get the size of the `toplevel` to figure out
@@ -81,7 +80,7 @@ function BasicDistance(toplevel::TopLevel{D}) where D
     # Since we want to get the distance between pairs of addresses, we need
     # to double size of `toplevel`.
     dims = size(toplevel)
-    table = fill(typemin(element_type), dims..., dims...)
+    pretable = fill(typemin(element_type), dims..., dims...)
 
     # Get the adjacency information from toplevel.
     neighbors = neighbor_dict(toplevel)
@@ -91,11 +90,31 @@ function BasicDistance(toplevel::TopLevel{D}) where D
     # Get all-pairs shorest path from the adjacency lists. For each pair
     # of addresses "a", "b", "table[a,b]" will be the distance from "a" to "b"
     for address in keys(neighbors)
-        bfs!(table, address, neighbors)
+        bfs!(pretable, address, neighbors)
     end
 
-    return BasicDistance{2*D}(table)
+    table = expand(pretable, toplevel, pathtable)
+    return BasicDistance(table)
 end
+
+expand(pretable::Array{T}, ::TopLevel{D}, ::PathTable{D}) where {T,D} = pretable
+
+function expand(
+            pretable::Array{T},
+            toplevel::TopLevel{D},
+            pathtable::PathTable{N},
+        ) where {T,D,N}
+
+    # Just Replicate the table.
+    fullsize = size(pathtable)
+    table = fill(typemin(T), fullsize..., fullsize...)
+    table = map(CartesianIndices((fullsize..., fullsize...))) do idx
+        a, b = half(Tuple(idx))
+        return pretable[Base.tail(a)..., Base.tail(b)...]
+    end
+    return table
+end
+half(x::NTuple{N}) where N = x[1:(N>>1)], x[((N>>1)+1):N]
 
 #=
 Simple data structure for keeping track of costs associated with addresses
@@ -111,7 +130,7 @@ end
 # will have to code this using some kind of shortest path formulation.
 function bfs!(distance::Array{U,N}, source::Address{D}, neighbors) where {U,N,D}
     # Create a queue for visiting addresses. Add source to get into the loop.
-    q = Queue(CostAddress{U,D})
+    q = Queue{CostAddress{U,D}}()
     enqueue!(q, CostAddress(zero(U), source))
 
     # Create a set of visited items to avoid visiting the same address twice

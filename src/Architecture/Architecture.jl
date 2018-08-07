@@ -332,6 +332,27 @@ function Base.size(t::TopLevel{D}) where D
     return dim_max(addresses(t)) .- dim_min(addresses(t)) .+ Tuple(1 for _ in 1:D)
 end
 
+"""
+    fullsize(toplevel, ruleset)
+
+
+"""
+function fullsize(toplevel::TopLevel{D}, ruleset::RuleSet) where {D}
+    # Step 1: Compute the span of addresses.
+    address_iter = addresses(toplevel)
+    span = dim_max(address_iter) .- dim_min(address_iter) .+ Tuple(1 for _ in 1:D)
+
+    # Run through all addresses of this toplevel. If there is more than one
+    # mappable component in a given address, we need to add a dimension to 
+    # account for that.
+    max_mappables = maximum((length ∘ mappables)(toplevel, ruleset, addr) for addr in address_iter)
+    if max_mappables > 1
+        return (max_mappables, span...)
+    else
+        return span
+    end
+end
+
 #-------------------------------------------------------------------------------
 # Various overloadings of the method "getindex"
 #-------------------------------------------------------------------------------

@@ -124,6 +124,7 @@ function warmup(m::Map; kwargs...)
     return nothing
 end
 
+include("PathTables.jl")
 include("MapTables.jl")
 include("Distance.jl")
 include("Struct.jl")

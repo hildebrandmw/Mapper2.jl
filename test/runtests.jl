@@ -30,5 +30,5 @@ include("Place/InitialPlacement.jl")
 include("Map/IntegrationTest.jl")
 include("Map/SaveLoad.jl")
 
-# Long placements
+# Long running placement
 include("Place/Placement.jl")

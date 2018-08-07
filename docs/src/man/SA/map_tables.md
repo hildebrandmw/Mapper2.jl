@@ -10,7 +10,6 @@ SA.AbstractMapTable
 SA.location_type
 SA.getlocations
 SA.isvalid
-SA.genlocation
 ```
 
 ## Implementations

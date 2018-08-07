@@ -178,7 +178,7 @@ function initialize!(
 
             # Create an auxiliary look up vector.
             θ = collect(Iterators.filter(
-                !iszero,
+                !isequal(nothing),
                 (findlast(x -> dist(x) <= i, dests) for i in 1:limit)
             ))
 
