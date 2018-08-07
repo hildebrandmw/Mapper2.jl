@@ -15,11 +15,11 @@ Base.zero(::Type{Location{D}}) where D = Location{D}()
 @propagate_inbounds Base.setindex!(a::Array, x, l::Location) = a[l.pathindex, l.address] = x
 
 # Overloads for accessing Dicts of vectors.
-function Base.getindex(a::Dict{Address{D},Vector{T}}, l::Location{D}) where {D,T}
+function Base.getindex(a::Dict{Address{D},Vector{T}}, l::Location{D}) where {T,D}
     return a[l.address][l.component]
 end
 
-function Base.setindex!(a::Dict{Address{D},Vector{T}}, x, l::Location{D}) where {D,T}
+function Base.setindex!(a::Dict{Address{D},Vector{T}}, x, l::Location{D}) where {T,D}
     a[l.address][l.component] = x
 end
 
@@ -82,7 +82,7 @@ Return `true` if nodes of type `class` can occupy `location`.
 
     isvalid(maptable, class, address :: Address)
 
-Return `true` if nodes of type `class` can occupy `address`. In other words, 
+Return `true` if nodes of type `class` can occupy `address`. In other words,
 there is some component at `adddress` that class can be mapped to.
 
 Method List
@@ -108,13 +108,11 @@ Default implementation of [`AbstractMapTable`](@ref)
 Important Parameters:
 * `D` - The dimensionality of the `Addresses` in the table.
 * `U` - The location type contained in the table. Will either be `Location{D}`
-    if a generic placement is being used, or `CartesianIndex{D}` if the 
+    if a generic placement is being used, or `CartesianIndex{D}` if the
     flat-architecture optimization is used.
 """
-struct MapTable{D,T,U} <: AbstractMapTable
+struct MapTable{T,D} <: AbstractMapTable
     """
-    Container for nodes classified as `normal`.
-
     Accessing methodology:
 
     For a node of class `class_idx`, `normal[class_index][address]` returns
@@ -122,89 +120,35 @@ struct MapTable{D,T,U} <: AbstractMapTable
     type `class_idx` may be mapped.
 
     If the flat architecture optimization is used, `normal[class_index][address]`
-    returns a `Bool`, which is `true` if nodes of type `class_idx` may be 
+    returns a `Bool`, which is `true` if nodes of type `class_idx` may be
     mapped to the only mappable component at `address`.
     """
     normal :: Vector{Array{T,D}}
 
-    """
-    Container for nodes classified as `special`.
-
-    Accessing methodology:
-
-    For a node of special class `class_idx`, `special[-class_idx]` returns a 
-    vector `V` of locations that this node can occupy.
-    """
-    special :: Vector{Vector{U}}
-
-    # Inner constructor to enforce the following invariant:
-    #
-    # - If "T" is Vector{Int}, the "U" must be Location{D}.
-    #
-    # Explanation: This case represents the general case where each address has
-    # multiple mapable components. the "Vector{Int}" records the index for this
-    # address in the pathtable that a node can map to.
-    #
-    # Since we're recording both addresses and index into this Vector, we must
-    # use "Location" types to encode this information.
-    #
-    #
-    # - If "T" is Bool, the "U" must be CartesianIndex{D}
-    #
-    # Explanation: This happens during the "Flat Architecture optimization".
-    # That is, each address only has one mappable component. Therefore, we don't
-    # need a whole Vector{Int} encoding which index a node is mapped to, we only
-    # need to store "true" if a node can be mapped to an address or "false" if
-    # it cannot.
-
-    function MapTable{D,T,U}(
-            normal::Vector{Array{T,D}},
-            special::Vector{Vector{U}}
-        ) where {D,T,U}
-
-        if T == Vector{Int}
-            if U != Location{D}
-                error("""
-                    Expected parameter `U` to be `Location{D}`. Instead got $U
-                    """)
-            end
-        elseif T == Bool
-            if U != CartesianIndex{D}
-                error("""
-                    Expected parameter `U` to be `CartexianIndex{D}`. Instead got $U
-                    """)
-            end
-        else
-            error("Unacceptable parameter T = $T")
-        end
-        return new{D,T,U}(normal,special)
-    end
+    # function MapTable{T,D}(normal::Vector{Array{T,D}}) where {T,D}
+    #     return new{T,D}(normal)
+    # end
 end
 
-function MapTable(
-        normal::Vector{Array{T,D}},
-        special::Vector{Vector{U}}
-    ) where {T,D,U}
-    return MapTable{D,T,U}(normal,special)
-end
+#MapTable(normal::Vector{Array{T,D}}) where {T,D} = MapTable{T,D}(normal)
 
 
 function MapTable(
         toplevel::TopLevel{D},
         ruleset::RuleSet,
         equivalence_classes,
-        pathtable;
-        isflat = false,
-    ) where D
+        pathtable,
+        location_type :: Type{T}
+    ) where {T,D}
 
 
     # For each normal node class C, create an array the same size as the
     # pathtable. For each address A, record the indices of the paths at
     # componant_table[A] that C can be mapped to.
-    normal = map(equivalence_classes.normal_reps) do node
+    normal = map(equivalence_classes.reps) do node
         map(pathtable) do paths
-            [index 
-             for (index,path) in enumerate(paths) 
+            [index
+             for (index,path) in enumerate(paths)
              if canmap(ruleset, node, toplevel[path])
             ]
         end
@@ -212,17 +156,17 @@ function MapTable(
 
     # For each special node class C, create a vector of Locations that
     # C can be mapped to.
-    special = map(equivalence_classes.special_reps) do node
-        locations_for_node = Location{D}[]
-        for address in CartesianIndices(pathtable)
-            for (index, path) in enumerate(pathtable[address])
-                if canmap(ruleset, node, toplevel[path])
-                    push!(locations_for_node, Location(address, index))
-                end
-            end
-        end
-        return locations_for_node
-    end
+    # special = map(equivalence_classes.special_reps) do node
+    #     locations_for_node = Location{D}[]
+    #     for address in CartesianIndices(pathtable)
+    #         for (index, path) in enumerate(pathtable[address])
+    #             if canmap(ruleset, node, toplevel[path])
+    #                 push!(locations_for_node, Location(address, index))
+    #             end
+    #         end
+    #     end
+    #     return locations_for_node
+    # end
 
     # Simplify data structures
     # If the length of each element of "pathtable" is 1, then the elements
@@ -230,40 +174,34 @@ function MapTable(
     #
     # The special can be simplified to just hold the Address that
     # a class can be mapped to and not both an Address and a component index.
-    if isflat
+    if T <: Address
         normal = [map(!isempty, i) for i in normal]
-        special = [map(getaddress, i) for i in special]
-
-        return MapTable(normal, special)
+        return MapTable(normal)
     end
-    return MapTable(normal, special)
+    return MapTable(normal)
 end
 
-
-location_type(maptable::MapTable{D,T,U}) where {D,T,U}  = U
+location_type(::MapTable{T,D}) where {T,D} = Location{D}
+location_type(::MapTable{Bool,D}) where {D} = Address{D}
 
 # Handles both the general and flat architecture cases.
 #
 # Makes repeated calls to the 3 argument version of getlocations starting at
 # all base addresses to generate ALL locations for this class.
-function getlocations(maptable::MapTable{D,T,U}, class::Int) where {D,T,U}
-    if isnormal(class)
-        # Allocation an empty vector of the appropriate location type.
-        locations = U[]
-        table = maptable.normal[class]
+function getlocations(maptable::MapTable{T,D}, class::Int) where {T,D}
+    # Allocation an empty vector of the appropriate location type.
+    locations = location_type(maptable)[]
+    table = maptable.normal[class]
 
-        for address in CartesianIndices(table)
-            append!(locations, getlocations(maptable, class, address))
-        end
-        return locations
-    else
-        return maptable.special[-class]
+    for address in CartesianIndices(table)
+        append!(locations, getlocations(maptable, class, address))
     end
+    return locations
 end
 
 # For the general case.
 function getlocations(
-        maptable::MapTable{D,Vector{Int}},
+        maptable::MapTable{Vector{Int},D},
         class::Int,
         address::Address{D}
     ) where D
@@ -272,7 +210,7 @@ end
 
 # For the flat architecure optimization.
 function getlocations(
-        maptable::MapTable{D,Bool},
+        maptable::MapTable{Bool,D},
         class::Int,
         address::Address{D}
     ) where D
@@ -287,21 +225,13 @@ canhold(v::Vector) = length(v) > 0
 canhold(b::Bool) = b
 
 function isvalid(maptable::MapTable, class::Integer, location :: Location)
-    if isnormal(class)
-        maptable_entry = maptable.normal[class][getaddress(location)]
-        return canhold(maptable_entry, getindex(location))
-    else
-        return in(location, maptable.special[-class])
-    end
+    entry = maptable.normal[class][getaddress(location)]
+    return canhold(entry, getindex(location))
 end
 
 function isvalid(maptable::MapTable, class::Integer, address :: Address)
-    if isnormal(class)
-        maptable_entry = maptable.normal[class][address]
-        return canhold(maptable_entry)
-    else
-        return in(address, maptable.special[-class])
-    end
+    maptable_entry = maptable.normal[class][address]
+    return canhold(maptable_entry)
 end
 
 # General case. Index into maptable using using the class and address.
@@ -309,8 +239,8 @@ end
 # Pick a random element from the list of indices and create a Location out of
 # it.
 function genlocation(
-        maptable::MapTable{D,Vector{Int}}, 
-        class::Integer, 
+        maptable::MapTable{Vector{Int},D},
+        class::Integer,
         address::Address
     ) where D
     # Assume that the class is a normal class. This will throw a runtime error
@@ -318,9 +248,8 @@ function genlocation(
 
     # Pick a random index in the collection of primitives at that address.
     return Location(address, rand(1:length(maptable.normal[class][address])))
-
 end
 
-# If the flat architecture optimization is being used - no need to pick a 
+# If the flat architecture optimization is being used - no need to pick a
 # random component from the vector. The address istself is what's needed.
-genlocation(m::MapTable{D,Bool}, class, address) where D = address
+genlocation(m::MapTable{Bool,D}, class, address) where D = address

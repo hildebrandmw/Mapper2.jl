@@ -10,7 +10,6 @@
     place!(
         m;
         move_attempts = 5000, 
-        movegen = SA.SearchMoveGenerator{2}()
     )
 
     # Try routing

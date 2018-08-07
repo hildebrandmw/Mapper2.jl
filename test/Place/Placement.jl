@@ -82,7 +82,6 @@ end
 
     move_generators = (
         SA.CachedMoveGenerator,
-        SA.SearchMoveGenerator,
     )
 
     iterator = Iterators.product(
@@ -121,7 +120,7 @@ end
 
     move_generators = (
         SA.CachedMoveGenerator,
-        SA.SearchMoveGenerator,
+        #SA.SearchMoveGenerator,
     )
 
     iterator3d = Iterators.product(

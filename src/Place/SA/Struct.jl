@@ -247,9 +247,11 @@ function buildnode(::RuleSet, n::TaskgraphNode, x)
     return BasicNode(x, 0, Int64[], Int64[])
 end
 
-function setup_node_build(ruleset::RuleSet, t::Taskgraph, D, isflat::Bool)
-    init = isflat ? zero(CartesianIndex{D}) : Location{D}()
-    return [buildnode(ruleset, n, init) for n in getnodes(t)]
+"""
+    setup_node_build(ruleset, taskgraph, location_type)
+"""
+function setup_node_build(ruleset::RuleSet, t::Taskgraph, ::Type{T}) where T
+    return [buildnode(ruleset, n, zero(T)) for n in getnodes(t)]
 end
 
 ################################################################################
@@ -338,49 +340,34 @@ end
 ################################################################################
 # Constructor for the SA Structure
 ################################################################################
+function SAStruct(m::Map{D}; enable_flattness = true, kwargs...) where {D}
+    pathtable = build_pathtable(m.toplevel, rules(m))
+    # Get the location type.
+    isflat = enable_flattness && (maximum(length.(pathtable)) == 1)
+    location_type = isflat ? Address{D} : Location{D}
+    return SAStruct(m, pathtable, location_type; kwargs...)
+end
+
 function SAStruct(
-        m::Map{D};
+        m :: Map{D},
+        pathtable,
+        location_type :: Type{T};
         distance = BasicDistance(m.toplevel),
-        # Enable the flat-architecture optimization.
-        enable_flattness = true,
         # Enable address-specific data.
         enable_address = false,
         aux = nothing,
         kwargs...
-    ) where {D}
+    ) where {D,T}
 
-    @debug "Building SA Placement Structure\n"
+    #@debug "Building SA Placement Structure\n"
 
     # Unpack some data structures for easier reference.
     toplevel = m.toplevel
     taskgraph = m.taskgraph
 
-    # Create an array mapping Addresses to Vector{Path{Component}} where each
-    # Path{Component} is a mappable component in the toplevel.
-    #
-    # Note that address translation happens here. That is, if there are addresses
-    # in the parent toplevel that nave zero or negative indices, the addresses
-    # are shifted in the `pathtable` so the lowest potential address is (1,1,1 ...)
-    #
-    # While this sounds like it may be confusing, it actually works out quite 
-    # well:
-    # * When referencing addresses on the SAStruct side of things, just use the
-    #   CartesianIndex/Address used to access a certain location.
-    # * When referencing something on the TopLevel side of this construction/
-    #   destruction, use the overloaded "getindex" methods usint the 
-    #   Path{Component} objects and evertyhing tends to magically work itself
-    #   out.
-    pathtable = build_pathtable(toplevel, rules(m))
-
-    # If the maximum number of components is 1, we can apply the fast-node
-    # optimizations. This lets us get rid of some vectors and store more data
-    # inline, which means fewer pointer chases! :D
-    isflat = enable_flattness && (maximum(map(x -> length(x), pathtable)) == 1)
-    isflat && @debug "Applying Flat Architecture Optimization"
-
     # Build SA Node types and make a record mapping node name to the index of
     # that nodes representation in this data structure.
-    nodes = setup_node_build(rules(m), taskgraph, D, isflat)
+    nodes = setup_node_build(rules(m), taskgraph, T)
     tasktable = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
 
     # Build Channel
@@ -396,15 +383,18 @@ function SAStruct(
     #----------------------------------------------------#
     # Obtain task equivalence classes from the taskgraph #
     #----------------------------------------------------#
-    equivalence_classes = task_equivalence_classes(taskgraph, rules(m))
+    #equivalence_classes = task_equivalence_classes(taskgraph, rules(m))
+    # Create function wrapper for "isequivalent"
+    f = (x,y) -> isequivalent(rules(m), x, y)
+    classes = equivalence_classes(f, getnodes(taskgraph))
 
     # Assign each node with its given classification.
-    for (index, class) in enumerate(equivalence_classes.classes)
+    for (index, class) in enumerate(classes.classes)
         setclass!(nodes[index], class)
     end
 
-    maptable = MapTable(toplevel, rules(m), equivalence_classes, pathtable, isflat = isflat)
-    if isflat
+    maptable = MapTable(toplevel, rules(m), classes, pathtable, T)
+    if T <: CartesianIndex
         grid = zeros(size(pathtable)...)
     else
         max_num_components = maximum(map(length, pathtable))
@@ -538,81 +528,103 @@ function build_pathtable(toplevel::TopLevel{D}, ruleset::RuleSet) where D
     return pathtable
 end
 
-"""
-    equivalence_classes(A::Type{T}, taskgraph) where {T <: Architecture}
 
-Separate the nodes in the taskgraph into equivalence classes based on the rules
-defined by the toplevel. Expects the toplevel to have defined the
-following two methods:
+# """
+#     equivalence_classes(A::Type{T}, taskgraph) where {T <: Architecture}
+# 
+# Separate the nodes in the taskgraph into equivalence classes based on the rules
+# defined by the toplevel. Expects the toplevel to have defined the
+# following two methods:
+# 
+# * `isspecial(::Type{T}, t::TaskgraphNode)::Bool` - Returns whether or not the
+#     node should have special move considerations.
+# * `isequivalent(::Type{T}, a::TaskgraphNOde, b::Taskgraphnode}::Bool` - Return
+#     whether or not the two nodes are equivalent for placement considerations.
+# 
+# Returns a tuple of 3 elements:
+# 
+# * nodeclasses - A vector with length(nodes(taskgraph)) assigning a node index
+#     to an integer equivalence class. Normal equivalanece classes are represented
+#     by positive integers. Special classes are represented by negative integers.
+# * normal_reps - A vector of TaskgraphNodes where the node at an index
+#     is the representative for the equivalence class for that index.
+# * special_reps - Similar to the `normal_reps` but for special nodes.
+#     Take the negative of the index to get the number for the equivalence class.
+# 
+# """
+# function task_equivalence_classes(taskgraph::Taskgraph, ruleset::RuleSet)
+# 
+#     @debug "Classifying Taskgraph Nodes"
+#     # Allocate the node class vector. This maps task indices to a unique
+#     # integer ID for what class it belongs to.
+#     classes = zeros(Int64, length(getnodes(taskgraph)))
+#     # Allocate empty vectors to serve as representatives for the normal and
+#     # special classes.
+#     normal_reps  = TaskgraphNode[]
+#     special_reps = TaskgraphNode[]
+#     # Start iterating through the nodes in the taskgraph.
+#     for (index,node) in enumerate(getnodes(taskgraph))
+#         if isspecial(ruleset, node)
+#             # Set this to the index of an existing node if it exists. Otherwise,
+#             # add this node as a representative and give it the next index.
+#             i = findfirst(x -> isequivalent(ruleset, x, node), special_reps)
+#             if i == nothing
+#                 push!(special_reps, node)
+#                 i = length(special_reps)
+#             end
+#             # Negate "i" to indicate a special class.
+#             classes[index] = -i
+#         else
+#             # Same as with the special nodes.
+#             i = findfirst(x -> isequivalent(ruleset, x, node), normal_reps)
+#             if i == nothing
+#                 push!(normal_reps, node)
+#                 i = length(normal_reps)
+#             end
+#             # Keep this index positive to indicate normal node.
+#             classes[index] = i
+#         end
+#     end
+# 
+#     # Scoping issues with "n" and "i" if build inside @debug block.
+#     normal_nodes  = join([n.name for n in normal_reps], "\n")
+#     special_nodes = join([i.name for i in special_reps], "\n")
+#     @debug begin
+#         """
+#         Number of Normal Representatives: $(length(normal_reps))
+#         $normal_nodes
+#         Number of Special Node Reps: $(length(special_reps))
+#         $special_nodes
+#         """
+#     end
+# 
+#     return (
+#         classes = classes, 
+#         normal_reps = normal_reps,
+#         special_reps = special_reps,
+#     )
+# end
 
-* `isspecial(::Type{T}, t::TaskgraphNode)::Bool` - Returns whether or not the
-    node should have special move considerations.
-* `isequivalent(::Type{T}, a::TaskgraphNOde, b::Taskgraphnode}::Bool` - Return
-    whether or not the two nodes are equivalent for placement considerations.
-
-Returns a tuple of 3 elements:
-
-* nodeclasses - A vector with length(nodes(taskgraph)) assigning a node index
-    to an integer equivalence class. Normal equivalanece classes are represented
-    by positive integers. Special classes are represented by negative integers.
-* normal_reps - A vector of TaskgraphNodes where the node at an index
-    is the representative for the equivalence class for that index.
-* special_reps - Similar to the `normal_reps` but for special nodes.
-    Take the negative of the index to get the number for the equivalence class.
-
-"""
-function task_equivalence_classes(taskgraph::Taskgraph, ruleset::RuleSet)
-
-    @debug "Classifying Taskgraph Nodes"
-    # Allocate the node class vector. This maps task indices to a unique
-    # integer ID for what class it belongs to.
-    classes = zeros(Int64, length(getnodes(taskgraph)))
-    # Allocate empty vectors to serve as representatives for the normal and
-    # special classes.
-    normal_reps  = TaskgraphNode[]
-    special_reps = TaskgraphNode[]
-    # Start iterating through the nodes in the taskgraph.
-    for (index,node) in enumerate(getnodes(taskgraph))
-        if isspecial(ruleset, node)
-            # Set this to the index of an existing node if it exists. Otherwise,
-            # add this node as a representative and give it the next index.
-            i = findfirst(x -> isequivalent(ruleset, x, node), special_reps)
-            if i == nothing
-                push!(special_reps, node)
-                i = length(special_reps)
-            end
-            # Negate "i" to indicate a special class.
-            classes[index] = -i
-        else
-            # Same as with the special nodes.
-            i = findfirst(x -> isequivalent(ruleset, x, node), normal_reps)
-            if i == nothing
-                push!(normal_reps, node)
-                i = length(normal_reps)
-            end
-            # Keep this index positive to indicate normal node.
-            classes[index] = i
+function equivalence_classes(f::Function, iter)
+    classes = zeros(Int, length(iter))
+    reps = eltype(iter)[]
+    for (index, item) in enumerate(iter)
+        # See if this item class has already been discovered.
+        i = findfirst(x -> f(x, item), reps)
+        # If not, add this item to the vector of representatives.
+        if i == nothing
+            push!(reps, item)
+            i = length(reps)
         end
+        # Record class
+        classes[index] = i
     end
-
-    # Scoping issues with "n" and "i" if build inside @debug block.
-    normal_nodes  = join([n.name for n in normal_reps], "\n")
-    special_nodes = join([i.name for i in special_reps], "\n")
-    @debug begin
-        """
-        Number of Normal Representatives: $(length(normal_reps))
-        $normal_nodes
-        Number of Special Node Reps: $(length(special_reps))
-        $special_nodes
-        """
-    end
-
     return (
-        classes = classes, 
-        normal_reps = normal_reps,
-        special_reps = special_reps,
+        classes = classes,
+        reps = reps
     )
 end
+
 
 ################################################################################
 # Verification routine for SA Placement

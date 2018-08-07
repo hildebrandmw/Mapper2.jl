@@ -66,102 +66,6 @@ function update! end
     return move_with_undo(sa_struct, move_cookie, node_idx, new_location)
 end
 
-
-################################################################################
-# Search Move Generator
-################################################################################
-"""
-Move generator that operates by generating a random addresses where each
-component of the address is within `limit` of the old address.
-"""
-mutable struct SearchMoveGenerator{D} <: MoveGenerator
-    """
-    The component-wise upperbound of the grid of the SAStruct. This is here
-    to ensure that generated moves are within the total bounds of the SAStruct
-    to improve the quality of move generation.
-    """
-    upperbound :: NTuple{D, Int}
-
-    """
-    The current distance limit.
-    """
-    limit :: Int
-
-    # Initialize an empty D dimensional SearchMoveGenerator
-    SearchMoveGenerator{D}() where {D} = new(Tuple(0 for _ in 1:D), 0)
-end
-
-# Helpful constructor - extract "D" from the generating SAStruct
-SearchMoveGenerator(sa_struct :: SAStruct{A,U,D}) where {A,U,D} =
-    SearchMoveGenerator{D}()
-
-
-function initialize!(move_generator::SearchMoveGenerator, sa_struct::SAStruct, limit)
-    move_generator.upperbound = size(sa_struct.pathtable)
-    move_generator.limit = limit
-    return nothing
-end
-function update!(move_generator::SearchMoveGenerator, sa_struct :: SAStruct, limit)
-    move_generator.limit = limit
-end
-
-# Take the largest single dimension of the parent SAStruct.
-distancelimit(::SearchMoveGenerator, sa_struct) = maximum(size(sa_struct.pathtable))
-
-# Some @generated function trickery to build an expression that generates an
-# address where each component is within "limit" argument "address"
-#
-# Add some extra logic to clamp the result betwwen 1 and the upper bound of each
-# component.
-@generated function genaddress(
-        address::CartesianIndex{D},
-        limit,
-        upperbound
-    ) where D
-
-    ex = map(1:D) do i
-        :(rand(max(1,address.I[$i] - limit):min(upperbound[$i], address.I[$i] + limit)))
-    end
-    return :(CartesianIndex{D}($(ex...)))
-end
-
-# Move generation in the general case.
-@propagate_inbounds function generate_move(
-        sa_struct::SAStruct,
-        move_generator::SearchMoveGenerator,
-        node_idx :: Int,
-    )
-
-    # Get the node at this index.
-    node = sa_struct.nodes[node_idx]
-    old_address = getaddress(node)
-    maptable = sa_struct.maptable
-    # Get the equivalent class of the node
-    class = getclass(node)
-    # Get the address and component to move this node to
-    if isnormal(class)
-        # Generate offset and check bounds.
-        address = genaddress(
-            old_address,
-            move_generator.limit,
-            move_generator.upperbound
-        )
-
-        # If the generated address is not valid, abort this move by just
-        # returning the old address.
-        if !isvalid(maptable, class, address)
-            address = old_address
-        end
-        new_location = genlocation(maptable, class, address)
-    else
-        new_location = rand(maptable.special[-class])
-    end
-
-    # Return the new location for this node.
-    return new_location
-end
-
-
 ################################################################################
 # Cached Move Generator
 ################################################################################
@@ -229,6 +133,8 @@ dictionary is a mapping from a base address to a [`MoveLUT`](@ref) for that
 address.
 """
 mutable struct CachedMoveGenerator{T} <: MoveGenerator
+    # Outer vector: class index
+    # inner dict: starting Location
     moves :: Vector{Dict{T, MoveLUT{T}}}
 
     CachedMoveGenerator{T}() where T = new{T}(Dict{T, MoveLUT{T}}[])
@@ -307,15 +213,10 @@ end
     )
 
     node = sa_struct.nodes[node_idx]
-    old_location = location(node)
+    this_location = location(node)
     maptable = sa_struct.maptable
     # Get the equivalent class of the node
     class = getclass(node)
     # Get the address and component to move this node to
-    if isnormal(class)
-        new_location = rand(move_generator.moves[class][old_location])
-    else
-        new_location = rand(maptable.special[-class])
-    end
-    return new_location
+    return rand(move_generator.moves[class][this_location])
 end
