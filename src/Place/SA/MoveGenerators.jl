@@ -173,7 +173,7 @@ function initialize!(
                 # Comparison of distance. If distances are equal, sort by
                 # CartesianIndex for easier testing.
                 lt = (x, y) -> dist(x) < dist(y) ||
-                    (dist(x) == dist(y) && getaddress(x) < getaddress(y))
+                    (dist(x) == dist(y) && location(x) < location(y))
             )
 
             # Create an auxiliary look up vector.

@@ -216,13 +216,10 @@ end
 
 # Node Interface
 @inline location(n::SANode)           = n.location
+@inline location(x::CartesianIndex)   = x
 @inline assign(n::SANode, l)          = (n.location = l)
 @inline getclass(n::SANode)           = n.class
 @inline setclass!(n::SANode, class)   = n.class = class
-
-# Derived methods
-@inline MapperCore.getaddress(n) = getaddress(location(n))
-@inline getindex(n::SANode) = getindex(location(n))
 
 isnormal(node::SANode) = isnormal(class(node))
 isnormal(class::Int64) = class > 0
