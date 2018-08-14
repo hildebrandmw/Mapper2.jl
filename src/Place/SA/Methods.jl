@@ -11,6 +11,10 @@ Move node at `index` to `new_location`.
     sa_struct.grid[location(node)] = index
 end
 
+@propagate_inbounds function unsafe_assign(sa_struct::SAStruct, node::SANode, new_location)
+    assign(node, new_location)
+end
+
 """
 $(SIGNATURES)
 
@@ -21,7 +25,8 @@ Move node at `index` from its current location to `new_location`.
     # Zero out this node's original location in the grid, then assign the new
     # location.
     sa_struct.grid[location(node)] = 0
-    assign(sa_struct, index, new_location)
+    sa_struct.grid[new_location] = index
+    unsafe_assign(sa_struct, node, new_location)
 end
 
 """
@@ -37,8 +42,9 @@ Swap the locations of two nodes with indices `node1_idx` and `node2_idx`.
     s = location(n1)
     t = location(n2)
 
-    assign(n1, t)
-    assign(n2, s)
+    unsafe_assign(sa_struct, n1, t)
+    unsafe_assign(sa_struct, n2, s)
+
     # Swap grid.
     sa_struct.grid[t] = node1_idx
     sa_struct.grid[s] = node2_idx
