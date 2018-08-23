@@ -1,5 +1,7 @@
 # Mapper2
 
+[![Build Status](https://travis-ci.org/hildebrandmw/Mapper2.jl.svg?branch=master)](https://travis-ci.org/hildebrandmw/Mapper2.jl)
+
 Welcome to the Mapper2 project. This program was originally intended to serve
 as a CAD tool for application development for the KiloCore and KiloCore2
 many-core processors, and has since morphed into a more generalized mapping
