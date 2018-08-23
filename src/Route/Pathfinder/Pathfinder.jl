@@ -22,7 +22,7 @@ mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
     function Pathfinder(
             m::Map, 
             routing_struct::RoutingStruct;
-            iteration_limit = 100,
+            iteration_limit = 50,
             channels_to_route = ChannelIndex.(1:length(routing_struct.channels)),
             congestion_cost_factor = 3.0,
             historical_cost_factor = 3.0
