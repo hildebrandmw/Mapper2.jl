@@ -249,7 +249,7 @@ end
 function place!(
         sa_struct :: SAStruct{A,U,D};
         # Number of moves before doing a parameter update.
-        move_attempts       = 30000,
+        move_attempts       = 20000,
         initial_temperature = 1.0,
         supplied_state      = nothing,
         movegen :: MoveGenerator = CachedMoveGenerator(sa_struct),

@@ -38,3 +38,8 @@ makedocs(
         ],
     ]
 )
+
+deploydocs(
+    repo = "github.com/hildebrandmw/Mapper2.jl.git"
+    julia = "1.0"
+)
