@@ -1,4 +1,4 @@
-using Documenter, Mapper2
+using Documenter, Mapper3
 
 makedocs(
     modules = [Mapper2],
@@ -41,5 +41,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/hildebrandmw/Mapper2.jl.git",
-    julia = "1.0",
+    julia = "0.7",
 )
