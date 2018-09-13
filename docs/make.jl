@@ -1,4 +1,4 @@
-using Documenter, Mapper3
+using Documenter, Mapper2
 
 makedocs(
     modules = [Mapper2],
