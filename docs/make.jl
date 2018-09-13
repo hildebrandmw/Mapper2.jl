@@ -42,4 +42,8 @@ makedocs(
 deploydocs(
     repo = "github.com/hildebrandmw/Mapper2.jl.git",
     julia = "0.7",
+    osname = "linux",
+    target = "build",
+    deps = nothing,
+    make = nothing,
 )
