@@ -1,20 +1,32 @@
+## Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
 os:
-    - linux
-    - osx
+  - linux
+  - osx
 julia:
-    - 0.7
-    - nightly
-matrix:
-    allow_failures:
-        - julia: nightly
+  - 1.0
+  - nightly
 notifications:
-    email: false
-script:
-    #    - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-    - julia -e 'using Pkg; Pkg.add("https://github.com/hildebrandmw/Mapper2.jl"); Pkg.test("Mapper2", coverage=true)'
+  email: false
+git:
+  depth: 99999999
+
+## uncomment the following lines to allow failures on nightly julia
+## (tests will run but not make your overall status red)
+#matrix:
+#  allow_failures:
+#  - julia: nightly
+
+## uncomment following lines to deploy documentation
+# jobs:
+#   include:
+#     - stage: Documentation
+#       julia: 1.0
+#       os: linux
+#       script:
+#         - julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+#         - julia --project=docs --color=yes docs/make.jl
+#       after_success: skip
 after_success:
-    - echo $TRAVIS_JULIA_VERSION
-    - julia -e 'using Pkg; Pkg.add("Coverage"); cd(Pkg.dir("Mapper2")); using Coverage; Codecov.submit(process_folder())'
-    - julia -e 'using Pkg; Pkg.add("Documenter")'
-    - julia -e 'using Pkg; cd(Pkg.dir("Mapper2")); include(joinpath("docs", "make.jl"))'
+  - julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
+  - julia --project=test/coverage test/coverage/coverage.jl
