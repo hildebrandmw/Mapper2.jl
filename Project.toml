@@ -1,10 +1,9 @@
 name = "Mapper2"
-uuid = "d7db5f80-c274-11e8-07d9-7b81440f72e5"
+uuid = "d09a7b4e-c278-11e8-3d50-09980a9988f4"
 authors = ["Mark Hildebrand <mhildebrand@ucdavis.edu>"]
 version = "0.1.0"
 
 [deps]
-Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
@@ -14,3 +13,9 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
