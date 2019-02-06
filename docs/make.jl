@@ -4,7 +4,7 @@ makedocs(
     modules = [Mapper2],
     sitename = "Mapper2.jl",
     format = :html,
-    authors = "Mark Hildebrand",
+    authors = "Mark Hildebrand, Arthur Hlaing",
     pages = [
         "Home" => "index.md",
         "Manual" => [
@@ -41,7 +41,7 @@ makedocs(
 
 deploydocs(
     repo = "github.com/hildebrandmw/Mapper2.jl.git",
-    julia = "0.7",
+    julia = "1.0",
     osname = "linux",
     target = "build",
     deps = nothing,
