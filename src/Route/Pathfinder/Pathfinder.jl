@@ -37,7 +37,7 @@ mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
         # Initially, all nodes have no predecessors. The initial state of this
         # structure should be cleared to the correct default values.
         predecessor = zeros(Int64, num_vertices)
-        pq          = binary_minheap(CostVertex)
+        pq          = BinaryMinHeap{CostVertex}()
 
         return new{typeof(ruleset),typeof(pq)}(
             ruleset,
