@@ -973,7 +973,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SAStruct",
     "title": "Mapper2.SA.SAStruct",
     "category": "type",
-    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:339.\n\n\n\n\n\n"
+    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:338.\n\n\n\n\n\n"
 },
 
 {
@@ -1173,7 +1173,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extendable Types",
     "title": "Mapper2.SA.BasicNode",
     "category": "type",
-    "text": "mutable struct BasicNode{T} <: Mapper2.SA.SANode\n\nFields\n\nlocation\nLocation this node is assigned in the architecture. Must be parametric.\nclass\nThe class of this node.\noutchannels\nAdjacency list of outgoing channels.\ninchannels\nAdjacency list of incoming channels.\n\nDocumentation\n\nThe standard implementation of SANode.\n\nMethod List\n\nBasicNode(location, class, outchannels, inchannels)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:207.\n\n\n\n\n\n"
+    "text": "mutable struct BasicNode{T} <: Mapper2.SA.SANode\n\nFields\n\nlocation\nLocation this node is assigned in the architecture. Must be parametric.\nclass\nThe class of this node.\noutchannels\nAdjacency list of outgoing channels.\ninchannels\nAdjacency list of incoming channels.\n\nDocumentation\n\nThe standard implementation of SANode.\n\nMethod List\n\nBasicNode(location, class, outchannels, inchannels)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:206.\n\n\n\n\n\n"
 },
 
 {
@@ -1221,7 +1221,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extendable Types",
     "title": "Mapper2.SA.BasicChannel",
     "category": "type",
-    "text": "struct BasicChannel <: Mapper2.SA.TwoChannel\n\nFields\n\nsource\nsink\n\nDocumentation\n\nBasic Implementation of TwoChannel\n\nMethod List\n\nBasicChannel(source, sink)\nBasicChannel(source, sink)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:247.\n\n\n\n\n\n"
+    "text": "struct BasicChannel <: Mapper2.SA.TwoChannel\n\nFields\n\nsource\nsink\n\nDocumentation\n\nBasic Implementation of TwoChannel\n\nMethod List\n\nBasicChannel(source, sink)\nBasicChannel(source, sink)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:246.\n\n\n\n\n\n"
 },
 
 {
@@ -1229,7 +1229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extendable Types",
     "title": "Mapper2.SA.BasicMultiChannel",
     "category": "type",
-    "text": "struct BasicMultiChannel <: Mapper2.SA.MultiChannel\n\nFields\n\nsources\nsinks\n\nDocumentation\n\nBasic Implementation of MultiChannel\n\nMethod List\n\nBasicMultiChannel(sources, sinks)\nBasicMultiChannel(sources, sinks)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:253.\n\n\n\n\n\n"
+    "text": "struct BasicMultiChannel <: Mapper2.SA.MultiChannel\n\nFields\n\nsources\nsinks\n\nDocumentation\n\nBasic Implementation of MultiChannel\n\nMethod List\n\nBasicMultiChannel(sources, sinks)\nBasicMultiChannel(sources, sinks)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:252.\n\n\n\n\n\n"
 },
 
 {
@@ -1469,7 +1469,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MapTables",
     "title": "Mapper2.SA.AbstractMapTable",
     "category": "type",
-    "text": "abstract type AbstractMapTable\n\nFields\n\nDocumentation\n\nTODO\n\nAPI\n\nlocation_type\ngetlocations\nisvalid\ngenlocation\n\nImplementations\n\nMapTable\n\nMethod List\n\n\n\n\n\n"
+    "text": "abstract type AbstractMapTable\n\nFields\n\nDocumentation\n\nTODO\n\nAPI\n\nlocation_type\ngetlocations\nisvalid\n\nImplementations\n\nMapTable\n\nMethod List\n\n\n\n\n\n"
 },
 
 {
@@ -1485,7 +1485,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MapTables",
     "title": "Mapper2.SA.location_type",
     "category": "function",
-    "text": "Return the stored location type for a MapTable.\n\nMethod List\n\nlocation_type(?)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:110.\n\n\n\n\n\n"
+    "text": "Return the stored location type for a MapTable.\n\nMethod List\n\nlocation_type(?)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:96.\n\n\n\n\n\n"
 },
 
 {
@@ -1493,7 +1493,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MapTables",
     "title": "Mapper2.SA.getlocations",
     "category": "function",
-    "text": "getlocations(maptable, class::Int, [address])\n\nReturn a vector of locations that nodes of type class can occupy. If optional argument address is provided, the list of locations will be restricted to that address.\n\nMethod List\n\ngetlocations(maptable, class)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:116.\n\ngetlocations(maptable, class, address)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:131.\n\n\n\n\n\n"
+    "text": "getlocations(maptable, class::Int)\n\nReturn a vector of locations that nodes of type class can occupy.\n\nMethod List\n\ngetlocations(maptable, class)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:102.\n\n\n\n\n\n"
 },
 
 {
@@ -1501,7 +1501,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MapTables",
     "title": "Mapper2.SA.isvalid",
     "category": "function",
-    "text": "isvalid(maptable, class, location :: Location)\n\nReturn true if nodes of type class can occupy location.\n\nisvalid(maptable, class, address :: Address)\n\nReturn true if nodes of type class can occupy address. In other words, there is some component at adddress that class can be mapped to.\n\nMethod List\n\nisvalid(maptable, class, address)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:139.\n\n\n\n\n\n"
+    "text": "isvalid(maptable, class, address :: Address)\n\nReturn true if nodes of type class can occupy address. In other words, there is some component at adddress that class can be mapped to.\n\nMethod List\n\nisvalid(maptable, class, address)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:111.\n\n\n\n\n\n"
 },
 
 {
@@ -1517,7 +1517,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MapTables",
     "title": "Mapper2.SA.MapTable",
     "category": "type",
-    "text": "struct MapTable{T, D} <: Mapper2.SA.AbstractMapTable\n\nFields\n\nnormal\nAccessing methodology:\nFor a node of class class_idx, normal[class_index][address] returns a Vector{Int} of component indices at address to which nodes of type class_idx may be mapped.\nIf the flat architecture optimization is used, normal[class_index][address] returns a Bool, which is true if nodes of type class_idx may be mapped to the only mappable component at address.\n\nDocumentation\n\nDefault implementation of AbstractMapTable\n\nImportant Parameters:\n\nD - The dimensionality of the Addresses in the table.\nU - The location type contained in the table. Will either be Location{D}   if a generic placement is being used, or CartesianIndex{D} if the   flat-architecture optimization is used.\n\nMethod List\n\nMapTable(normal)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:78.\n\nMapTable(toplevel, ruleset, equivalence_classes, pathtable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:103.\n\n\n\n\n\n"
+    "text": "struct MapTable{D} <: Mapper2.SA.AbstractMapTable\n\nFields\n\nmask\nBit mask of whether a node class may be mapped to an address.\nAccessing strategy: Look up the node class to index the outer vector. Index the inner array with an address.\nA true entry means the task class can be mapped. A false entry means the task calss cannot be mapped.\n\nDocumentation\n\nDefault implementation of AbstractMapTable\n\nParameters:\n\nD - The dimensionality of the Addresses in the table.\n\nMethod List\n\nMapTable(mask)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:67.\n\nMapTable(toplevel, ruleset, equivalence_classes, pathtable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MapTables.jl:89.\n\n\n\n\n\n"
 },
 
 {
