@@ -195,7 +195,6 @@ isflat(x) = false
 isflat(::SAStruct{A,U,D,D}) where {A,U,D} = true
 Base.eltype(sa_struct::SAStruct) = location_type(sa_struct.maptable)
 
-
 ################################################################################
 # Basis SA Node
 ################################################################################

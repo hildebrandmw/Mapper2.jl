@@ -117,7 +117,7 @@ end
 
     # SA here should have 3 classes for Black, White, and Gray.
     # We need to figure out which class index refers set of processors.
-    @test length(sa_struct.maptable.normal) == 3
+    @test length(sa_struct.maptable.mask) == 3
 
     color_to_class_idx = get_colors(m, sa_struct)
 

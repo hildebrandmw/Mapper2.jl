@@ -155,7 +155,7 @@ function initialize!(
     ) where T
 
     maptable = sa_struct.maptable
-    num_classes = length(maptable.normal)
+    num_classes = length(maptable.mask)
 
     moves = map(1:num_classes) do class
         # Get all locations that can be occupied by this class.
