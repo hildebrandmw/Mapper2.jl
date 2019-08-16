@@ -1,4 +1,4 @@
-module Example3
+module Tutorial
 
 # Import the Mapper package.
 using Mapper2
@@ -10,7 +10,7 @@ using Mapper2
 # should we want.
 #
 # If we don't extend those, default behavior will be used.
-struct EX3 <: Architecture end
+struct TutorialRuleset <: RuleSet end
 
 # A tutorial on how to model a simple architecture.
 include("Architecture.jl")
@@ -23,7 +23,7 @@ function make_map(;width = 4, height = 4, ntasks = 10, nedges = 20)
     arch = build_arch(width, height)
     taskgraph = make_taskgraph(ntasks, nedges)
 
-    return Map(arch, taskgraph)
+    return Map(TutorialRuleset(), arch, taskgraph)
 end
 
 end

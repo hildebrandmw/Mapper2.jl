@@ -48,7 +48,7 @@ end
 #
 # Note that we MUST make the first argument of this function our locally defined
 # subtype of Architecture to correctly extend the "ismappable" method.
-Mapper2.ismappable(::Type{EX3}, x) = get(x.metadata, "mappable", false)
+Mapper2.ismappable(::Type{TutorialRuleset}, x) = get(x.metadata, "mappable", false)
 
 # Since Crossbars are Mapper primitives, we are now ready to build our tile.
 function build_tile()
@@ -98,12 +98,10 @@ end
 # an architecture. This example will generate a 2D rectangular, rectilinear 
 # architecture with parameterized width and height.
 function build_arch(width, height)
-    # Initialize an empty TopLevel. To control dispatch, parameterize it with
-    # our locally defined EX3 architecture singleton type.
-    #
-    # The seceond parameter for the TopLevel is the dimensionality of the 
+    # Initialize an empty TopLevel.
+    # The parameter for the TopLevel is the dimensionality of the 
     # architecture, which is 2.
-    arch = TopLevel{EX3, 2}("architecture")
+    arch = TopLevel{2}("architecture")
 
     # Build a tile. We'll use this same tile at all locations of the grid.
     tile = build_tile()
@@ -135,4 +133,4 @@ end
 
 # We don't want to have to worry about congestion in the final mapping, so
 # lets set the capacity of all our routing resources to 100.
-Mapper2.getcapacity(::Type{EX3}, x) = 100
+Mapper2.getcapacity(::Type{TutorialRuleset}, x) = 100
