@@ -893,7 +893,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SAStruct",
     "title": "Mapper2.SA.SAStruct",
     "category": "type",
-    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:337.\n\n\n\n\n\n"
+    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:344.\n\n\n\n\n\n"
 },
 
 {
@@ -973,7 +973,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extentable Methods",
     "title": "Mapper2.SA.channel_cost",
     "category": "function",
-    "text": "channel_cost(sa_struct{T}, channel :: SAChannel) where {T <: RuleSet}\n\nReturn the cost of channel. Default implementation accumulates the distances between the source and sink addresses of the channel using sa_struct.distance.\n\nMethod List\n\nchannel_cost(sa_struct, channel)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:85.\n\n\n\n\n\n"
+    "text": "channel_cost(sa_struct{T}, channel :: SAChannel) where {T <: RuleSet}\n\nReturn the cost of channel. Default implementation accumulates the distances between the source and sink addresses of the channel using sa_struct.distance.\n\nMethod List\n\nchannel_cost(sa_struct, channel)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:83.\n\n\n\n\n\n"
 },
 
 {
@@ -981,7 +981,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extentable Methods",
     "title": "Mapper2.SA.node_cost",
     "category": "function",
-    "text": "node_cost(sa_struct{T}, idx) where {T <: RuleSet}\n\nReturn the cost of the node with index idx in ruleset T.\n\nDefault implementation sums the node\'s:\n\nincoming channels\noutgoing channels\naddress cost\nauxiliary cost.\n\nMethod List\n\nnode_cost(sa_struct, idx)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:162.\n\n\n\n\n\n"
+    "text": "node_cost(sa_struct{T}, idx) where {T <: RuleSet}\n\nReturn the cost of the node with index idx in ruleset T.\n\nDefault implementation sums the node\'s:\n\nincoming channels\noutgoing channels\naddress cost\nauxiliary cost.\n\nMethod List\n\nnode_cost(sa_struct, idx)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:158.\n\n\n\n\n\n"
 },
 
 {
@@ -989,7 +989,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extentable Methods",
     "title": "Mapper2.SA.node_pair_cost",
     "category": "function",
-    "text": "node_pair_cost(sa_struct{T}, idx1, idx2) where {T <: RuleSet}\n\nCompute the cost of the pair of nodes with indices idx1 and idx2. Call this function when computing the cost of two nodes because in general, the total cost of two nodes is not the sum of the individual nodes\' costs.\n\nMethod List\n\nnode_pair_cost(sa_struct, idx1, idx2)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:198.\n\n\n\n\n\n"
+    "text": "node_pair_cost(sa_struct{T}, idx1, idx2) where {T <: RuleSet}\n\nCompute the cost of the pair of nodes with indices idx1 and idx2. Call this function when computing the cost of two nodes because in general, the total cost of two nodes is not the sum of the individual nodes\' costs.\n\nMethod List\n\nnode_pair_cost(sa_struct, idx1, idx2)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:194.\n\n\n\n\n\n"
 },
 
 {
@@ -997,7 +997,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extentable Methods",
     "title": "Mapper2.SA.address_cost",
     "category": "function",
-    "text": "address_cost(sa_struct{T}, node :: SANode, address_data::AddressData) where {T <: RuleSet}\n\nReturn the address cost for node for RuleSet T. Default return value is zero(Float64).\n\nCalled by default during node_cost and node_pair_cost\n\nMethod List\n\naddress_cost(sa_struct, node, address_data)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:113.\n\naddress_cost(sa_struct, node, address_data)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:114.\n\n\n\n\n\n"
+    "text": "address_cost(sa_struct{T}, node :: SANode, address_data::AddressData) where {T <: RuleSet}\n\nReturn the address cost for node for RuleSet T. Default return value is zero(Float64).\n\nCalled by default during node_cost and node_pair_cost\n\nMethod List\n\naddress_cost(sa_struct, node, address_data)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:110.\n\naddress_cost(sa_struct, node, address_data)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:111.\n\n\n\n\n\n"
 },
 
 {
@@ -1005,7 +1005,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Extentable Methods",
     "title": "Mapper2.SA.aux_cost",
     "category": "function",
-    "text": "aux_cost(sa_struct{T}) where {T <: RuleSet}\n\nReturn an auxiliary cost associated with the entire mapping of the sa_struct. May use any field of sa_struct but may only mutate sa_struct.aux.\n\nDefault: zero(Float64)\n\nMethod List\n\naux_cost(sa_struct)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:131.\n\n\n\n\n\n"
+    "text": "aux_cost(sa_struct{T}) where {T <: RuleSet}\n\nReturn an auxiliary cost associated with the entire mapping of the sa_struct. May use any field of sa_struct but may only mutate sa_struct.aux.\n\nDefault: zero(Float64)\n\nMethod List\n\naux_cost(sa_struct)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Methods.jl:128.\n\n\n\n\n\n"
 },
 
 {
