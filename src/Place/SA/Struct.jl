@@ -264,19 +264,26 @@ function setup_channel_build(ruleset::RuleSet, taskgraph)
     sinks = map(edges) do edge
         [node_dict[i] for i in edge.sinks]
     end
-    # Pass this to the `build_channels` function
-    return build_channels(ruleset, edges, sources, sinks)
+    # Pass this to the `buildchannels` function
+    return buildchannels(ruleset, edges, sources, sinks)
 end
 
-function build_channels(ruleset::RuleSet, edges, sources, sinks)
+buildchannel(ruleset::RuleSet, edge, sources, sinks) = BasicMultiChannel(sources, sinks)
+
+function buildchannels(ruleset::RuleSet, edges, sources, sinks)
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
-    max_length = max(maximum.((length.(sources), length.(sinks)))...)
-    if max_length == 1
-        return [BasicChannel(first(i), first(j)) for (i,j) in zip(sources, sinks)]
-    else
-        return [BasicMultiChannel(i,j) for (i,j) in zip(sources, sinks)]
+    channels = [buildchannel(ruleset, edge, source, sink) for (edge, source, sink) in zip(edges, sources, sinks)]
+    max_length = maximum(Iterators.flatten((length.(sources), length.(sinks))))
+
+    # Optimization - if the maximum length is 1 and the element type of `channels` is the
+    # default multichannel, change `channels` to be just Basic Channels
+    if max_length == 1 && eltype(channels) == BasicMultiChannel
+        @info "Optimizing for single source-sink connections"
+        channels = [BasicChannel(first(i), first(j)) for (i,j) in zip(sources, sinks)]
     end
+
+    return channels
 end
 
 ################################################################################

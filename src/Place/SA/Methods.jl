@@ -66,7 +66,6 @@ Ideas include:
     build a "case" statement out of it.
 =#
 @propagate_inbounds function channel_cost(sa_struct::SAStruct, idx::Int)
-
     return channel_cost(sa_struct, sa_struct.channels[idx])
 end
 
@@ -81,14 +80,12 @@ Method List
 $(METHODLIST)
 """
 @propagate_inbounds function channel_cost(sa_struct::SAStruct, channel::TwoChannel)
-
     a = sa_struct.nodes[channel.source]
     b = sa_struct.nodes[channel.sink]
     return Float64(getdistance(sa_struct.distance, a, b))
 end
 
 @propagate_inbounds function channel_cost(sa_struct::SAStruct, channel::MultiChannel)
-
     cost = 0.0
     for src in channel.sources, snk in channel.sinks
         a = sa_struct.nodes[src]
@@ -157,7 +154,6 @@ Method List
 $(METHODLIST)
 """
 @propagate_inbounds function node_cost(sa_struct::SAStruct, idx::Integer)
-
     # Unpack node data type.
     n = sa_struct.nodes[idx]
     cost = aux_cost(sa_struct)
