@@ -45,16 +45,6 @@ const PLC = Union{Port,Link,Component}
 
 # Placement Queries
 """
-    isspecial(ruleset::RuleSet, taskgraphnode::TaskgraphNode) :: Bool
-
-Return `true` to disable move distance contraction for `taskgraphnode` during
-placement under `ruleset`.
-
-Default: `false`
-"""
-isspecial(::RuleSet, t::TN) = false
-
-"""
     isequivalent(ruleset::RuleSet, a::TaskgraphNode, b::TaskgraphNode) :: Bool
 
 Return `true` if `TaskgraphNodes` `a` and `b` are semantically equivalent for
@@ -133,8 +123,7 @@ needsrouting(::RuleSet, edge::TE) = true
 # Exports
 #-------------------------------------------------------------------------------
 
-export  isspecial,
-        isequivalent,
+export  isequivalent,
         ismappable,
         canmap,
         canuse,

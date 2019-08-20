@@ -10,8 +10,6 @@ for i in 1:2
 end
 include(joinpath(Mapper2.PKGDIR, "example", "chessboard", "Chessboard.jl"))
 using .Chessboard
-
-
 using .Example1
 using .Example2
 

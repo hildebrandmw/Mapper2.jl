@@ -186,7 +186,7 @@ end
 
 # Convenience decoding methods
 dimension(::SAStruct{T,U,D})  where {T,U,D} = D
-rulse(sa_struct::SAStruct) = sa_struct.ruleset
+MapperCore.rules(sa_struct::SAStruct) = sa_struct.ruleset
 nodetype(s::SAStruct) = typeof(s.nodes)
 channeltype(s::SAStruct) = typeof(s.channels)
 distancetype(::SAStruct{T,U}) where {T,U} = U
@@ -269,7 +269,6 @@ function setup_channel_build(ruleset::RuleSet, taskgraph)
 end
 
 function build_channels(ruleset::RuleSet, edges, sources, sinks)
-
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
     max_length = max(maximum.((length.(sources), length.(sinks)))...)
@@ -577,7 +576,6 @@ function check_consistency(sa::SAStruct)
 end
 
 function check_mapability(m::Map, sa::SAStruct)
-
     bad_nodes = Int64[]
     toplevel = m.toplevel
     # Iterate through each node in the SA

@@ -54,8 +54,8 @@ function update! end
 
 # Top level function - serves as entry point for the methods listed above.
 @propagate_inbounds function generate_move!(
-            sa_struct :: SAStruct,
-            move_generator :: MoveGenerator,
+            sa_struct::SAStruct,
+            move_generator::MoveGenerator,
             move_cookie,
         )
 
@@ -148,12 +148,7 @@ CachedMoveGenerator(sa_struct::SAStruct{A,U,D}) where {A,U,D} =
 distancelimit(::CachedMoveGenerator, sa_struct) =
     maxdistance(sa_struct, sa_struct.distance)
 
-function initialize!(
-        move_generator :: CachedMoveGenerator{T},
-        sa_struct :: SAStruct,
-        limit
-    ) where T
-
+function initialize!(move_generator::CachedMoveGenerator, sa_struct::SAStruct, limit)
     maptable = sa_struct.maptable
     num_classes = length(maptable.mask)
 
@@ -163,8 +158,8 @@ function initialize!(
 
         # Create a dictionary of MoveLUTs for this class.
         return Dict(map(class_locations) do source
-            # Define a function that returns the distance of a location from
-            # the current source address.
+            # Define a function that returns the distance of a location from the current 
+            # source address.
             dist(x) = getdistance(sa_struct.distance, source, x)
 
             # Sort destinations for this address by distance.
@@ -172,16 +167,16 @@ function initialize!(
                 class_locations;
                 # Comparison of distance. If distances are equal, sort by
                 # CartesianIndex for easier testing.
-                lt = (x, y) -> dist(x) < dist(y) ||
-                    (dist(x) == dist(y) && location(x) < location(y))
+                lt = (x, y) -> dist(x) < dist(y) || 
+                               (dist(x) == dist(y) && location(x) < location(y))
             )
 
-            # Create an auxiliary look up vector.
-            θ = collect(Iterators.filter(
-                !isequal(nothing),
-                (findlast(x -> dist(x) <= i, dests) for i in 1:limit)
-            ))
+            # Create an look up vector. 
+            # Find the index of the last entry in `dests` whose distance from the source is 
+            # within the limit `i`.
+            θ = [findlast(x -> dist(x) <= i, dests) for i in 1:limit] 
 
+            # Will throw if any entry in θ is `Nothing` - which is a good thing
             return source => MoveLUT(dests, length(dests), θ)
         end)
     end
@@ -191,32 +186,27 @@ function initialize!(
 end
 
 # Modify the index in each MoveLUT to correspond to the new limit.
-function update!(
-        move_generator::CachedMoveGenerator{T},
-        sa_struct::SAStruct,
-        limit
-    ) where T
-
-    for dict in move_generator.moves
-        for lut in values(dict)
-            lut.idx = lut.indices[min(length(lut.indices), limit)]
-        end
+function update!(move_generator::CachedMoveGenerator, sa_struct::SAStruct, limit)
+    for dict in move_generator.moves, lut in values(dict)
+        lut.idx = lut.indices[min(length(lut.indices), limit)]
     end
     return nothing
 end
-
 
 @propagate_inbounds function generate_move(
         sa_struct::SAStruct,
         move_generator::CachedMoveGenerator,
         node_idx,
     )
-
     node = sa_struct.nodes[node_idx]
+
+    # Unpack current location and class of the node. 
     this_location = location(node)
-    maptable = sa_struct.maptable
-    # Get the equivalent class of the node
     class = getclass(node)
-    # Get the address and component to move this node to
-    return rand(move_generator.moves[class][this_location])
+
+    # Use the class and current location to get a `MoveLUT` from the move generator
+    move_lut = move_generator.moves[class][this_location] 
+
+    # Return a random address from the move_lut.
+    return rand(move_lut)
 end
