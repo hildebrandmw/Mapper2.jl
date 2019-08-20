@@ -705,86 +705,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "man/extensions.html#Mapper2.MapperCore.isspecial",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.isspecial",
-    "category": "function",
-    "text": "isspecial(ruleset::RuleSet, taskgraphnode::TaskgraphNode) :: Bool\n\nReturn true to disable move distance contraction for taskgraphnode during placement under ruleset.\n\nDefault: false\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.isequivalent",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.isequivalent",
-    "category": "function",
-    "text": "isequivalent(ruleset::RuleSet, a::TaskgraphNode, b::TaskgraphNode) :: Bool\n\nReturn true if TaskgraphNodes a and b are semantically equivalent for placement.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.ismappable",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.ismappable",
-    "category": "function",
-    "text": "ismappable(ruleset::RuleSet, component::Component) :: Bool\n\nReturn true if some task can be mapped to component under ruleset.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.canmap",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.canmap",
-    "category": "function",
-    "text": "canmap(ruleset::RuleSet, t::TaskgraphNode, c::Component) :: Bool\n\nReturn true if t can be mapped to c under ruleset.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.canuse",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.canuse",
-    "category": "function",
-    "text": "canuse(ruleset::RuleSet, item::Union{Port,Link,Component}, edge::TaskgraphEdge)::Bool\n\nReturn true if edge can use item as a routing resource under ruleset.\n\nDefault: true\n\n\n\n\n\ncanuse(ruleset::RuleSet, link::RoutingLink, channel::RoutingChannel)::Bool\n\nReturn true if channel can be routed using link.\n\nSee: RoutingLink, RoutingChannel\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.getcapacity",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.getcapacity",
-    "category": "function",
-    "text": "getcapacity(ruleset::RuleSet, item::Union{Port,Link,Component})\n\nReturn the capacity of routing resource item under ruleset.\n\nDefault: 1\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.is_source_port",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.is_source_port",
-    "category": "function",
-    "text": "is_source_port(ruleset::RuleSet, port::Port, edge::TaskgraphEdge)::Bool\n\nReturn true if port is a valid source port for edge under ruleset.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.is_sink_port",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.is_sink_port",
-    "category": "function",
-    "text": "is_sink_port(ruleset::RuleSet, port::Port, edge::TaskgraphEdge)::Bool\n\nReturn true if port is a vlid sink port for edge under ruleset.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.MapperCore.needsrouting",
-    "page": "Extensions",
-    "title": "Mapper2.MapperCore.needsrouting",
-    "category": "function",
-    "text": "needsrouting(ruleset::RuleSet, edge::TaskgraphEdge)::Bool\n\nReturn true if edge needs to be routed under ruleset.\n\nDefault: true\n\n\n\n\n\n"
-},
-
-{
-    "location": "man/extensions.html#Mapper2.Routing.annotate",
-    "page": "Extensions",
-    "title": "Mapper2.Routing.annotate",
-    "category": "function",
-    "text": "annotate(ruleset::RuleSet, item::Union{Port,Link,Component})\n\nReturn some <:RoutingLink for item.  If  item <: Component, it is a primitive. If not other primitives have been  defined, it will be a mux.\n\nSee: BasicRoutingLink\n\nDefault: `BasicRoutingLink(capacity = getcapacity(ruleset, item))\n\n\n\n\n\n"
-},
-
-{
     "location": "man/extensions.html#Extensions-1",
     "page": "Extensions",
     "title": "Extensions",
@@ -973,7 +893,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SAStruct",
     "title": "Mapper2.SA.SAStruct",
     "category": "type",
-    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:338.\n\n\n\n\n\n"
+    "text": "struct SAStruct{T<:RuleSet, U<:Mapper2.SA.SADistance, D, N<:Mapper2.SA.SANode, L<:Mapper2.SA.SAChannel, M<:Mapper2.SA.AbstractMapTable, A<:Mapper2.SA.AddressData, Q}\n\nFields\n\nruleset\nnodes\nVector{N}: Container of nodes.\nchannels\nVector{L}: Container of edges.\nmaptable\ndistance\ngrid\naddress_data\naux\npathtable\ntasktable\n\nDocumentation\n\nDatastructure for simulated annealing placement.\n\nImportant parameters:\n\nA - The concrete Architecture type.\n\nConstructor\n\nArguments:\n\nm: The Map to translate into an SAStruct.\n\nKeyword Arguments:\n\ndistance: The distance type to use. Defaults: BasicDistance\nenable_flattness :: Bool: Enable the flat architecture optimization if   it is applicable. Default: true.\nenable_address :: Bool: Enable address-specific data to be incorporated   into the struct. Default: false.\naux: Auxiliary data struct to provide any extra information that may be   needed for specializations of placement. Default: nothing.\n\nMethod List\n\nSAStruct(ruleset, nodes, channels, maptable, distance, grid, address_data, aux, pathtable, tasktable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:171.\n\nSAStruct(m; enable_address, aux, kwargs...)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Struct.jl:337.\n\n\n\n\n\n"
 },
 
 {
@@ -1317,7 +1237,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SADistance",
     "title": "Mapper2.SA.getdistance",
     "category": "function",
-    "text": "getdistance(A::SADistance, a, b)\n\nReturn the distance from a to b with respect to A. Both a and b will implement getaddress.\n\nMethod List\n\ngetdistance(A, a, b)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:67.\n\n\n\n\n\n"
+    "text": "getdistance(A::SADistance, a, b)\n\nReturn the distance from a to b with respect to A. Both a and b will implement getaddress.\n\nMethod List\n\ngetdistance(A, a, b)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:66.\n\n\n\n\n\n"
 },
 
 {
@@ -1325,7 +1245,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SADistance",
     "title": "Mapper2.SA.maxdistance",
     "category": "function",
-    "text": "maxdistance(sa_struct, A::SADistance)\n\nReturn the maximum distance value of that occurs in sa_struct using the distance metric imposed by A.\n\nMethod List\n\nmaxdistance(sa_struct, A)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:69.\n\n\n\n\n\n"
+    "text": "maxdistance(sa_struct, A::SADistance)\n\nReturn the maximum distance value of that occurs in sa_struct using the distance metric imposed by A.\n\nMethod List\n\nmaxdistance(sa_struct, A)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:68.\n\n\n\n\n\n"
 },
 
 {
@@ -1341,7 +1261,7 @@ var documenterSearchIndex = {"docs": [
     "page": "SADistance",
     "title": "Mapper2.SA.BasicDistance",
     "category": "type",
-    "text": "struct BasicDistance{D} <: Mapper2.SA.SADistance\n\nFields\n\ntable\nSimple look up table indexed by pairs of addresses. Returned value is the distance between the two addresses.\nIf an architecture has dimension \"N\", then the dimension of table is 2N.\n\nDocumentation\n\nBasic implementation of SADistance. Constructs a look up table of distances between all address pairs. Addresses have a distance of 1 if there exists even one link between components at those addresses.\n\nMethod List\n\nBasicDistance(table)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:56.\n\nBasicDistance(toplevel, pathtable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:76.\n\n\n\n\n\n"
+    "text": "struct BasicDistance{D} <: Mapper2.SA.SADistance\n\nFields\n\ntable\nSimple look up table indexed by pairs of addresses. Returned value is the distance between the two addresses.\nIf an architecture has dimension \"N\", then the dimension of table is 2N.\n\nDocumentation\n\nBasic implementation of SADistance. Constructs a look up table of distances between all address pairs. Addresses have a distance of 1 if there exists even one link between components at those addresses.\n\nMethod List\n\nBasicDistance(table)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:55.\n\nBasicDistance(toplevel, pathtable)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/Distance.jl:75.\n\n\n\n\n\n"
 },
 
 {
