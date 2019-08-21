@@ -7,13 +7,8 @@ end
 
 Return a `Vector{Path{Component}}` of paths to mappable components at `address`.
 """
-function mappables(toplevel::TopLevel, ruleset::RuleSet, address::Address)
-    [
-         path 
-         for path in walk_children(toplevel, address) 
-         if ismappable(ruleset, toplevel[path])
-    ]
-end
+mappables(toplevel::TopLevel, ruleset::RuleSet, address::Address) =
+    [path for path in walk_children(toplevel, address) if ismappable(ruleset, toplevel[path])]
 
 """
     check(c::AbstractComponent)

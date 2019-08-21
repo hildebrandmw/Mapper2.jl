@@ -368,10 +368,7 @@ function SAStruct(
     #----------------------------------------------------#
     # Obtain task equivalence classes from the taskgraph #
     #----------------------------------------------------#
-    #equivalence_classes = task_equivalence_classes(taskgraph, rules(m))
-    # Create function wrapper for "isequivalent"
-    f = (x,y) -> isequivalent(rules(m), x, y)
-    classes = equivalence_classes(f, getnodes(taskgraph))
+    classes = equivalence_classes(rules(m), getnodes(taskgraph))
 
     # Assign each node with its given classification.
     for (index, class) in enumerate(classes.classes)
@@ -477,15 +474,18 @@ function record_channels!(nodes, channels)
     return nothing
 end
 
-function equivalence_classes(f::Function, iter)
-    classes = zeros(Int, length(iter))
-    reps = eltype(iter)[]
-    for (index, item) in enumerate(iter)
-        # See if this item class has already been discovered.
-        i = findfirst(x -> f(x, item), reps)
-        # If not, add this item to the vector of representatives.
+function equivalence_classes(ruleset::RuleSet, nodes)
+    classes = zeros(Int, length(nodes))
+
+    # Representitives for each class
+    reps = eltype(nodes)[]
+
+    for (index, node) in enumerate(nodes)
+        # See if this node class has already been discovered.
+        i = findfirst(x -> isequivalent(ruleset, x, node), reps)
+        # If not, add this node to the vector of representatives.
         if i == nothing
-            push!(reps, item)
+            push!(reps, node)
             i = length(reps)
         end
         # Record class
@@ -496,7 +496,6 @@ function equivalence_classes(f::Function, iter)
         reps = reps
     )
 end
-
 
 ################################################################################
 # Verification routine for SA Placement

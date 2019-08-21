@@ -9,7 +9,6 @@ API
 
 Implementations
 ---------------
-* [`SearchMoveGenerator`](@ref)
 * [`CachedMoveGenerator`](@ref)
 """
 abstract type MoveGenerator end
