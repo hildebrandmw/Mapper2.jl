@@ -1285,7 +1285,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Move Generators",
     "title": "Mapper2.SA.MoveGenerator",
     "category": "type",
-    "text": "abstract type MoveGenerator\n\nFields\n\nDocumentation\n\nAPI\n\ngenerate_move\ndistancelimit\ninitialize!\nupdate!\n\nImplementations\n\nSearchMoveGenerator\nCachedMoveGenerator\n\nMethod List\n\n\n\n\n\n"
+    "text": "abstract type MoveGenerator\n\nFields\n\nDocumentation\n\nAPI\n\ngenerate_move\ndistancelimit\ninitialize!\nupdate!\n\nImplementations\n\nCachedMoveGenerator\n\nMethod List\n\n\n\n\n\n"
 },
 
 {
@@ -1349,7 +1349,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Move Generators",
     "title": "Mapper2.SA.CachedMoveGenerator",
     "category": "type",
-    "text": "mutable struct CachedMoveGenerator{T} <: Mapper2.SA.MoveGenerator\n\nFields\n\nmoves\n\nDocumentation\n\nThis move generator precomputes all of the valid moves for each class at all addresses, and references this cached database to generator moves.\n\nStandard classes are used to index into the first level of moves. The inner dictionary is a mapping from a base address to a MoveLUT for that address.\n\nMethod List\n\nCachedMoveGenerator(sa_struct)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MoveGenerators.jl:142.\n\n\n\n\n\n"
+    "text": "mutable struct CachedMoveGenerator{T} <: Mapper2.SA.MoveGenerator\n\nFields\n\nmoves\n\nDocumentation\n\nThis move generator precomputes all of the valid moves for each class at all addresses, and references this cached database to generator moves.\n\nStandard classes are used to index into the first level of moves. The inner dictionary is a mapping from a base address to a MoveLUT for that address.\n\nMethod List\n\nCachedMoveGenerator(sa_struct)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MoveGenerators.jl:141.\n\n\n\n\n\n"
 },
 
 {
@@ -1357,7 +1357,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Move Generators",
     "title": "Mapper2.SA.MoveLUT",
     "category": "type",
-    "text": "mutable struct MoveLUT{T}\n\nFields\n\ntargets\nVector of destination addresses from the base address. Sorted in increasing order of distance from the base addresses according to the distance metric of the parent SAStruct.\n\nidx\nThe index of the last entry in targets that is within the current move distance limit of the base address.\n\nindices\nCached idx for various move distance limits.\n\nDocumentation\n\nLook-up table for moves for a single node class starting at some base address.\n\nThe main invariant of this a MoveLUT L is with base address alpha is\n\ntextdistanceleft( L_texttargetsi - alpha right) leq delta\n     forall i in 1 ldots L_textidx\n\nwhere textdistance is the distance between to addresses in the SAStruct and \\delta is the current move distance limit.\n\nThus, to generate a random move within delta of alpha, we must need to perform the operation\n\nL.targets[rand(1:L.idx)]\n\nassuming L.idx has been configured correctly.\n\nTo aid in the configuration of L.idx, the field indices is constructed such that for a move limit delta, L.idx = L.indices[δ].\n\nMethod List\n\nMoveLUT(targets, idx, indices)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MoveGenerators.jl:102.\n\n\n\n\n\n"
+    "text": "mutable struct MoveLUT{T}\n\nFields\n\ntargets\nVector of destination addresses from the base address. Sorted in increasing order of distance from the base addresses according to the distance metric of the parent SAStruct.\n\nidx\nThe index of the last entry in targets that is within the current move distance limit of the base address.\n\nindices\nCached idx for various move distance limits.\n\nDocumentation\n\nLook-up table for moves for a single node class starting at some base address.\n\nThe main invariant of this a MoveLUT L is with base address alpha is\n\ntextdistanceleft( L_texttargetsi - alpha right) leq delta\n     forall i in 1 ldots L_textidx\n\nwhere textdistance is the distance between to addresses in the SAStruct and \\delta is the current move distance limit.\n\nThus, to generate a random move within delta of alpha, we must need to perform the operation\n\nL.targets[rand(1:L.idx)]\n\nassuming L.idx has been configured correctly.\n\nTo aid in the configuration of L.idx, the field indices is constructed such that for a move limit delta, L.idx = L.indices[δ].\n\nMethod List\n\nMoveLUT(targets, idx, indices)\n\ndefined at /home/travis/build/hildebrandmw/Mapper2.jl/src/Place/SA/MoveGenerators.jl:101.\n\n\n\n\n\n"
 },
 
 {
