@@ -6,7 +6,7 @@
 const PPLC = Union{Path{Link},Path{Port},Path{Component}}
 
 """
-Record of how [`Taskgraph`](@ref)s and [`TaskgraphEdge`](@ref)s in a 
+Record of how [`Taskgraph`](@ref)s and [`TaskgraphEdge`](@ref)s in a
 [`Taskgraph`](@ref) map to a [`TopLevel`](@ref).
 """
 mutable struct Mapping
@@ -17,7 +17,7 @@ mutable struct Mapping
     nodes::Dict{String,Path{Component}}
 
     """
-    `Vector{SparseDiGraph{Union{Path{Link},Path{Port},Path{Component}}}}` - 
+    `Vector{SparseDiGraph{Union{Path{Link},Path{Port},Path{Component}}}}` -
     Takes a integer index for an edge in the parent [`Taskgraph`](@ref) and
     returns a graph whose node types `Path`s to architectural compoennts.o
 
@@ -56,7 +56,7 @@ end
 
 function Map(
         ruleset::T,
-        toplevel::TopLevel{D}, 
+        toplevel::TopLevel{D},
         taskgraph   ::Taskgraph;
         options     = Dict{Symbol,Any}(),
         metadata    = Dict{String,Any}(),
@@ -78,6 +78,11 @@ function Map(
 end
 
 rules(map::Map) = map.ruleset
+
+function Base.show(io::IO, map::Map{T,D}) where {T,D}
+    print(io, "Map{$T,$D} with $(num_nodes(map.taskgraph)) nodes")
+    return nothing
+end
 
 ################################################################################
 # Methods for interacting with the Map.

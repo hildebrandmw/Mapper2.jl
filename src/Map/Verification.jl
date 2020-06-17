@@ -40,11 +40,11 @@ function check_routing(map::Map; quiet = false)
     end
 
     return all((
-        placement_okay, 
-        capacity_okay, 
-        port_okay, 
-        graph_okay, 
-        arch_okay, 
+        placement_okay,
+        capacity_okay,
+        port_okay,
+        graph_okay,
+        arch_okay,
         resource_okay
     ))
 end
@@ -57,7 +57,7 @@ Ensure that each [`TaskgraphNode`](@ref) is mapped to a valid component.
 """
 function check_placement(map::Map)
     pass = true
-    # Iterate through all tasks in the taskgraph. Get the component they are 
+    # Iterate through all tasks in the taskgraph. Get the component they are
     # mapped to and call "canmap".
     for (name, node) in map.taskgraph.nodes
         path = getpath(map, name)
@@ -77,7 +77,7 @@ end
 """
     check_ports(m::Map{A}) where A
 
-Check the source and destination ports for each task in `m`. Perform the 
+Check the source and destination ports for each task in `m`. Perform the
 following checks:
 
 * Each source and destination port for each task channel is valid.
@@ -97,7 +97,7 @@ function check_ports(map::Map)
         needsrouting(rules(map), taskgraph_edges[i]) || continue
 
         # Get the taskgraph sources and sinks
-        channel = getedge(taskgraph, i) 
+        channel = getedge(taskgraph, i)
 
         taskgraph_sources = getsources(channel)
         taskgraph_sinks   = getsinks(channel)
@@ -163,7 +163,7 @@ function check_ports(map::Map)
 end
 
 """
-    check_capacity(m::Map) 
+    check_capacity(m::Map)
 
 Performs the following checks:
 
@@ -185,7 +185,7 @@ function check_capacity(m::Map)
         end
     end
 
-    congested_edges = Set{Int}() 
+    congested_edges = Set{Int}()
     for (path, occupancy) in times_resource_used
         # record congested edges
         if occupancy > getcapacity(rules(m), toplevel[path])
@@ -194,16 +194,61 @@ function check_capacity(m::Map)
     end
 
     if length(congested_edges) > 0
+        # If we have edge congestion, we need to build a list of the source-destionation
+        # pairs that are congested for debugging purposes
+        #
+        # Determine the source and destinations of the congested edges.
+        allsources = Vector{String}[]
+        allsinks = Vector{String}[]
+
+        for edge_index in congested_edges
+            edge = getedge(m.taskgraph, edge_index)
+            edge.metadata["iscongested"] = true
+
+            sources = getsources(edge)
+            sinks = getsinks(edge)
+
+            push!(allsources, sources)
+            push!(allsinks, sinks)
+        end
+
+        # Now, collapse all the source - dest pairs into a single formatted string.
+        str = collapse(allsources, allsinks)
+
         @error """
             Mapping has routing congestion.
 
-            Congested edges: $(sort(collect(congested_edges)))
+            Congested Edges
+            ---------------
+            $str
             """
         return false
     end
     return true
 end
 
+function collapse(allsources, allsinks)
+    strings = String[]
+    for (sources, sinks) in zip(allsources, allsinks)
+        # If there are multple sources or sinks, format like
+        #
+        # "(source_1, source_2)"
+        #
+        # Otherwise, just format like
+        #
+        # "source"
+        str = "$(_format(sources)) -- $(_format(sinks))"
+        push!(strings, str)
+    end
+
+    return join(strings, "\n")
+end
+
+function _format(x::Vector{String})
+    length(x) == 1 && return x[1]
+    str = join(x, ", ")
+    return "($str)"
+end
 
 """
     check_architecture_connectivity(m::Map)
@@ -239,7 +284,7 @@ end
 
 Perform the following check:
 
-* Check that the routing graph for each channel in `m.taskgraph` is weakly 
+* Check that the routing graph for each channel in `m.taskgraph` is weakly
     connected.
 * Ensure there is a valid path from each source of the routing graph to each
     destination of the routing graph.
@@ -292,13 +337,13 @@ function check_architecture_resources(map::Map)
 
     success = true
     for (i, mapping_edge) in enumerate(mapping_edges)
-        taskgraph_edge = getedge(map.taskgraph, i) 
+        taskgraph_edge = getedge(map.taskgraph, i)
         for v in vertices(mapping_edge)
             # Checking routing
             if !canuse(rules(map), toplevel[v], taskgraph_edge)
                 success = false
                 @error """
-                    Taskgraph edge number $i can not use resource $v. 
+                    Taskgraph edge number $i can not use resource $v.
                     """
             end
         end
