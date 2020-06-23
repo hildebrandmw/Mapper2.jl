@@ -24,7 +24,7 @@ All dependent packages should be installed. To verify the installation, run
 the command:
 
 ```julia
-]test Mapper2"
+]test Mapper2
 ```
 
 ## Example Plots
