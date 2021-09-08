@@ -1,16 +1,13 @@
 @testset "Testing Example 1" begin
     local m
-    makemap     = true 
-    placement   = true
-    routing     = true
+    makemap = true
+    placement = true
+    routing = true
     # Try making a map
     m = Example1.make_map()
 
     # Try placement - use the Search Move Generator to give it a go.
-    place!(
-        m;
-        move_attempts = 5000, 
-    )
+    place!(m; move_attempts = 5000)
 
     # Try routing
     route!(m)
@@ -22,10 +19,10 @@
     hist = MapperCore.global_link_histogram(m)
     # Get the number of global links from this
     found_links = 0
-    for (k,v) in hist
-        found_links += k*v
+    for (k, v) in hist
+        found_links += k * v
     end
-    @test found_links == expected_links 
+    @test found_links == expected_links
     @test MapperCore.check_routing(m)
 end
 

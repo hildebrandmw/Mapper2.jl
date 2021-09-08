@@ -2,7 +2,6 @@ module Chessboard
 
 using Mapper2
 
-
 # For testing, we create a "chessboard" type architecture. The layout of the
 # architecture will either be rectangular 2D / 3D, or hexagonal 2D. About half
 # of the tiles will be "black_squares", while the other half will be "white_squares"
@@ -21,17 +20,25 @@ using Mapper2
 
 struct Chess <: RuleSet end
 
-export  Chess,
-        # Colors
-        SquareColor, White, Black, Gray,
-        # Architecture
-        architecture,
-        Rectangle2D, Rectangle3D, Hexagonal2D,
-        ChessboardColor, HashColor,
-        # Taskgraph
-        AllGray, OddEven, Quarters,
-        taskgraph, linegraph
-        
+export Chess,
+    # Colors
+    SquareColor,
+    White,
+    Black,
+    Gray,
+    # Architecture
+    architecture,
+    Rectangle2D,
+    Rectangle3D,
+    Hexagonal2D,
+    ChessboardColor,
+    HashColor,
+    # Taskgraph
+    AllGray,
+    OddEven,
+    Quarters,
+    taskgraph,
+    linegraph
 
 include("Taskgraph.jl")
 include("Architecture.jl")
@@ -40,8 +47,8 @@ include("Architecture.jl")
 Mapper2.ismappable(::Chess, x::Component) = haskey(x.metadata, "color")
 
 # Two tasks are equivalent if they have the same color.
-function Mapper2.isequivalent(::Chess, a::TaskgraphNode, b::TaskgraphNode) 
-    a.metadata["color"] == b.metadata["color"]
+function Mapper2.isequivalent(::Chess, a::TaskgraphNode, b::TaskgraphNode)
+    return a.metadata["color"] == b.metadata["color"]
 end
 
 function Mapper2.canmap(::Chess, t::TaskgraphNode, c::Component)

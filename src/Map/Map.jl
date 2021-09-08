@@ -28,9 +28,8 @@ mutable struct Mapping
 end
 
 getpath(m::Mapping, nodename::String) = m.nodes[nodename]
-getpath(m::Mapping, i::Integer)       = m.edges[i]
+getpath(m::Mapping, i::Integer) = m.edges[i]
 Base.setindex!(m::Mapping, v, i::Integer) = setindex!(m.edges, v, i)
-
 
 """
 Top level data structure. Summary of parameters:
@@ -38,43 +37,36 @@ Top level data structure. Summary of parameters:
 * `T` - The [`RuleSet`](@ref) used to control placement and routing.
 * `D` - The number of dimensions in the architecture (will usually be 2 or 3).
 """
-mutable struct Map{D, T <: RuleSet}
+mutable struct Map{D,T<:RuleSet}
     "[`RuleSet`](@ref) for assigning `taskgraph` to `toplevel`."
-    ruleset :: T
+    ruleset::T
 
     "[`TopLevel{A,D}`](@ref) - The `TopLevel` to be used for the mapping."
     toplevel::TopLevel{D}
 
     "The [`Taskgraph`](@ref) to map to the `toplevel`."
-    taskgraph   ::Taskgraph
-    options     ::Dict{Symbol, Any}
+    taskgraph::Taskgraph
+    options::Dict{Symbol,Any}
 
     "How `taskgraph` is mapped to `toplevel`."
-    mapping     ::Mapping
-    metadata    ::Dict{String,Any}
+    mapping::Mapping
+    metadata::Dict{String,Any}
 end
 
 function Map(
-        ruleset::T,
-        toplevel::TopLevel{D},
-        taskgraph   ::Taskgraph;
-        options     = Dict{Symbol,Any}(),
-        metadata    = Dict{String,Any}(),
-    ) where {T <: RuleSet,D}
+    ruleset::T,
+    toplevel::TopLevel{D},
+    taskgraph::Taskgraph;
+    options = Dict{Symbol,Any}(),
+    metadata = Dict{String,Any}(),
+) where {T<:RuleSet,D}
 
     # Create a new Mapping data type for the new map
     # Get the node names
     nodes = Dict(n => Path{Component}() for n in nodenames(taskgraph))
     edges = [SparseDiGraph{PPLC}() for i in 1:num_edges(taskgraph)]
     mapping = Mapping(nodes, edges)
-    return Map(
-        ruleset,
-        toplevel,
-        taskgraph,
-        options,
-        mapping,
-        metadata,
-      )
+    return Map(ruleset, toplevel, taskgraph, options, mapping, metadata)
 end
 
 rules(map::Map) = map.ruleset
@@ -91,17 +83,17 @@ getpath(m::Map, nodename::String) = getpath(m.mapping, nodename)
 getpath(m::Map, i::Integer) = getpath(m.mapping, i)
 getaddress(map::Map, nodename::String) = getaddress(map.toplevel, getpath(map, nodename))
 
-function isused(m::Map{D}, addr::CartesianIndex{D}) where D
+function isused(m::Map{D}, addr::CartesianIndex{D}) where {D}
     for path in values(m.mapping.nodes)
         getaddress(m.toplevel, path) == addr && return true
     end
     return false
 end
 
-function gettask(m::Map{D}, addr::CartesianIndex{D}) where D
+function gettask(m::Map{D}, addr::CartesianIndex{D}) where {D}
     for (taskname, path) in m.mapping.nodes
         if getaddress(m.toplevel, path) == addr
-            return  getnode(m.taskgraph, taskname)
+            return getnode(m.taskgraph, taskname)
         end
     end
     return nothing
@@ -122,7 +114,7 @@ end
 function save(m::Map, filepath)
     f = open(makejls(filepath), "w")
     serialize(f, m.mapping)
-    close(f)
+    return close(f)
 end
 
 function load(m::Map, filepath)
@@ -130,5 +122,5 @@ function load(m::Map, filepath)
     mapping = deserialize(f)
     close(f)
     # bind deserialized result
-    m.mapping = mapping
+    return m.mapping = mapping
 end

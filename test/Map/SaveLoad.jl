@@ -3,11 +3,11 @@ This file tests the save and load feature of the Mapper.
 =#
 @testset "Testing Save/Load" begin
     # Create two maps that are the same
-    m = place!(Example1.make_map(), move_attempts = 5000)
+    m = place!(Example1.make_map(); move_attempts = 5000)
     sm = Mapper2.SAStruct(m)
 
     # Place struct sm
-    Mapper2.SA.place!(sm, move_attempts = 5000)
+    Mapper2.SA.place!(sm; move_attempts = 5000)
     # Record the placed sm into map m
     Mapper2.SA.record(m, sm)
     route!(m)

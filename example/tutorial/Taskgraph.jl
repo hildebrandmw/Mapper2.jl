@@ -1,6 +1,6 @@
 # We keep generating taskgraphs super simple - just generate a random graph.
 function make_taskgraph(ntasks, nedges)
-    tasks = [TaskgraphNode(string(i)) for i in 1:ntasks]   
+    tasks = [TaskgraphNode(string(i)) for i in 1:ntasks]
 
     # Randomly create edges.
     #

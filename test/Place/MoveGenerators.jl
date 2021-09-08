@@ -1,18 +1,18 @@
 function testlut(
-        # The SA structure that is being placed.
-        sa_struct, 
-        # Instantied move_generator. It is assumed that this generator has
-        # already been initialized.
-        move_generator :: SA.CachedMoveGenerator, 
-        # Class index currently under test.
-        idx :: Integer, 
-        # List of addresses of tiles that it is expected that this class
-        # maps to.
-        addrs,
-        # Distance function between addresses. Useful for using this same
-        # function for Cartesian architectures and hexagonal architectures.
-        dist :: Function,
-   )
+    # The SA structure that is being placed.
+    sa_struct,
+    # Instantied move_generator. It is assumed that this generator has
+    # already been initialized.
+    move_generator::SA.CachedMoveGenerator,
+    # Class index currently under test.
+    idx::Integer,
+    # List of addresses of tiles that it is expected that this class
+    # maps to.
+    addrs,
+    # Distance function between addresses. Useful for using this same
+    # function for Cartesian architectures and hexagonal architectures.
+    dist::Function,
+)
     # Get the move dictionary form the Move Generagor for this index .
     move_dict = move_generator.moves[idx]
 
@@ -23,7 +23,7 @@ function testlut(
     # Test all limits for this geometry.
     for limit in SA.distancelimit(move_generator, sa_struct):-1:1
         # Update the move generator.
-    SA.update!(move_generator, sa_struct, limit)
+        SA.update!(move_generator, sa_struct, limit)
 
         # Iterate over all valid addresses. We'll recompute what the 
         # collection of moves should look like from scratch and verify
@@ -31,29 +31,23 @@ function testlut(
         for (address, lut) in move_dict
             # Compute the expected set of addresses from scratch.
             expected_addresses = sort(
-                [a for a in addrs if dist(a, address) <= limit],
+                [a for a in addrs if dist(a, address) <= limit];
                 # Sort addresses by distances from "address"
                 # Then apply the normal CartesianIndex sort.
-                lt = (x, y) -> (dist(x, address) < dist(y, address))  ||
-                    (dist(x, address) == dist(y, address) && x < y)
-                    
+                lt = (x, y) ->
+                    (dist(x, address) < dist(y, address)) ||
+                        (dist(x, address) == dist(y, address) && x < y),
             )
-            @test expected_addresses == lut.targets[1:lut.idx]
+            @test expected_addresses == lut.targets[1:(lut.idx)]
 
             # Test that all of the addresses in the targets are within the
             # distance limit and none of the addresses outside this target
             # are within the distance limit.
-            norms_below = map(
-                x -> dist(x, address),
-                lut.targets[1:lut.idx]
-            )
+            norms_below = map(x -> dist(x, address), lut.targets[1:(lut.idx)])
             @test all(norms_below .<= limit)
 
             # Test the remainder of the array.
-            norms_above = map(
-                x -> dist(x, address), 
-                lut.targets[lut.idx+1:end]
-            )
+            norms_above = map(x -> dist(x, address), lut.targets[(lut.idx + 1):end])
             @test all(norms_above .> limit)
 
             # Test random move genertion.
@@ -68,11 +62,11 @@ function testlut(
     end
 end
 
-function get_colors(m :: Map, sa_struct :: SA.SAStruct)
+function get_colors(m::Map, sa_struct::SA.SAStruct)
     # Decode the classes.
-    color_to_class_idx = Dict{SquareColor, Int}()
+    color_to_class_idx = Dict{SquareColor,Int}()
 
-    tasktable_rev = Dict(v => k for (k,v) in sa_struct.tasktable)
+    tasktable_rev = Dict(v => k for (k, v) in sa_struct.tasktable)
     for (idx, node) in enumerate(sa_struct.nodes)
         class = SA.getclass(node)
         taskname = tasktable_rev[idx]
@@ -93,24 +87,15 @@ end
 @testset "Testing Move Generators" begin
     import Base.Iterators.product
 
-
     # Use the Chessboard module
     # Build a 4x4 rectangular architecture with chessboard coloring.
     board_dims = 4
-    A = architecture(
-        board_dims, 
-        Rectangle2D(),
-        ChessboardColor(),
-    )
+    A = architecture(board_dims, Rectangle2D(), ChessboardColor())
     # Construct a taskgraph that will entierly fill the architecture.
     # Color it so 1/4 the tasks are Black, 1/4 are White, and 1/2 are Gray.
-    T = taskgraph(
-        board_dims ^ 2,
-        board_dims ^ 2 + board_dims,
-        Quarters()
-    )
+    T = taskgraph(board_dims^2, board_dims^2 + board_dims, Quarters())
 
-    m = Map(Chess(), A,T)
+    m = Map(Chess(), A, T)
 
     # Build the SA Struct
     sa_struct = SA.SAStruct(m)
@@ -149,7 +134,7 @@ end
     #################
     idx = color_to_class_idx[White]
 
-    addrs = [CI(i,j) for (i,j) in product(1:board_dims, 1:board_dims) if isodd(i+j)]
+    addrs = [CI(i, j) for (i, j) in product(1:board_dims, 1:board_dims) if isodd(i + j)]
     testlut(sa_struct, move_generator, idx, addrs, euclidean)
 
     #################
@@ -157,7 +142,7 @@ end
     #################
     idx = color_to_class_idx[Black]
 
-    addrs = [CI(i,j) for (i,j) in product(1:board_dims, 1:board_dims) if iseven(i+j)]
+    addrs = [CI(i, j) for (i, j) in product(1:board_dims, 1:board_dims) if iseven(i + j)]
     testlut(sa_struct, move_generator, idx, addrs, euclidean)
 
     ################
@@ -165,12 +150,11 @@ end
     ################
     idx = color_to_class_idx[Gray]
 
-    addrs = reshape([CI(i,j) for (i,j) in product(1:board_dims, 1:board_dims)], :)
+    addrs = reshape([CI(i, j) for (i, j) in product(1:board_dims, 1:board_dims)], :)
     testlut(sa_struct, move_generator, idx, addrs, euclidean)
 
-    SA.place!(sa_struct, move_attempts = 20)
+    SA.place!(sa_struct; move_attempts = 20)
     @test SA.verify_placement(m, sa_struct)
-
 end
 
 @testset "Big Move Generator Test" begin
@@ -186,7 +170,7 @@ end
         x1, y1 = b[1], b[2]
 
         # Find the distance between y coordinages
-        d = abs(y1-y0)
+        d = abs(y1 - y0)
 
         # Compute how many diagonal steps we can take given the y displacement.
         #
@@ -194,9 +178,9 @@ end
         # to check if we're on an even column or not.
         if isodd(y0)
             x_hi = x0 + (d >> 1)
-            x_lo = x0 - ((d+1) >> 1)
+            x_lo = x0 - ((d + 1) >> 1)
         else
-            x_hi = x0 + ((d+1) >> 1)
+            x_hi = x0 + ((d + 1) >> 1)
             x_lo = x0 - (d >> 1)
         end
 
@@ -215,38 +199,48 @@ end
         return dist
     end
 
-
     # Build the maps.
     maps = [
-        (Map(
-            Chess(),
-            architecture(4, Rectangle2D(), ChessboardColor()),
-            taskgraph(16, 20, Quarters())
-        ), euclidean),
-
-        (Map(
-            Chess(), 
-            architecture(4, Rectangle2D(), HashColor()),
-            taskgraph(16, 20, Quarters())
-        ), euclidean),
-
-        (Map(
-            Chess(),
-            architecture(3, Rectangle3D(), ChessboardColor()),
-            taskgraph(27, 40, Quarters())
-        ), euclidean),
-
-        (Map(
-            Chess(),
-            architecture(3, Rectangle3D(), HashColor()),
-            taskgraph(27, 40, Quarters())
-        ), euclidean),
-
-        (Map(
-            Chess(),
-            architecture(4, Hexagonal2D(), ChessboardColor()),
-            taskgraph(16, 24, Quarters())
-        ), hexagonal),
+        (
+            Map(
+                Chess(),
+                architecture(4, Rectangle2D(), ChessboardColor()),
+                taskgraph(16, 20, Quarters()),
+            ),
+            euclidean,
+        ),
+        (
+            Map(
+                Chess(),
+                architecture(4, Rectangle2D(), HashColor()),
+                taskgraph(16, 20, Quarters()),
+            ),
+            euclidean,
+        ),
+        (
+            Map(
+                Chess(),
+                architecture(3, Rectangle3D(), ChessboardColor()),
+                taskgraph(27, 40, Quarters()),
+            ),
+            euclidean,
+        ),
+        (
+            Map(
+                Chess(),
+                architecture(3, Rectangle3D(), HashColor()),
+                taskgraph(27, 40, Quarters()),
+            ),
+            euclidean,
+        ),
+        (
+            Map(
+                Chess(),
+                architecture(4, Hexagonal2D(), ChessboardColor()),
+                taskgraph(16, 24, Quarters()),
+            ),
+            hexagonal,
+        ),
     ]
 
     for (m, dist) in maps
@@ -272,8 +266,8 @@ end
                 addrs = collect(addresses(m.toplevel))
             else
                 addrs = [
-                    a for a in addresses(m.toplevel) 
-                    if search_metadata!(m.toplevel[a], "color", color, ==)
+                    a for a in addresses(m.toplevel) if
+                    search_metadata!(m.toplevel[a], "color", color, ==)
                 ]
             end
 

@@ -1,43 +1,43 @@
 struct CostVertex
-   cost :: Float64
-   index :: Int64
-   predecessor :: Int64
+    cost::Float64
+    index::Int64
+    predecessor::Int64
 end
 CostVertex(index::Int64) = CostVertex(0.0, index, -1)
 Base.isless(a::CostVertex, b::CostVertex) = a.cost < b.cost
 
 mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
     ruleset::T
-    historical_cost :: Vector{Float64}
-    congestion_cost_factor :: Float64
-    historical_cost_factor :: Float64
-    iteration_limit :: Int64
-    channels_to_route :: Vector{ChannelIndex}
+    historical_cost::Vector{Float64}
+    congestion_cost_factor::Float64
+    historical_cost_factor::Float64
+    iteration_limit::Int64
+    channels_to_route::Vector{ChannelIndex}
     # Scratch-pad to avoid re-allocation.
-    discovered  :: BitVector
-    predecessor :: Vector{Int64}
-    pq          :: Q
+    discovered::BitVector
+    predecessor::Vector{Int64}
+    pq::Q
 
     # Constructor
     function Pathfinder(
-            m::Map, 
-            routing_struct::RoutingStruct;
-            iteration_limit = 50,
-            channels_to_route = ChannelIndex.(1:length(routing_struct.channels)),
-            congestion_cost_factor = 3.0,
-            historical_cost_factor = 3.0
-        )
+        m::Map,
+        routing_struct::RoutingStruct;
+        iteration_limit = 50,
+        channels_to_route = ChannelIndex.(1:length(routing_struct.channels)),
+        congestion_cost_factor = 3.0,
+        historical_cost_factor = 3.0,
+    )
         ruleset = rules(m)
         routing_graph = getgraph(routing_struct)
         num_vertices = nv(routing_graph.graph)
 
         # Initialize shortest path structures.
         historical_cost = ones(Float64, num_vertices)
-        discovered  = falses(num_vertices)
+        discovered = falses(num_vertices)
         # Initially, all nodes have no predecessors. The initial state of this
         # structure should be cleared to the correct default values.
         predecessor = zeros(Int64, num_vertices)
-        pq          = BinaryMinHeap{CostVertex}()
+        pq = BinaryMinHeap{CostVertex}()
 
         return new{typeof(ruleset),typeof(pq)}(
             ruleset,
@@ -49,7 +49,8 @@ mutable struct Pathfinder{T,Q} <: AbstractRoutingAlgorithm
             # scratchpad
             discovered,
             predecessor,
-            pq,)
+            pq,
+        )
     end
 end
 
@@ -58,12 +59,11 @@ MapperCore.rules(p::Pathfinder) = p.ruleset
 getarchitecture(::Pathfinder{A}) where {A} = A
 
 function channels_to_route(p::Pathfinder, r::RoutingStruct)
-    lt = (x,y) -> isless(getchannel(r, x), getchannel(r, y))
-    sort!(p.channels_to_route, lt = lt)
+    lt = (x, y) -> isless(getchannel(r, x), getchannel(r, y))
+    sort!(p.channels_to_route; lt = lt)
 
     return p.channels_to_route
 end
-
 
 function soft_reset(p::Pathfinder)
     # Zero out the discovered vector.
@@ -75,13 +75,11 @@ function soft_reset(p::Pathfinder)
     return nothing
 end
 
-
 function rip_up_routes(p::Pathfinder, rs::RoutingStruct)
     for channel in p.channels_to_route
         clear_route(rs, channel)
     end
 end
-
 
 function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     # Get the link info from the routing structure.
@@ -93,7 +91,6 @@ function linkcost(pf::Pathfinder, rs::RoutingStruct, index::Integer)
     h = pf.historical_cost[index]
     return base_cost * p * h
 end
-
 
 function currentcost(pathfinder, routing_struct, link_idx)
     link = getlink(routing_struct, link_idx)
@@ -115,11 +112,8 @@ function update_historical_congestion(p::Pathfinder, rs::RoutingStruct)
 end
 
 function routecost(
-        pathfinder::Pathfinder, 
-        routing_struct::RoutingStruct,
-        channel_idx :: ChannelIndex
-    )
-
+    pathfinder::Pathfinder, routing_struct::RoutingStruct, channel_idx::ChannelIndex
+)
     cost = zero(Float64)
     for link_idx in vertices(getroute(routing_struct, channel_idx))
         cost += currentcost(pathfinder, routing_struct, link_idx)
@@ -134,9 +128,9 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
     soft_reset(p)
 
     # Unpack the certain variables.
-    graph       = getgraph(r).graph
-    pq          = p.pq
-    discovered  = p.discovered
+    graph = getgraph(r).graph
+    pq = p.pq
+    discovered = p.discovered
     predecessor = p.predecessor
     # Add all the start nodes to the priority queue.
     start_vectors = start_vertices(r, channel)
@@ -156,7 +150,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
 
     # Get the stop nodes for this channel
     stop_vectors = stop_vertices(r, channel)
-    stop_mask    = trues(length(stop_vectors))
+    stop_mask = trues(length(stop_vectors))
 
     # Path type that we will store the final paths in.
     paths = SparseDiGraph{Int64}()
@@ -176,14 +170,14 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
             end
         else
             startnodes = Int64[]
-            for j in vertices(paths) 
+            for j in vertices(paths)
                 discovered[j] = true
                 # Add all the neighbors of these nodes to the priority queue.
                 for u in outneighbors(graph, j)
-                    link = getlink(r,u)
+                    link = getlink(r, u)
                     if !discovered[u] && canuse(rules(p), link, task)
-                        new_cost = linkcost(p,r,u)
-                        push!(pq, CostVertex(new_cost,u,j))
+                        new_cost = linkcost(p, r, u)
+                        push!(pq, CostVertex(new_cost, u, j))
                     end
                 end
                 push!(startnodes, j)
@@ -200,8 +194,8 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
         end
 
         # Initialize search variables
-        lastnode  = 0
-        success   = false
+        lastnode = 0
+        success = false
         while !isempty(pq)
             # Pop a node out of the priority queue
             v = pop!(pq)
@@ -220,12 +214,12 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
             discovered[v.index] = true
             predecessor[v.index] = v.predecessor
             for u in outneighbors(graph, v.index)
-                link_type = getlink(r,u)
+                link_type = getlink(r, u)
                 if !discovered[u] && canuse(rules(p), link_type, task)
                     # Compute the cost of taking the new vertex and add it
                     # to the queue.
-                    new_cost = v.cost + linkcost(p,r,u)
-                    push!(pq, CostVertex(new_cost,u,v.index))
+                    new_cost = v.cost + linkcost(p, r, u)
+                    push!(pq, CostVertex(new_cost, u, v.index))
                 end
             end
         end
@@ -241,7 +235,7 @@ function shortest_path(p::Pathfinder, r::RoutingStruct, channel::ChannelIndex)
         j = predecessor[i]
         # Iterate until we find a start node.
         while j != -1
-            add_vertex!(paths, j) 
+            add_vertex!(paths, j)
             add_edge!(paths, j, i)
             i, j = j, predecessor[j]
         end
@@ -275,7 +269,7 @@ function route!(p::Pathfinder, rs::RoutingStruct)
     num_congested_links = 0
 
     @info "Running Pathfinder Routing Algorithm"
-    for i in 1:p.iteration_limit
+    for i in 1:(p.iteration_limit)
         # Rip up all routes
         for channel in channels_to_route(p, rs)
             clear_route(rs, channel)
@@ -329,7 +323,7 @@ it can only improve routing quality.
 
 Cleanup process will continue until no improvement it seen.
 """
-function cleanup(pathfinder :: Pathfinder, routing_struct :: RoutingStruct)
+function cleanup(pathfinder::Pathfinder, routing_struct::RoutingStruct)
     # Set the historical_cost_factor to zero to essentially remove its impact.
     pathfinder.historical_cost_factor = 0.0
     pathfinder.historical_cost .= 1
@@ -363,7 +357,6 @@ function cleanup(pathfinder :: Pathfinder, routing_struct :: RoutingStruct)
                 @debug final_cost - initial_cost
                 cost_decreased = true
             end
-        
         end
 
         # Exit when cost stops decreasing.

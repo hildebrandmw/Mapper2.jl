@@ -10,8 +10,8 @@
     # at onces
     name = t.name
     nodes = [TaskgraphNode(n) for n in Example2.node_names]
-    edges = [TaskgraphEdge(a,b) for (a,b) in Example2.edge_tuples]
-    
+    edges = [TaskgraphEdge(a, b) for (a, b) in Example2.edge_tuples]
+
     q = Taskgraph(name, nodes, edges)
 
     # start asking questions about the taskgraph
@@ -24,8 +24,8 @@
         # Get the two nodes
         a = getnode(t, nn)
         b = getnode(q, nn)
-        @test length(out_edges(t,a)) == length(out_edges(q,b))
-        @test length(in_edges(t,a)) == length(in_edges(q,b))
+        @test length(out_edges(t, a)) == length(out_edges(q, b))
+        @test length(in_edges(t, a)) == length(in_edges(q, b))
     end
 
     for nn in nodenames(t)

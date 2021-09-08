@@ -7,23 +7,23 @@ State tracking struct for Simulated Annealing placement.
 mutable struct SAState
     #= Information related to most recent move attempt =#
     "Current Temperature of the system."
-    temperature         ::Float64
+    temperature::Float64
     "Current objective value."
-    objective           ::Float64
+    objective::Float64
     "Current distance limit."
-    distance_limit      ::Float64
+    distance_limit::Float64
     "Current distance limit as an integer."
-    distance_limit_int  ::Int64
+    distance_limit_int::Int64
     "Maximum distance limit for this architecture."
-    max_distance_limit  ::Float64
+    max_distance_limit::Float64
 
-    recent_move_attempts    ::Int64
-    recent_successful_moves ::Int64
-    recent_accepted_moves   ::Int64
-    recent_deviation        ::Float64
+    recent_move_attempts::Int64
+    recent_successful_moves::Int64
+    recent_accepted_moves::Int64
+    recent_deviation::Float64
 
     "Current warming state"
-    warming             ::Bool
+    warming::Bool
 
     #= Global state information =#
     "Total number of move attempts made"
@@ -65,7 +65,7 @@ mutable struct SAState
             temperature,        # temperature
             Float64(objective), # objective
             distance_limit,     # distance_limit
-            floor(Int,distance_limit), # distance_limit_int
+            floor(Int, distance_limit), # distance_limit_int
             distance_limit,     # max_distance_limit (set to initial)
             0,                  # recent_move_attempts
             0,                  # recent_successful_moves
@@ -88,31 +88,30 @@ mutable struct SAState
             SAStateUpdateInterval,      # Default update interval
 
             # auxiliary cost
-            0.0
-         )
+            0.0,
+        )
     end
 end
 
 function reset!(s::SAState)
-    s.recent_move_attempts     = 0
-    s.recent_successful_moves  = 0
-    s.recent_accepted_moves    = 0
-    s.recent_deviation         = 0.0
+    s.recent_move_attempts = 0
+    s.recent_successful_moves = 0
+    s.recent_accepted_moves = 0
+    s.recent_deviation = 0.0
 
-    s.warming = true
+    return s.warming = true
 end
 
 function update!(state::SAState)
     # Update the global counters
-    state.total_moves       += state.recent_move_attempts
-    state.successful_moves  += state.recent_successful_moves
-    state.accepted_moves    += state.recent_accepted_moves
+    state.total_moves += state.recent_move_attempts
+    state.successful_moves += state.recent_successful_moves
+    state.accepted_moves += state.recent_accepted_moves
     # Compute number of moves per second.
     state.moves_per_second = state.successful_moves / (time() - state.start_time)
     # Update the exponential moving average of the objective function differnce.
     alpha = 0.2
-    state.deviation = alpha * state.recent_deviation +
-                        (1.0 - alpha) * state.deviation
+    state.deviation = alpha * state.recent_deviation + (1.0 - alpha) * state.deviation
 
     # Determine whether or not to print out results
     current_time = time()
@@ -134,21 +133,21 @@ function update!(state::SAState)
 end
 
 function show_stats(state::SAState, first = false)
-     state.display_updates || return nothing
-     #=
-     Fields of the SAState will be printed to the console in the order the
-     order they show up here.
+    state.display_updates || return nothing
+    #=
+    Fields of the SAState will be printed to the console in the order the
+    order they show up here.
 
-     The field name will be printed at the beginning of an placement iteration.
-     Under-scores will be removed and the first letter of each word will
-     be capitalized.
+    The field name will be printed at the beginning of an placement iteration.
+    Under-scores will be removed and the first letter of each word will
+    be capitalized.
 
-     The space occupied by the field name and the subsequent printed values
-     will scale depending on the length of the string conversion of the
-     field name. Thus, if the fields are printed out in a different order,
-     everything should still look good.
-     =#
-     fields = (
+    The space occupied by the field name and the subsequent printed values
+    will scale depending on the length of the string conversion of the
+    field name. Thus, if the fields are printed out in a different order,
+    everything should still look good.
+    =#
+    fields = (
         :temperature,
         :objective,
         #:total_moves,
@@ -170,13 +169,11 @@ function show_stats(state::SAState, first = false)
     The "format" function belongs to the "Formatting" package.
     =#
     kwargs = Dict(
-        :temperature        => Dict(:precision => 5),
-        :objective          => Dict(:precision => 2),
-        :moves_per_second   => Dict(:precision => 3,
-                                    :autoscale => :metric),
-        :deviation          => Dict(:precision => 3,
-                                    :autoscale => :metric),
-        :run_time           => Dict(:precision => 2)
+        :temperature => Dict(:precision => 5),
+        :objective => Dict(:precision => 2),
+        :moves_per_second => Dict(:precision => 3, :autoscale => :metric),
+        :deviation => Dict(:precision => 3, :autoscale => :metric),
+        :run_time => Dict(:precision => 2),
     )
 
     #=
@@ -203,16 +200,16 @@ function show_stats(state::SAState, first = false)
             # word of each sentence.
             string_to_print = titlecase(lpad(string_f, padded_length))
             # Print to console
-            printstyled(string_to_print, bold = true, color = :light_green)
+            printstyled(string_to_print; bold = true, color = :light_green)
             # Record the number of characters written.
             total_length += padded_length
         end
         # Create a new line and print hyphens for the number of characters written.
-        println("\n", "-" ^ total_length)
+        println("\n", "-"^total_length)
 
-    #=
-    Print out the numerical values for the requested fields.
-    =#
+        #=
+        Print out the numerical values for the requested fields.
+        =#
     else
         # Iterate through fields in roder.
         for f in fields
@@ -228,7 +225,7 @@ function show_stats(state::SAState, first = false)
             # Print out the value of the field with the given options. Use
             # the function "format" from the "Formatting" package to make
             # things look nice.
-            print(format(getfield(state,f); kwarg...))
+            print(format(getfield(state, f); kwarg...))
         end
         # Terminate with a new line.
         print("\n")

@@ -8,11 +8,11 @@ Move node at `index` to `new_location`.
     # Assign this location to the new node.
     assign(node, new_location)
     # Update the grid to point to the node.
-    sa_struct.grid[location(node)] = index
+    return sa_struct.grid[location(node)] = index
 end
 
 @propagate_inbounds function unsafe_assign(sa_struct::SAStruct, node::SANode, new_location)
-    assign(node, new_location)
+    return assign(node, new_location)
 end
 
 """
@@ -26,7 +26,7 @@ Move node at `index` from its current location to `new_location`.
     # location.
     sa_struct.grid[location(node)] = 0
     sa_struct.grid[new_location] = index
-    unsafe_assign(sa_struct, node, new_location)
+    return unsafe_assign(sa_struct, node, new_location)
 end
 
 """
@@ -108,10 +108,14 @@ Method List
 $(METHODLIST)
 """
 address_cost(sa_struct::SAStruct, node::SANode, address_data::AddressData) = zero(Float64)
-address_cost(sa_struct::SAStruct, node::SANode, address_data::DefaultAddressData) = address_data[getlocation(node)]
+function address_cost(sa_struct::SAStruct, node::SANode, address_data::DefaultAddressData)
+    return address_data[getlocation(node)]
+end
 
 # Convenience wrapper.
-address_cost(sa_struct::SAStruct, node::SANode) = address_cost(sa_struct, node, sa_struct.address_data)
+function address_cost(sa_struct::SAStruct, node::SANode)
+    return address_cost(sa_struct, node, sa_struct.address_data)
+end
 
 """
     aux_cost(sa_struct{T}) where {T <: RuleSet}

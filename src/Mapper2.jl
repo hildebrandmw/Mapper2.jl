@@ -23,10 +23,7 @@ include("Route/Route.jl")
 
 # exports from Helper.
 # TODO: DO we really need these exports?
-export  Address,
-        dim_max,
-        dim_min,
-        place!
+export Address, dim_max, dim_min, place!
 
 # Use submodules to make exports visible.
 @reexport using .MapperCore

@@ -3,9 +3,9 @@ Overwrite routing link type to allow classification of routing links by class.
 """
 struct TypedRoutingLink <: RoutingLink
     channels::Vector{ChannelIndex}
-    cost    ::Float64
+    cost::Float64
     capacity::Int64
-    class   ::String
+    class::String
 end
 
 """
@@ -14,7 +14,6 @@ Provide constructor.
 function TypedRoutingLink(cost, capacity, class)
     return TypedRoutingLink(Int[], cost, capacity, class)
 end
-
 
 """
 New RoutingTask type to allow classification of tasks by a class.
@@ -31,7 +30,7 @@ struct TypedRoutingChannel <: RoutingChannel
 end
 
 function Mapper2.routing_channel(::TestRuleSet, start, stop, edge::TaskgraphEdge)
-    TypedRoutingChannel(start, stop, edge)
+    return TypedRoutingChannel(start, stop, edge)
 end
 function Mapper2.getcapacity(::TestRuleSet, item)
     return get(item.metadata, "capacity", 10)
@@ -40,19 +39,19 @@ end
 # Provide custom annotation methods.
 function Mapper2.annotate(ruleset::TestRuleSet, port::Port)
     capacity = getcapacity(ruleset, port)
-    class    = get(port.metadata, "class", "all")
-    cost     = get(port.metadata, "cost", 1.0)
-    TypedRoutingLink(cost,capacity,class)
+    class = get(port.metadata, "class", "all")
+    cost = get(port.metadata, "cost", 1.0)
+    return TypedRoutingLink(cost, capacity, class)
 end
 function Mapper2.annotate(ruleset::TestRuleSet, link::Link)
     capacity = getcapacity(ruleset, link)
-    class    = get(link.metadata, "class", "all")
-    cost     = get(link.metadata, "cost", 1.0)
-    TypedRoutingLink(cost,capacity,class)
+    class = get(link.metadata, "class", "all")
+    cost = get(link.metadata, "cost", 1.0)
+    return TypedRoutingLink(cost, capacity, class)
 end
 function Mapper2.annotate(::TestRuleSet, component::Component)
     @assert component.primitive == "mux"
-    return TypedRoutingLink(1.0,10,"all")
+    return TypedRoutingLink(1.0, 10, "all")
 end
 
 # Validity checks
@@ -71,8 +70,16 @@ function check_class(item, edge)
     end
 end
 
-Mapper2.canuse(::TestRuleSet, item::Union{Port,Link}, edge::TaskgraphEdge) = check_class(item, edge)
-Mapper2.canuse(::TestRuleSet, item::TypedRoutingLink, edge::TypedRoutingChannel) = check_class(item.class, edge.class)
+function Mapper2.canuse(::TestRuleSet, item::Union{Port,Link}, edge::TaskgraphEdge)
+    return check_class(item, edge)
+end
+function Mapper2.canuse(::TestRuleSet, item::TypedRoutingLink, edge::TypedRoutingChannel)
+    return check_class(item.class, edge.class)
+end
 
-Mapper2.is_source_port(::TestRuleSet, port::Port, edge::TaskgraphEdge) = check_class(port, edge)
-Mapper2.is_sink_port(::TestRuleSet, port::Port, edge::TaskgraphEdge) = check_class(port, edge)
+function Mapper2.is_source_port(::TestRuleSet, port::Port, edge::TaskgraphEdge)
+    return check_class(port, edge)
+end
+function Mapper2.is_sink_port(::TestRuleSet, port::Port, edge::TaskgraphEdge)
+    return check_class(port, edge)
+end

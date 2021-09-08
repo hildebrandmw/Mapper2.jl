@@ -15,17 +15,17 @@ using DataStructures
 using Logging
 using Random
 
-export  route!,
-        ChannelIndex,
-        PortVertices,
-        RoutingStruct,
-        RoutingLink,
-        BasicRoutingLink,
-        RoutingChannel,
-        BasicRoutingChannel,
-        routing_link_type,
-        routing_channel,
-        annotate
+export route!,
+    ChannelIndex,
+    PortVertices,
+    RoutingStruct,
+    RoutingLink,
+    BasicRoutingLink,
+    RoutingChannel,
+    BasicRoutingChannel,
+    routing_link_type,
+    routing_channel,
+    annotate
 
 abstract type AbstractRoutingAlgorithm end
 
@@ -101,7 +101,7 @@ The following are also included if `routing_error == false`.
 """
 function route!(m::Map; meta_prefix = "")
     # Build the routing structure
-    routing_struct, struct_time, struct_bytes, _, _  = @timed RoutingStruct(m)
+    routing_struct, struct_time, struct_bytes, _, _ = @timed RoutingStruct(m)
     # Default to Pathfinder
     algorithm = routing_algorithm(m, routing_struct)
     # Run the routing algorithm.
@@ -150,9 +150,8 @@ See: [`BasicRoutingLink`](@ref)
 Default: `BasicRoutingLink(capacity = getcapacity(ruleset, item))
 """
 function annotate(ruleset::RuleSet, item::Union{Port,Link,Component})
-    BasicRoutingLink(capacity = getcapacity(ruleset, item))
+    return BasicRoutingLink(; capacity = getcapacity(ruleset, item))
 end
-
 
 """
     canuse(ruleset::RuleSet, link::RoutingLink, channel::RoutingChannel)::Bool

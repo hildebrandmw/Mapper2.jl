@@ -1,6 +1,6 @@
 using Documenter, Mapper2
 
-makedocs(
+makedocs(;
     modules = [Mapper2],
     sitename = "Mapper2.jl",
     format = :html,
@@ -9,7 +9,7 @@ makedocs(
         "Home" => "index.md",
         "Manual" => [
             "Architecture Modeling" => [
-                "man/architecture/types.md", 
+                "man/architecture/types.md",
                 "man/architecture/components.md",
                 "man/architecture/constructors.md",
             ],
@@ -17,7 +17,7 @@ makedocs(
             "man/map.md",
             "man/extensions.md",
             "Simulated Annealing Placement" => [
-                "man/SA/placement.md", 
+                "man/SA/placement.md",
                 "man/SA/sastruct.md",
                 "man/SA/methods.md",
                 "man/SA/types.md",
@@ -36,10 +36,10 @@ makedocs(
             "man/helper.md",
             "man/paths.md",
         ],
-    ]
+    ],
 )
 
-deploydocs(
+deploydocs(;
     repo = "github.com/hildebrandmw/Mapper2.jl.git",
     julia = "1.0",
     osname = "linux",

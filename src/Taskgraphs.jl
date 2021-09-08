@@ -3,8 +3,8 @@ Simple container representing a task in a taskgraph.
 """
 struct TaskgraphNode
     "The name of this task."
-    name :: String
-    metadata :: Dict{String,Any}
+    name::String
+    metadata::Dict{String,Any}
 
     # Constructor
     TaskgraphNode(name; metadata = emptymeta()) = new(name, metadata)
@@ -15,14 +15,14 @@ Simple container representing an edge in a taskgraph.
 """
 struct TaskgraphEdge
     "Source task names."
-    sources :: Vector{String}
+    sources::Vector{String}
     "Sink task names."
-    sinks :: Vector{String}
-    metadata :: Dict{String,Any}
+    sinks::Vector{String}
+    metadata::Dict{String,Any}
 
     function TaskgraphEdge(source, sink; metadata = Dict{String,Any}())
         sources = wrap_vector(source)
-        sinks   = wrap_vector(sink)
+        sinks = wrap_vector(sink)
         return new(sources, sinks, metadata)
     end
 end
@@ -46,28 +46,29 @@ Data structure encoding tasks and their relationships.
 """
 struct Taskgraph
     "The name of the taskgraph"
-    name :: String
+    name::String
 
     "Nodes in the taskgraph. Type: [`Dict{String, TaskgraphNode}`](@ref TaskgraphNode)"
-    nodes :: Dict{String, TaskgraphNode}
+    nodes::Dict{String,TaskgraphNode}
 
     "Edges in the taskgraph. Type: [`Vector{TaskgraphEdge}`](@ref TaskgraphEdge)"
-    edges :: Vector{TaskgraphEdge}
+    edges::Vector{TaskgraphEdge}
 
     """
     Outgoing adjacency list mapping node names to edge indices.
     Type: `Dict{String, Vector{Int64}}`
     """
-    node_edges_out :: Dict{String, Vector{Int}}
+    node_edges_out::Dict{String,Vector{Int}}
 
     """
     Incoming adjacency list mapping node names to edge indices.
     Type: `Dict{String, Vector{Int64}}`
     """
-    node_edges_in :: Dict{String, Vector{Int}}
+    node_edges_in::Dict{String,Vector{Int}}
 
     function Taskgraph(name = "noname")
-        new(name,
+        return new(
+            name,
             Dict{String,TaskgraphNode}(),
             TaskgraphEdge[],
             Dict{String,Vector{Int}}(),
@@ -75,23 +76,17 @@ struct Taskgraph
         )
     end
 
-    function Taskgraph(name :: String, nodes, edges)
+    function Taskgraph(name::String, nodes, edges)
         if eltype(nodes) != TaskgraphNode
             typer = TypeError(
-                :Taskgraph,
-                "Incorrect Node Element Type",
-                TaskgraphNode,
-                eltype(nodes)
+                :Taskgraph, "Incorrect Node Element Type", TaskgraphNode, eltype(nodes)
             )
 
             throw(typer)
         end
         if eltype(edges) != TaskgraphEdge
             typer = TypeError(
-                :Taskgraph,
-                "Incorrect Edge Element Type",
-                TaskgraphEdge,
-                eltype(edges)
+                :Taskgraph, "Incorrect Edge Element Type", TaskgraphEdge, eltype(edges)
             )
 
             throw(typer)
@@ -104,7 +99,7 @@ struct Taskgraph
         # have to check if an adjacency list exists for a node.
         edges = collect(edges)
         node_edges_out = Dict(name => Int[] for name in keys(nodes))
-        node_edges_in  = Dict(name => Int[] for name in keys(nodes))
+        node_edges_in = Dict(name => Int[] for name in keys(nodes))
         # Iterate through all edges - grow adjacency lists correctly.
         for (index, edge) in enumerate(edges)
             for source in edge.sources
@@ -115,13 +110,7 @@ struct Taskgraph
             end
         end
         # Return the data structure
-        return new(
-            name,
-            nodes,
-            edges,
-            node_edges_out,
-            node_edges_in,
-        )
+        return new(name, nodes, edges, node_edges_out, node_edges_in)
     end
 end
 
@@ -188,14 +177,18 @@ $(SIGNATURES)
 
 Return `Vector{TaskgraphNode}` of sources for `edge`.
 """
-getsources(taskgraph::Taskgraph, edge::TaskgraphEdge) = (taskgraph.nodes[n] for n in getsources(edge))
+function getsources(taskgraph::Taskgraph, edge::TaskgraphEdge)
+    return (taskgraph.nodes[n] for n in getsources(edge))
+end
 
 """
 $(SIGNATURES)
 
 Return `Vector{TaskgraphNode}` of sinks for `edge`.
 """
-getsinks(taskgraph::Taskgraph, edge::TaskgraphEdge) = (taskgraph.nodes[n] for n in getsinks(edge))
+function getsinks(taskgraph::Taskgraph, edge::TaskgraphEdge)
+    return (taskgraph.nodes[n] for n in getsinks(edge))
+end
 
 """
 $(SIGNATURES)
@@ -209,7 +202,7 @@ function add_node(taskgraph::Taskgraph, node::TaskgraphNode)
     taskgraph.nodes[node.name] = node
     # Create adjacency list entries for the new nodes
     taskgraph.node_edges_out[node.name] = TaskgraphEdge[]
-    taskgraph.node_edges_in[node.name]  = TaskgraphEdge[]
+    taskgraph.node_edges_in[node.name] = TaskgraphEdge[]
     return nothing
 end
 
@@ -231,7 +224,6 @@ function add_edge(taskgraph::Taskgraph, edge::TaskgraphEdge)
     end
     return nothing
 end
-
 
 # Methods for accessing the adjacency lists
 out_edges(t::Taskgraph, task::String) = [t.edges[i] for i in t.node_edges_out[task]]
@@ -304,4 +296,3 @@ function innodes(taskgraph::Taskgraph, node)
     names = innode_names(taskgraph, node)
     return [getnode(taskgraph, name) for name in names]
 end
-

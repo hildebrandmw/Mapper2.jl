@@ -13,7 +13,6 @@ using .Chessboard
 using .Example1
 using .Example2
 
-
 # Taskgraph
 include("Taskgraph.jl")
 

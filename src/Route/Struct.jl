@@ -16,9 +16,9 @@ API
 * [`clear_route`](@ref)
 * [`setroute`](@ref)
 """
-struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
+struct RoutingStruct{L<:RoutingLink,C<:RoutingChannel}
     "Base [`RoutingGraph`](@ref) for the underlying routing architecture."
-    architecture_graph      ::RoutingGraph
+    architecture_graph::RoutingGraph
 
     """
     Annotating [`RoutingLink`](@ref) for each routing element in
@@ -29,13 +29,13 @@ struct RoutingStruct{L <: RoutingLink, C <: RoutingChannel}
     """
     Graphs of routing resources used by each channel.
     """
-    routings                ::Vector{SparseDiGraph{Int}}
+    routings::Vector{SparseDiGraph{Int}}
 
     """
     `Vector{RoutingChannel}` containing the channel information for the
     taskgraph.
     """
-    channels                ::Vector{C}
+    channels::Vector{C}
 
     """
     Convenience structure mapping local channel indices back to edge indices
@@ -47,7 +47,7 @@ end
 function RoutingStruct(map::Map)
     # Unpack some fields from the map
     toplevel = map.toplevel
-    taskgraph    = map.taskgraph
+    taskgraph = map.taskgraph
     @debug "Building Resource Graph"
 
     architecture_graph = routing_graph(toplevel)
@@ -60,11 +60,7 @@ function RoutingStruct(map::Map)
     routings = [SparseDiGraph{Int}() for i in 1:length(channels)]
 
     return RoutingStruct(
-        architecture_graph,
-        graph_vertex_annotations,
-        routings,
-        channels,
-        channel_dict,
+        architecture_graph, graph_vertex_annotations, routings, channels, channel_dict
     )
 end
 
@@ -97,8 +93,9 @@ $(SIGNATURES)
 
 Return `<:RoutingLink` for link in `routing_struct` with indes `i`.
 """
-getlink(routing_struct::RoutingStruct, i::Integer) = routing_struct.graph_vertex_annotations[i]
-
+function getlink(routing_struct::RoutingStruct, i::Integer)
+    return routing_struct.graph_vertex_annotations[i]
+end
 
 """
 $(SIGNATURES)
@@ -109,8 +106,9 @@ Return `Vector{PortVertices}` of start vertices for channel index `i`.
 
 Return [`Vector{PortVertices}`](@ref PortVertices) of start vertices for `channel`.
 """
-start_vertices(routing_struct::RoutingStruct, i::ChannelIndex) =
-    start_vertices(routing_struct.channels[i])
+function start_vertices(routing_struct::RoutingStruct, i::ChannelIndex)
+    return start_vertices(routing_struct.channels[i])
+end
 
 """
 $(SIGNATURES)
@@ -121,8 +119,9 @@ Return `Vector{PortVertices}` of stop vertices for channel index `i`.
 
 Return [`Vector{PortVertices}`](@ref PortVertices) of stop vertices for `channel`.
 """
-stop_vertices(routing_struct::RoutingStruct, i::ChannelIndex) =
-    stop_vertices(routing_struct.channels[i])
+function stop_vertices(routing_struct::RoutingStruct, i::ChannelIndex)
+    return stop_vertices(routing_struct.channels[i])
+end
 
 """
 $(SIGNATURES)
@@ -140,7 +139,6 @@ Return the [`RoutingGraph`](@ref) member of `routing_struct`.
 """
 getgraph(routing_struct::RoutingStruct) = routing_struct.architecture_graph
 
-
 """
     iscongested(routing_struct, [path])
 
@@ -152,11 +150,13 @@ Method List
 -----------
 $(METHODLIST)
 """
-iscongested(routing_struct::RoutingStruct) =
-    iscongested(routing_struct.graph_vertex_annotations)
+function iscongested(routing_struct::RoutingStruct)
+    return iscongested(routing_struct.graph_vertex_annotations)
+end
 
-iscongested(routing_struct::RoutingStruct, path) =
-    iscongested(routing_struct, getroute(routing_struct, path))
+function iscongested(routing_struct::RoutingStruct, path)
+    return iscongested(routing_struct, getroute(routing_struct, path))
+end
 
 function iscongested(routing_struct::RoutingStruct, graph::SparseDiGraph{Int})
     for i in vertices(graph)
@@ -192,23 +192,21 @@ $(SIGNATURES)
 Assign `route` to `channel`.
 """
 function setroute(
-        routing_struct::RoutingStruct,
-        route::SparseDiGraph,
-        channel::ChannelIndex
-    )
+    routing_struct::RoutingStruct, route::SparseDiGraph, channel::ChannelIndex
+)
     # This should always be the case - this assertion is to catch bugs.
     @assert nv(getroute(routing_struct, channel)) == 0
     for i in vertices(route)
         addchannel(getlink(routing_struct, i), channel)
     end
-    routing_struct.routings[channel] = route
+    return routing_struct.routings[channel] = route
 end
 
 function record(m::Map, r::RoutingStruct)
     # Get the dictionary mapping channel indices back to taskgraph edge indices.
     channel_dict = r.channel_index_to_taskgraph_index
     routes = translate_routes(getgraph(r), allroutes(r))
-    for (i,route) in enumerate(routes)
+    for (i, route) in enumerate(routes)
         m.mapping[channel_dict[i]] = route
     end
 end
@@ -260,7 +258,7 @@ function build_routing_taskgraph(m::Map, r::RoutingGraph)
 
     # Get the list of channels that need routing.
     edges = getedges(taskgraph)
-    edge_indices_to_route = [i for (i,e) in enumerate(edges) if needsrouting(ruleset, e)]
+    edge_indices_to_route = [i for (i, e) in enumerate(edges) if needsrouting(ruleset, e)]
 
     # Create routing channels for all edges that need routing.
     channels = map(edge_indices_to_route) do index
@@ -270,10 +268,10 @@ function build_routing_taskgraph(m::Map, r::RoutingGraph)
         #
         # Wrap map in "Ref" to get scalar broadcasting behavior.
         sources = MapperCore.getpath.(Ref(m), getsources(edge))
-        sinks   = MapperCore.getpath.(Ref(m), getsinks(edge))
+        sinks = MapperCore.getpath.(Ref(m), getsinks(edge))
         # Convert these to indices in the routing graph
         start = collect_nodes(toplevel, ruleset, r.map, edge, sources, MapperCore.Source)
-        stop  = collect_nodes(toplevel, ruleset, r.map, edge, sinks, MapperCore.Sink)
+        stop = collect_nodes(toplevel, ruleset, r.map, edge, sinks, MapperCore.Sink)
         # Build the routing channel type
         return routing_channel(ruleset, start, stop, edge)
     end
@@ -287,14 +285,8 @@ function build_routing_taskgraph(m::Map, r::RoutingGraph)
 end
 
 function collect_nodes(
-        toplevel::TopLevel,
-        ruleset::RuleSet,
-        pathmap,
-        edge::TaskgraphEdge,
-        paths,
-        dir
-    )
-
+    toplevel::TopLevel, ruleset::RuleSet, pathmap, edge::TaskgraphEdge, paths, dir
+)
     nodes = Vector{PortVertices}()
     # Iterate through the source paths - get the port names.
     for path in paths
@@ -321,13 +313,8 @@ end
 # Get vector of ports of component "c" that can serve as source/sink for the 
 # taskgraph edge. 
 function get_routing_ports(
-        ruleset :: RuleSet, 
-        edge :: TaskgraphEdge, 
-        component :: Component, 
-        dir :: MapperCore.Direction
-    )
-
-    
+    ruleset::RuleSet, edge::TaskgraphEdge, component::Component, dir::MapperCore.Direction
+)
     if dir == MapperCore.Source
         return get_routing_ports(ruleset, edge, component, dir, is_source_port)
     else
@@ -335,8 +322,9 @@ function get_routing_ports(
     end
 end
 
-get_routing_ports(ruleset, edge, component, dir, f::Function) = [
-        path
-        for (path, port) in component.ports
-        if checkclass(invert(port), dir) && f(ruleset, port, edge)
+function get_routing_ports(ruleset, edge, component, dir, f::Function)
+    return [
+        path for (path, port) in component.ports if
+        checkclass(invert(port), dir) && f(ruleset, port, edge)
     ]
+end

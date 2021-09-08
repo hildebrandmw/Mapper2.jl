@@ -73,15 +73,12 @@ struct MapTable{D} <: AbstractMapTable
     A `true` entry means the task class can be mapped.
     A `false` entry means the task calss cannot be mapped.
     """
-    mask :: Vector{Array{Bool,D}}
+    mask::Vector{Array{Bool,D}}
 end
 
 function MapTable(
-        toplevel::TopLevel,
-        ruleset::RuleSet,
-        equivalence_classes,
-        pathtable::PathTable{D},
-    ) where {D}
+    toplevel::TopLevel, ruleset::RuleSet, equivalence_classes, pathtable::PathTable{D}
+) where {D}
 
     # For each node class C, create an array the same size as the
     # pathtable. For each address A, record the indices of the paths at
@@ -108,4 +105,6 @@ function getlocations(maptable::MapTable{D}, class::Int) where {D}
     return addresses
 end
 
-isvalid(maptable::MapTable, class::Integer, address :: Address) = maptable.mask[class][address]
+function isvalid(maptable::MapTable, class::Integer, address::Address)
+    return maptable.mask[class][address]
+end

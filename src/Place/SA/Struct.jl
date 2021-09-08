@@ -105,13 +105,11 @@ Implementations
 """
 abstract type AddressData end
 
-
 """
 Null representation of [`AddressData`](@ref). Used when there is no address
 data to be used during placement.
 """
 struct EmptyAddressData <: AddressData end
-
 
 """
 Default implementation of address data when it is to be used. In its normal
@@ -123,10 +121,10 @@ To use this type, the method [`address_data`](@ref) must be defined to
 encode the values for the dict.
 """
 struct DefaultAddressData{U,T} <: AddressData
-    dict :: Dict{U,T}
+    dict::Dict{U,T}
 end
 
-getindex(A::DefaultAddressData{U}, i::U) where U = getindex(A.dict, i)
+getindex(A::DefaultAddressData{U}, i::U) where {U} = getindex(A.dict, i)
 
 ################################################################################
 # SA Struct
@@ -158,34 +156,26 @@ Keyword Arguments:
     needed for specializations of placement. Default: `nothing`.
 """
 struct SAStruct{
-        T <: RuleSet,
-        U <: SADistance,
-        D,
-        N <: SANode,
-        L <: SAChannel,
-        M <: AbstractMapTable,
-        A <: AddressData,
-        Q
-    }
-
+    T<:RuleSet,U<:SADistance,D,N<:SANode,L<:SAChannel,M<:AbstractMapTable,A<:AddressData,Q
+}
     ruleset::T
 
     "`Vector{N}`: Container of nodes."
-    nodes :: Vector{N}
+    nodes::Vector{N}
     "`Vector{L}`: Container of edges."
-    channels :: Vector{L}
-    maptable :: M
-    distance :: U
-    grid :: Array{Int64,D}
-    address_data :: A
-    aux :: Q
+    channels::Vector{L}
+    maptable::M
+    distance::U
+    grid::Array{Int64,D}
+    address_data::A
+    aux::Q
     # Map back fields
-    pathtable :: PathTable{D,Path{Component}}
-    tasktable :: Dict{String,Int64}
+    pathtable::PathTable{D,Path{Component}}
+    tasktable::Dict{String,Int64}
 end
 
 # Convenience decoding methods
-dimension(::SAStruct{T,U,D})  where {T,U,D} = D
+dimension(::SAStruct{T,U,D}) where {T,U,D} = D
 MapperCore.rules(sa_struct::SAStruct) = sa_struct.ruleset
 nodetype(s::SAStruct) = typeof(s.nodes)
 channeltype(s::SAStruct) = typeof(s.channels)
@@ -204,21 +194,21 @@ The standard implementation of [`SANode`](@ref).
 """
 mutable struct BasicNode{T} <: SANode
     "Location this node is assigned in the architecture. Must be parametric."
-    location :: T
+    location::T
     "The class of this node."
-    class :: Int
+    class::Int
     "Adjacency list of outgoing channels."
-    outchannels :: Vector{Int64}
+    outchannels::Vector{Int64}
     "Adjacency list of incoming channels."
-    inchannels  :: Vector{Int64}
+    inchannels::Vector{Int64}
 end
 
 # Node Interface
-@inline location(n::SANode)           = n.location
-@inline location(x::CartesianIndex)   = x
-@inline assign(n::SANode, l)          = (n.location = l)
-@inline getclass(n::SANode)           = n.class
-@inline setclass!(n::SANode, class)   = n.class = class
+@inline location(n::SANode) = n.location
+@inline location(x::CartesianIndex) = x
+@inline assign(n::SANode, l) = (n.location = l)
+@inline getclass(n::SANode) = n.class
+@inline setclass!(n::SANode, class) = n.class = class
 
 isnormal(node::SANode) = isnormal(class(node))
 isnormal(class::Int64) = class > 0
@@ -233,7 +223,7 @@ end
 """
     setup_node_build(ruleset, taskgraph, location_type)
 """
-function setup_node_build(ruleset::RuleSet, t::Taskgraph, ::PathTable{D}) where D
+function setup_node_build(ruleset::RuleSet, t::Taskgraph, ::PathTable{D}) where {D}
     return [buildnode(ruleset, n, zero(Address{D})) for n in getnodes(t)]
 end
 
@@ -244,19 +234,19 @@ end
 "Basic Implementation of [`TwoChannel`](@ref)"
 struct BasicChannel <: TwoChannel
     source::Int64
-    sink  ::Int64
+    sink::Int64
 end
 
 "Basic Implementation of [`MultiChannel`](@ref)"
 struct BasicMultiChannel <: MultiChannel
-    sources ::Vector{Int64}
-    sinks   ::Vector{Int64}
+    sources::Vector{Int64}
+    sinks::Vector{Int64}
 end
 
 function setup_channel_build(ruleset::RuleSet, taskgraph)
     edges = getedges(taskgraph)
     nodes = getnodes(taskgraph)
-    node_dict = Dict(n.name => i for (i,n) in enumerate(nodes))
+    node_dict = Dict(n.name => i for (i, n) in enumerate(nodes))
     # Make source and sink vectors
     sources = map(edges) do edge
         [node_dict[i] for i in edge.sources]
@@ -273,14 +263,17 @@ buildchannel(ruleset::RuleSet, edge, sources, sinks) = BasicMultiChannel(sources
 function buildchannels(ruleset::RuleSet, edges, sources, sinks)
     # Get the maximum length of sources and sinks. Use this to determine
     # which type of channels to build.
-    channels = [buildchannel(ruleset, edge, source, sink) for (edge, source, sink) in zip(edges, sources, sinks)]
+    channels = [
+        buildchannel(ruleset, edge, source, sink) for
+        (edge, source, sink) in zip(edges, sources, sinks)
+    ]
     max_length = maximum(Iterators.flatten((length.(sources), length.(sinks))))
 
     # Optimization - if the maximum length is 1 and the element type of `channels` is the
     # default multichannel, change `channels` to be just Basic Channels
     if max_length == 1 && eltype(channels) == BasicMultiChannel
         @info "Optimizing for single source-sink connections"
-        channels = [BasicChannel(first(i), first(j)) for (i,j) in zip(sources, sinks)]
+        channels = [BasicChannel(first(i), first(j)) for (i, j) in zip(sources, sinks)]
     end
 
     return channels
@@ -305,38 +298,32 @@ function address_data end
 address_data(ruleset::RuleSet, component::Component) = zero(Float64)
 
 function build_address_data(
-        ruleset::RuleSet,
-        toplevel::TopLevel{D},
-        pathtable;
-        isflat = false
-    ) where D
-
+    ruleset::RuleSet, toplevel::TopLevel{D}, pathtable; isflat = false
+) where {D}
     data(address) = [address_data(ruleset, toplevel[path]) for path in pathtable[address]]
     address_data = Dict(
-        addr => data(addr)
-        for addr in CartesianIndices(pathtable)
-        if length(pathtable[addr]) > 0
+        addr => data(addr) for
+        addr in CartesianIndices(pathtable) if length(pathtable[addr]) > 0
     )
     # If the flat optimization is turned on - remove the vectors from the values
     # in the dictionary.
     if isflat
-        return Dict(k => first(v) for (k,v) in address_data)
+        return Dict(k => first(v) for (k, v) in address_data)
     else
         return address_data
     end
 end
 
-
 ################################################################################
 # Constructor for the SA Structure
 ################################################################################
 function SAStruct(
-        m :: Map{D};
-        # Enable address-specific data.
-        enable_address = false,
-        aux = nothing,
-        kwargs...
-    ) where {D}
+    m::Map{D};
+    # Enable address-specific data.
+    enable_address = false,
+    aux = nothing,
+    kwargs...,
+) where {D}
 
     #@debug "Building SA Placement Structure\n"
 
@@ -353,7 +340,7 @@ function SAStruct(
     # Build SA Node types and make a record mapping node name to the index of
     # that nodes representation in this data structure.
     nodes = setup_node_build(rules(m), taskgraph, pathtable)
-    tasktable = Dict(n.name => i for (i,n) in enumerate(getnodes(taskgraph)))
+    tasktable = Dict(n.name => i for (i, n) in enumerate(getnodes(taskgraph)))
 
     # Build Channel
     channels = setup_channel_build(rules(m), taskgraph)
@@ -379,7 +366,7 @@ function SAStruct(
     grid = zeros(size(pathtable)...)
 
     if enable_address
-        address_data = build_address_data(rules(m), toplevel, pathtable, isflat = isflat)
+        address_data = build_address_data(rules(m), toplevel, pathtable; isflat = isflat)
     else
         address_data = EmptyAddressData()
     end
@@ -393,7 +380,7 @@ function SAStruct(
         typeof(maptable),
         typeof(address_data),  # Type of address data
         typeof(aux),
-     }(
+    }(
         rules(m),
         nodes,
         channels,
@@ -413,7 +400,7 @@ function SAStruct(
 end
 
 cleargrid(sa::SAStruct) = clear(sa.grid)
-clear(x::Array{T}) where T = x .= zero(T)
+clear(x::Array{T}) where {T} = x .= zero(T)
 
 function preplace(m::Map, sa::SAStruct)
     cleargrid(sa)
@@ -440,10 +427,10 @@ function record(m::Map, sa::SAStruct)
 
     for (index, node) in enumerate(sa.nodes)
         # Get the mapping for the node
-        address   = location(node)
+        address = location(node)
         # Get the component name in the original toplevel
         path = sa.pathtable[address]
-        task_node_name  = tasktable_rev[index]
+        task_node_name = tasktable_rev[index]
         # Create an entry in the "Mapping" data structure
         mapping.nodes[task_node_name] = path
     end
@@ -458,17 +445,17 @@ end
 
 function record(nodes, i, channel::MultiChannel)
     for j in channel.sources
-        push!(nodes[j].outchannels,i)
+        push!(nodes[j].outchannels, i)
     end
     for j in channel.sinks
-        push!(nodes[j].inchannels,i)
+        push!(nodes[j].inchannels, i)
     end
     return nothing
 end
 
 function record_channels!(nodes, channels)
     # Reverse populate the nodes so they track their channels.
-    for (i,channel) in enumerate(channels)
+    for (i, channel) in enumerate(channels)
         record(nodes, i, channel)
     end
     return nothing
@@ -491,10 +478,7 @@ function equivalence_classes(ruleset::RuleSet, nodes)
         # Record class
         classes[index] = i
     end
-    return (
-        classes = classes,
-        reps = reps
-    )
+    return (classes = classes, reps = reps)
 end
 
 ################################################################################
@@ -515,7 +499,7 @@ function verify_placement(m::Map, sa::SAStruct)
         @debug "Placement Verified"
     else
         @error begin
-            bad_dict = Dict{Int64, String}()
+            bad_dict = Dict{Int64,String}()
             for (i, name) in enumerate(keys(m.taskgraph.nodes))
                 if i in bad_nodes
                     bad_dict[i] = name
@@ -565,7 +549,7 @@ end
 function check_consistency(sa::SAStruct)
     bad_nodes = Int64[]
     # Verify that addresses for the nodes match the grid
-    for (index,node) in enumerate(sa.nodes)
+    for (index, node) in enumerate(sa.nodes)
         node_assigned = sa.grid[location(node)]
         if index != node_assigned
             push!(bad_nodes, index)

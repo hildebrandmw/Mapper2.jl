@@ -3,54 +3,51 @@ module Helper
 using DocStringExtensions
 
 # Manually reexport used names in DocStringExtensions
-export  DOCSTRING,
-        TYPEDEF,
-        FIELDS,
-        METHODLIST,
-        SIGNATURES,
-        @template
+export DOCSTRING, TYPEDEF, FIELDS, METHODLIST, SIGNATURES, @template
 
-export  Address,
-        emptymeta,
-        wrap_vector,
-        typeunion,
-        push_to_dict,
-        add_to_dict,
-        rev_dict,
-        rev_dict_safe,
-        intern,
-        rand_cartesian,
-        dim_max,
-        dim_min
+export Address,
+    emptymeta,
+    wrap_vector,
+    typeunion,
+    push_to_dict,
+    add_to_dict,
+    rev_dict,
+    rev_dict_safe,
+    intern,
+    rand_cartesian,
+    dim_max,
+    dim_min
 
 # Convenience mapping
 # TODO: Think about replacing this because it could cause confusion ... 
 const Address = CartesianIndex
 
 macro SetupDocStringTemplates()
-    return esc(quote
-        # Set up default template.
-        @template DEFAULT = """
-            $(DOCSTRING)
-            """
+    return esc(
+        quote
+            # Set up default template.
+            @template DEFAULT = """
+                $(DOCSTRING)
+                """
 
-        # Template for type definitions.
-        @template TYPES = """
-            $(TYPEDEF)
+            # Template for type definitions.
+            @template TYPES = """
+                $(TYPEDEF)
 
-            Fields
-            ------
-            $(FIELDS)
+                Fields
+                ------
+                $(FIELDS)
 
-            Documentation
-            -------------
-            $(DOCSTRING)
+                Documentation
+                -------------
+                $(DOCSTRING)
 
-            Method List
-            -----------
-            $(METHODLIST)
-            """
-    end)
+                Method List
+                -----------
+                $(METHODLIST)
+                """
+        end,
+    )
 end
 
 "Return an empty `Dict{String,Any}()` for `metadata` fields."
@@ -80,7 +77,7 @@ end
 
 Increment `d[k]` by `v`. If `d[k]` does not exist, initialize `d[k] = b`.
 """
-add_to_dict(d, k, v = 1; b = 1)  = haskey(d, k) ? (d[k] += v) : (d[k] = b)
+add_to_dict(d, k, v = 1; b = 1) = haskey(d, k) ? (d[k] += v) : (d[k] = b)
 
 """
     rev_dict(d)
@@ -88,7 +85,7 @@ add_to_dict(d, k, v = 1; b = 1)  = haskey(d, k) ? (d[k] += v) : (d[k] = b)
 Reverse the keys and values of dictionary `d`. Behavior if multiple values
 are equivalent is not defined.
 """
-rev_dict(d) = Dict(v => k for (k,v) in d)
+rev_dict(d) = Dict(v => k for (k, v) in d)
 
 """
     rev_dict_safe(d::Dict{K,V}) where {K,V}
@@ -98,8 +95,8 @@ Reverse the keys and values of dictionary `d`. Returns a dictionary of type
 multiple keys.
 """
 function rev_dict_safe(d::Dict{K,V}) where {K,V}
-    r = Dict{V, Vector{K}}()
-    for (k,v) in d
+    r = Dict{V,Vector{K}}()
+    for (k, v) in d
         push_to_dict(r, v, k)
     end
     return r
@@ -113,7 +110,7 @@ single instance in memory. If `x` is made up of many of the same arrays, this
 can greatly decrease the amount of memory required to store `x`.
 """
 function intern(x)
-    d = Dict{eltype(x), eltype(x)}()
+    d = Dict{eltype(x),eltype(x)}()
     for i in eachindex(x)
         haskey(d, x[i]) ? (x[i] = d[x[i]]) : (d[x[i]] = x[i])
     end
@@ -121,8 +118,8 @@ function intern(x)
 end
 
 _dimop(x, op) = reduce(op, i.I for i in x)
-dim_min(x) = _dimop(x, (a,b) -> min.(a,b))
-dim_max(x) = _dimop(x, (a,b) -> max.(a,b))
+dim_min(x) = _dimop(x, (a, b) -> min.(a, b))
+dim_max(x) = _dimop(x, (a, b) -> max.(a, b))
 
 # Documentation for the max and min functions generated above.
 @doc """

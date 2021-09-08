@@ -19,12 +19,12 @@ Checks performed:
 * [`check_architecture_resources`](@ref)
 """
 function check_routing(map::Map; quiet = false)
-    placement_okay  = check_placement(map)
-    port_okay       = check_ports(map)
-    capacity_okay   = check_capacity(map)
-    graph_okay      = check_routing_connectivity(map)
-    arch_okay       = check_architecture_connectivity(map)
-    resource_okay   = check_architecture_resources(map)
+    placement_okay = check_placement(map)
+    port_okay = check_ports(map)
+    capacity_okay = check_capacity(map)
+    graph_okay = check_routing_connectivity(map)
+    arch_okay = check_architecture_connectivity(map)
+    resource_okay = check_architecture_resources(map)
 
     if !quiet
         @info """
@@ -40,15 +40,9 @@ function check_routing(map::Map; quiet = false)
     end
 
     return all((
-        placement_okay,
-        capacity_okay,
-        port_okay,
-        graph_okay,
-        arch_okay,
-        resource_okay
+        placement_okay, capacity_okay, port_okay, graph_okay, arch_okay, resource_okay
     ))
 end
-
 
 """
 $(SIGNATURES)
@@ -86,13 +80,13 @@ following checks:
 """
 function check_ports(map::Map)
     edges = map.mapping.edges
-    toplevel  = map.toplevel
-    taskgraph    = map.taskgraph
+    toplevel = map.toplevel
+    taskgraph = map.taskgraph
 
     taskgraph_edges = getedges(taskgraph)
 
     success = true
-    for (i,routing_graph) in enumerate(edges)
+    for (i, routing_graph) in enumerate(edges)
         # Skip this edge if it wasn't supposed to be routed.
         needsrouting(rules(map), taskgraph_edges[i]) || continue
 
@@ -100,10 +94,10 @@ function check_ports(map::Map)
         channel = getedge(taskgraph, i)
 
         taskgraph_sources = getsources(channel)
-        taskgraph_sinks   = getsinks(channel)
+        taskgraph_sinks = getsinks(channel)
 
         routing_sources = Set(source_vertices(routing_graph))
-        routing_sinks   = Set(sink_vertices(routing_graph))
+        routing_sinks = Set(sink_vertices(routing_graph))
 
         # Check that source ports are valid for the location of the placed tasks.
         for source in taskgraph_sources
@@ -111,7 +105,8 @@ function check_ports(map::Map)
             sourcepath = getpath(map, source)
             found = false
             for rs in routing_sources
-                if striplast(rs) == sourcepath && is_source_port(rules(map), toplevel[rs], channel)
+                if striplast(rs) == sourcepath &&
+                   is_source_port(rules(map), toplevel[rs], channel)
                     found = true
                     delete!(routing_sources, rs)
                     break
@@ -137,7 +132,8 @@ function check_ports(map::Map)
             sinkpath = getpath(map, sink)
             found = false
             for rs in routing_sinks
-                if striplast(rs) == sinkpath && is_sink_port(rules(map), toplevel[rs], channel)
+                if striplast(rs) == sinkpath &&
+                   is_sink_port(rules(map), toplevel[rs], channel)
                     found = true
                     delete!(routing_sinks, rs)
                     break
@@ -171,14 +167,14 @@ Performs the following checks:
     does not exceed the stated capacity of that resource.
 """
 function check_capacity(m::Map)
-    toplevel    = m.toplevel
-    edges   = m.mapping.edges
+    toplevel = m.toplevel
+    edges = m.mapping.edges
 
     times_resource_used = Dict{Any,Int}()
-    resource_to_edge    = Dict{Any,Vector{Int}}()
+    resource_to_edge = Dict{Any,Vector{Int}}()
 
     # categorize edges
-    for (i,edge) in enumerate(edges)
+    for (i, edge) in enumerate(edges)
         for v in vertices(edge)
             add_to_dict(times_resource_used, v)
             push_to_dict(resource_to_edge, v, i)
@@ -260,7 +256,7 @@ Traverse the routing for each channel in `m.taskgraph`. Check:
 """
 function check_architecture_connectivity(m::Map)
     # Get the edge mapping
-    toplevel  = m.toplevel
+    toplevel = m.toplevel
     edges = m.mapping.edges
 
     taskgraph_edges = getedges(m.taskgraph)
@@ -296,7 +292,7 @@ function check_routing_connectivity(m::Map)
 
     success = true
     # Construct a lightgraph from the sparsegraph
-    for (i,edge) in enumerate(edges)
+    for (i, edge) in enumerate(edges)
         # Skip edges that did not need to be routed.
         needsrouting(rules(m), taskgraph_edges[i]) || continue
 
@@ -311,7 +307,7 @@ function check_routing_connectivity(m::Map)
         end
         # Check paths from source to destination.
         sources = source_vertices(edge)
-        sinks   = sink_vertices(edge)
+        sinks = sink_vertices(edge)
         for src in sources, snk in sinks
             if !has_path(g, d[src], d[snk])
                 @error """

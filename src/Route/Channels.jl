@@ -6,13 +6,13 @@ struct BasicChannel <: RoutingChannel
     Direct storage for the [`Vector{PortVertices}`](@ref PortVertices) of the 
     sets of start vertices for each source of the channel.
     """
-    start_vertices :: Vector{PortVertices}
+    start_vertices::Vector{PortVertices}
 
     """
     Direct storage for the [`Vector{PortVertices}`](@ref PortVertices) of the 
     sets of stop vertices for each source of the channel.
     """
-    stop_vertices ::Vector{PortVertices}
+    stop_vertices::Vector{PortVertices}
 end
 
 """
@@ -22,7 +22,7 @@ Return `<:RoutingChannel` for `edge`. Arguments `start` and `stop` are return
 elements for `start_vertices` and `stop_vertices` respectively.
 """
 function routing_channel(::RuleSet, start, stop, edge)
-    BasicChannel(start, stop)
+    return BasicChannel(start, stop)
 end
 
 start_vertices(channel::RoutingChannel) = channel.start_vertices

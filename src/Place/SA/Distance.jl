@@ -58,13 +58,13 @@ struct BasicDistance{D} <: SADistance
 
     If an architecture has dimension "N", then the dimension of `table` is `2N`.
     """
-    table :: Array{UInt8, D}
+    table::Array{UInt8,D}
 end
 
 # Unwrap and
 @propagate_inbounds @inline function getdistance(A::BasicDistance, a, b)
     # Constant propgation doesn't take this all the way for higher dimensions
-    A.table[Tuple(location(a))..., Tuple(location(b))...]
+    return A.table[Tuple(location(a))..., Tuple(location(b))...]
 end
 maxdistance(sa_struct, A::BasicDistance) = maximum(A.table)
 
@@ -100,10 +100,8 @@ end
 expand(pretable::Array{T}, ::TopLevel{D}, ::PathTable{D}) where {T,D} = pretable
 
 function expand(
-            pretable::Array{T},
-            toplevel::TopLevel{D},
-            pathtable::PathTable{N},
-        ) where {T,D,N}
+    pretable::Array{T}, toplevel::TopLevel{D}, pathtable::PathTable{N}
+) where {T,D,N}
 
     # Just Replicate the table.
     fullsize = size(pathtable)
@@ -114,7 +112,7 @@ function expand(
     end
     return table
 end
-half(x::NTuple{N}) where N = x[1:(N>>1)], x[((N>>1)+1):N]
+half(x::NTuple{N}) where {N} = x[1:(N >> 1)], x[((N >> 1) + 1):N]
 
 #=
 Simple data structure for keeping track of costs associated with addresses
@@ -166,5 +164,5 @@ function neighbor_dict(toplevel::TopLevel)
     #
     # Wrap the offset in a Ref to ensure the broadcast treats it as a scalar.
     offset = getoffset(toplevel)
-    return Dict(a + offset => collect(s) .+ Ref(offset) for (a,s) in cc)
+    return Dict(a + offset => collect(s) .+ Ref(offset) for (a, s) in cc)
 end

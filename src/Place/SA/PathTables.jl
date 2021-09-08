@@ -28,21 +28,21 @@ Base.size(pathtable::PathTable) = size(pathtable.table)
 Base.size(pathtable::PathTable, i) = size(pathtable.table, i)
 Base.IteratorSize(p::PathTable) = Base.IteratorSize(p.table)
 
-function findaddress(pathtable::PathTable{D}, address::Address{D}, item) where D
+function findaddress(pathtable::PathTable{D}, address::Address{D}, item) where {D}
     @assert pathtable[address] == item
     return address
 end
 
-function findaddress(pathtable::PathTable, address::Address, item) where D
+function findaddress(pathtable::PathTable, address::Address, item) where {D}
     for i in 1:size(pathtable, 1)
         if pathtable[i, address] == item
             return Address(i, address)
         end
     end
-    throw(KeyError(item))
+    return throw(KeyError(item))
 end
 
-function build_pathtable(toplevel::TopLevel{D}, ruleset::RuleSet) where D
+function build_pathtable(toplevel::TopLevel{D}, ruleset::RuleSet) where {D}
     offset = getoffset(toplevel)
     @debug "Architecture Offset: $offset"
     # Get the dimensions of the addresses to build the array that is going to
@@ -53,9 +53,8 @@ function build_pathtable(toplevel::TopLevel{D}, ruleset::RuleSet) where D
     for (name, component) in toplevel.children
         # Collect full paths for all components that are mappable.
         paths = [
-            catpath(name, p)
-            for p in walk_children(component)
-            if ismappable(ruleset, component[p])
+            catpath(name, p) for
+            p in walk_children(component) if ismappable(ruleset, component[p])
         ]
 
         # Account for toplevel to array address offset

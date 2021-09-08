@@ -4,12 +4,11 @@ const PPLC = Union{Path{Port},Path{Link},Path{Component}}
 Representation of the routing resources of a `TopLevel`.
 """
 struct RoutingGraph
-
     """
     Adjacency information of routing resources, encode as a 
     `LightGraphs.SimpleDiGraph`.
     """
-    graph :: SimpleDiGraph{Int64}
+    graph::SimpleDiGraph{Int64}
 
     """
     Translation information mapping elements on the parent `TopLevel` to indices
@@ -18,14 +17,14 @@ struct RoutingGraph
     Implemented as a `Dict{Path{<:Union{Port,Link,Component}}, Int64}` where the
     values in the dict are the vertex index in `graph` of the key.
     """
-    map :: Dict{PPLC, Int64}
+    map::Dict{PPLC,Int64}
 
-    function RoutingGraph(graph::AbstractGraph, map::Dict{P,Int64}) where {P <: Path}
+    function RoutingGraph(graph::AbstractGraph, map::Dict{P,Int64}) where {P<:Path}
 
         #= Make sure that all of the values in the port map are valid. =#
         num_vertices = nv(graph)
         for v in values(map)
-            if v > num_vertices 
+            if v > num_vertices
                 error("Map value $v greater than number of vertices: $(nv(graph))")
             end
         end
@@ -64,7 +63,6 @@ function translate_routes(r::RoutingGraph, graphs::Vector{<:SparseDiGraph})
     return routes
 end
 
-
 # Make a vertex for each port and a single vertex in the middle.
 # Connect all inputs with an edge input -> middle
 #
@@ -78,9 +76,9 @@ function build_routing_mux(c::Component)
     # Create a path for node #1, the node in the middle of the mux
     m = Dict{Path,Int}(Path{Component}() => 1)
 
-    for (i,(p,v)) in enumerate(c.ports)
+    for (i, (p, v)) in enumerate(c.ports)
         # Add 1 to i to account for the Path{Component}() we already added.
-        node_index = i+1
+        node_index = i + 1
         m[Path{Port}(p)] = node_index
 
         if v.class == Output
@@ -92,7 +90,7 @@ function build_routing_mux(c::Component)
         end
     end
 
-    return RoutingGraph(g,m)
+    return RoutingGraph(g, m)
 end
 
 # Create a graph with vertices for each port and no edges.
@@ -105,14 +103,12 @@ function build_routing_blackbox(c::Component)
     if length(ports) == 0
         m = Dict{Path,Int}()
     else
-        m = Dict{Path,Int}(Path{Port}(p) => i for (i,p) in enumerate(ports))
+        m = Dict{Path,Int}(Path{Port}(p) => i for (i, p) in enumerate(ports))
     end
-    return RoutingGraph(g,m)
+    return RoutingGraph(g, m)
 end
 
-const __ROUTING_DICT = Dict(
-    "mux" => build_routing_mux,
-)
+const __ROUTING_DICT = Dict("mux" => build_routing_mux)
 
 # Constructor dispatch based on primitive type. Default to BlackBox
 function routing_skeleton(c::Component)::RoutingGraph
@@ -124,11 +120,11 @@ function routing_skeleton(tl::TopLevel)::RoutingGraph
     # Return an empty graph
     g = DiGraph(0)
     m = Dict{Path,Int}()
-    return RoutingGraph(g,m)
+    return RoutingGraph(g, m)
 end
 
 function record!(new_dict::Dict, old_dict::Dict, offset::Integer, extension)
-    for (path,index) in old_dict
+    for (path, index) in old_dict
         # Update path
         new_path = catpath(extension, path)
         # Update index
@@ -143,7 +139,7 @@ function add_subgraphs!(top::RoutingGraph, prefixes, subgraphs::Vector{<:Routing
     # Iterate through the prefixes and subgraphs.
     for (prefix, subgraph) in zip(prefixes, subgraphs)
         # Get an offset calculated by the number of vertices in the current graph.
-        offset = nv(top.graph) 
+        offset = nv(top.graph)
         # Add the number of vertices in the subgraph to g.
         add_vertices!(top.graph, nv(subgraph.graph))
         # Create dictionary records for each of the new nodes.
@@ -158,7 +154,7 @@ end
 
 function add_links!(top, c::AbstractComponent)
     # Iterate through all links for the component.
-    for (key,link) in c.links
+    for (key, link) in c.links
         # Create a node for the link
         add_vertex!(top.graph)
         link_index = nv(top.graph)
@@ -180,26 +176,19 @@ function add_links!(top, c::AbstractComponent)
     return nothing
 end
 
-function splicegraphs(
-        component::AbstractComponent, 
-        topgraph::RoutingGraph, 
-        subgraphs
-    )
-
+function splicegraphs(component::AbstractComponent, topgraph::RoutingGraph, subgraphs)
     add_subgraphs!(topgraph, keys(component.children), subgraphs)
     add_links!(topgraph, component)
     return topgraph
 end
 
 function routing_graph(
-        component::AbstractComponent, 
-        memoize = true,
-        memo = Dict{String, RoutingGraph}()
-    )
+    component::AbstractComponent, memoize = true, memo = Dict{String,RoutingGraph}()
+)
 
     # Check if the graph for this component has been memoized and return the
     # memoized result if it has.
-    if memoize && haskey(memo, component.name) 
+    if memoize && haskey(memo, component.name)
         return memo[component.name]
     end
 
@@ -208,12 +197,12 @@ function routing_graph(
     if length(component.children) == 0
         graph = routing_skeleton(component)
 
-    # Recursively build graphs for each of the children of this component.
-    # Once all the graphs for the children have been created, splice them into
-    # a skeleton graph for this component.
+        # Recursively build graphs for each of the children of this component.
+        # Once all the graphs for the children have been created, splice them into
+        # a skeleton graph for this component.
     else
-        subgraphs = [routing_graph(i,memoize,memo) for i in children(component)]
-        topgraph  = routing_skeleton(component)
+        subgraphs = [routing_graph(i, memoize, memo) for i in children(component)]
+        topgraph = routing_skeleton(component)
         graph = splicegraphs(component, topgraph, subgraphs)
     end
     # Memoize this result
@@ -223,21 +212,21 @@ function routing_graph(
 end
 
 memoize!(::Component, md::Dict, key, value) = (md[key] = value)
-memoize!(::TopLevel, md::Dict, key, value)  = nothing
+memoize!(::TopLevel, md::Dict, key, value) = nothing
 
 safety_check(::Component, g) = nothing
-function safety_check(::TopLevel, g) 
+function safety_check(::TopLevel, g)
     maprev = rev_dict_safe(g.map)
-    for (k,v) in maprev
+    for (k, v) in maprev
         length(v) > 1 && throw(ErrorException("$k => $v"))
     end
     @debug routing_graph_info(g)
 end
 
 function routing_graph_info(g)
-    """
-    Number of Vertices: $(nv(g.graph))
-    Number of Edges: $(ne(g.graph))
-    Entries in Map Dictionary: $(length(g.map))
-    """
+    return """
+           Number of Vertices: $(nv(g.graph))
+           Number of Edges: $(ne(g.graph))
+           Entries in Map Dictionary: $(length(g.map))
+           """
 end

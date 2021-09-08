@@ -5,7 +5,7 @@ Type to access channels in the routing taskgraph. Essentially, it is just a
 wrapper for an integer, but typed to allow safer and clearer usage.
 """
 struct ChannelIndex
-    idx :: Int 
+    idx::Int
 end
 
 Base.getindex(A::AbstractArray, i::ChannelIndex) = getindex(A, i.idx)
@@ -16,7 +16,7 @@ Indices of a [`RoutingGraph`](@ref) that can serve as either start or stop
 vertices (depending on the context) of one branch of a [`RoutingChannel`](@ref).
 """
 struct PortVertices
-    indices :: Vector{Int64}
+    indices::Vector{Int64}
 end
 
 Base.getindex(A::PortVertices, i) = getindex(A.indices, i)

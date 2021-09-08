@@ -11,8 +11,6 @@ end
 #=
 Build light graph and translation tables to pass to bipartite_match!
 
-
-
         Taskgraph           Component
         Node                Indices
         Indices
@@ -44,7 +42,7 @@ function build_graph(sa::SAStruct)
     node_dict = Dict(i => i + sourcesink_offset for i in 1:length(sa.nodes))
 
     # Maps Component to an index in the LightGraph
-    component_dict = Dict{eltype(sa), Int64}()
+    component_dict = Dict{eltype(sa),Int64}()
 
     # Build the light graph. Initially populate with the master source, master
     # sink, and vertices representing the TaskgraphNodes
@@ -87,11 +85,10 @@ function build_graph(sa::SAStruct)
     return graph, node_dict, component_dict
 end
 
-
 function do_assignment(placement_struct, graph, node_dict, component_dict)
     # Reverse the node and component dictionaries.
-    node_dict_rev       = rev_dict(node_dict)
-    component_dict_rev  = rev_dict(component_dict)
+    node_dict_rev = rev_dict(node_dict)
+    component_dict_rev = rev_dict(component_dict)
     # Iterate through all the indices belonging to nodes.
     for i in keys(node_dict_rev)
         # Iterate through all the "inneighbors" of this node.
@@ -109,7 +106,6 @@ function do_assignment(placement_struct, graph, node_dict, component_dict)
     end
     return nothing
 end
-
 
 function bipartite_match!(g::AbstractGraph)
     ####################
@@ -138,8 +134,8 @@ function bipartite_match!(g::AbstractGraph)
     sink = 2
     # group the vertices according to their number of preferences
     sort_dict = SortedDict{Int64,Array{Int64,1}}()
-    for a in outneighbors(g,source)
-        count = length(outneighbors(g,a))
+    for a in outneighbors(g, source)
+        count = length(outneighbors(g, a))
         push_to_dict(sort_dict, count, a)
     end
     # unwrap vertex value array for each key in sort_dict
@@ -150,60 +146,68 @@ function bipartite_match!(g::AbstractGraph)
     # source -> a -> b -> sink links are made
     # if link requires a backward trace, it's skipped for now (taken care of later)
     for a in a_set
-        for b in outneighbors(g,a)
-            if has_edge(g,b=>sink) && !has_edge(g,sink=>b)
-                add_edge!(g,a=>source)
-                add_edge!(g,b=>a)
-                add_edge!(g,sink=>b)
+        for b in outneighbors(g, a)
+            if has_edge(g, b => sink) && !has_edge(g, sink => b)
+                add_edge!(g, a => source)
+                add_edge!(g, b => a)
+                add_edge!(g, sink => b)
                 break
-            elseif has_edge(g,b=>sink) && has_edge(g,sink=>b)
+            elseif has_edge(g, b => sink) && has_edge(g, sink => b)
                 continue
             end
         end
     end
     # links that require backward tracing are created below
-    for a in outneighbors(g,source)
-        has_edge(g,a=>source) && continue
+    for a in outneighbors(g, source)
+        has_edge(g, a => source) && continue
         two_found = false # initialize
-        for b in outneighbors(g,a)
+        for b in outneighbors(g, a)
             two_found && break
             predecessor = Int64[] # create an array to keep track the path
             neighbor = b
             previous_neighbor = a
             exit = false # initialize
             while !two_found && !exit
-                for new_neighbor in outneighbors(g,neighbor)
+                for new_neighbor in outneighbors(g, neighbor)
                     # check if neighbor can be connected to sink
-                    if (new_neighbor == sink && !has_edge(g,sink=>neighbor))
+                    if (new_neighbor == sink && !has_edge(g, sink => neighbor))
                         two_found = true
-                        push!(predecessor,previous_neighbor)
-                        push!(predecessor,neighbor)
-                        push!(predecessor,new_neighbor)
+                        push!(predecessor, previous_neighbor)
+                        push!(predecessor, neighbor)
+                        push!(predecessor, new_neighbor)
                         break
                     end
                     # check if the vertex has no remaining moves
-                    if ((outneighbors(g,neighbor)) == [source,previous_neighbor]
-                        ||(inneighbors(g,neighbor)) == [sink,previous_neighbor])
+                    if (
+                        (outneighbors(g, neighbor)) == [source, previous_neighbor] ||
+                        (inneighbors(g, neighbor)) == [sink, previous_neighbor]
+                    )
                         exit = true
                         break
                     end
                     # source, sink, and previous_neighbor are not valid vertices
                     # to move to
-                    if (new_neighbor == source  ||
-                        new_neighbor == sink    ||
-                        new_neighbor == previous_neighbor)
+                    if (
+                        new_neighbor == source ||
+                        new_neighbor == sink ||
+                        new_neighbor == previous_neighbor
+                    )
                         continue
                     end
-                    if (has_edge(g,neighbor=>sink) &&
-                        has_edge(g,neighbor=>new_neighbor) &&
-                        has_edge(g,new_neighbor=>neighbor))
-                        push!(predecessor,previous_neighbor)
+                    if (
+                        has_edge(g, neighbor => sink) &&
+                        has_edge(g, neighbor => new_neighbor) &&
+                        has_edge(g, new_neighbor => neighbor)
+                    )
+                        push!(predecessor, previous_neighbor)
                         previous_neighbor = neighbor
                         neighbor = new_neighbor
-                    elseif (has_edge(g,source=>neighbor) &&
-                            has_edge(g,neighbor=>new_neighbor) &&
-                            !has_edge(g,new_neighbor=>neighbor))
-                        push!(predecessor,previous_neighbor)
+                    elseif (
+                        has_edge(g, source => neighbor) &&
+                        has_edge(g, neighbor => new_neighbor) &&
+                        !has_edge(g, new_neighbor => neighbor)
+                    )
+                        push!(predecessor, previous_neighbor)
                         previous_neighbor = neighbor
                         neighbor = new_neighbor
                     else
@@ -215,14 +219,14 @@ function bipartite_match!(g::AbstractGraph)
             # if sink is found, trace back the predecessors and create appropriate
             # edges as mentioned in the "Algorithm Rules" above
             if two_found
-                add_edge!(g,predecessor[1]=>source)
-                add_edge!(g,predecessor[2]=>predecessor[1])
-                add_edge!(g,sink=>predecessor[end])
-                for i = 2:length(predecessor)-1
-                    if i in outneighbors(g,source)
-                        add_edge!(g,predecessor[i],predecessor[i+1])
-                    elseif i in inneighbors(g,sink)
-                        rem_edge!(g,predecessor[i],predecessor[i+1])
+                add_edge!(g, predecessor[1] => source)
+                add_edge!(g, predecessor[2] => predecessor[1])
+                add_edge!(g, sink => predecessor[end])
+                for i in 2:(length(predecessor) - 1)
+                    if i in outneighbors(g, source)
+                        add_edge!(g, predecessor[i], predecessor[i + 1])
+                    elseif i in inneighbors(g, sink)
+                        rem_edge!(g, predecessor[i], predecessor[i + 1])
                     end # end if
                 end # end for loop
                 break
@@ -231,4 +235,3 @@ function bipartite_match!(g::AbstractGraph)
     end # end of 1st for loop
     return g
 end
-

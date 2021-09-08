@@ -29,7 +29,7 @@ function build_mappable()
     # Start with a bare component
     # Need to indicate that this component is capable of holding a task, so we
     # initialize the metadata dictionary with some data we can use later.
-    component = Component("simple", metadata = Dict("mappable" => true))
+    component = Component("simple"; metadata = Dict("mappable" => true))
 
     # Now all we need to do is add an input and output port.
     add_port(component, "in", Input)
@@ -86,9 +86,9 @@ function build_tile()
     add_link(tile, "mux.out[3]", "west_out")
 
     add_link(tile, "north_in", "mux.in[0]")
-    add_link(tile, "east_in",  "mux.in[1]")
+    add_link(tile, "east_in", "mux.in[1]")
     add_link(tile, "south_in", "mux.in[2]")
-    add_link(tile, "west_in",  "mux.in[3]")
+    add_link(tile, "west_in", "mux.in[3]")
 
     # And that's it!
     return tile
@@ -120,11 +120,11 @@ function build_arch(width, height)
     # Simply define the Address offsets and source -> destination port pairs.
     offsets = [
         Offset((-1, 0), "north_out", "south_in"),
-        Offset(( 1, 0), "south_out", "north_in"),
-        Offset(( 0, 1), "east_out",  "west_in" ),
-        Offset(( 0,-1), "west_out",  "east_in" ),
+        Offset((1, 0), "south_out", "north_in"),
+        Offset((0, 1), "east_out", "west_in"),
+        Offset((0, -1), "west_out", "east_in"),
     ]
-    
+
     connection_rule(arch, offsets)
 
     # And we're done!.

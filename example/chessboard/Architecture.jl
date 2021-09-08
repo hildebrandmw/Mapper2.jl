@@ -29,31 +29,37 @@ pick(::ChessboardColor, addr) = isodd(sum(addr.I)) ? White : Black
 struct HashColor <: ArchitectureColor end
 pick(::HashColor, addr) = isodd(hash(addr)) ? White : Black
 
-
 abstract type ArchitectureStyle end
 
 struct Rectangle2D <: ArchitectureStyle end
 portnames(::Rectangle2D) = ("north", "east", "south", "west")
 nd(::Rectangle2D) = 2
-rules(::Rectangle2D) = ConnectionRule([
-    Offset((-1, 0), "north_out", "south_in"),
-    Offset(( 1, 0), "south_out", "north_in"),
-    Offset(( 0, 1), "east_out",  "west_in" ),
-    Offset(( 0,-1), "west_out",  "east_in" ),
-]) |> tuple
+function rules(::Rectangle2D)
+    return tuple(
+        ConnectionRule([
+            Offset((-1, 0), "north_out", "south_in"),
+            Offset((1, 0), "south_out", "north_in"),
+            Offset((0, 1), "east_out", "west_in"),
+            Offset((0, -1), "west_out", "east_in"),
+        ]),
+    )
+end
 
 struct Rectangle3D <: ArchitectureStyle end
 portnames(::Rectangle3D) = ("north", "east", "south", "west", "up", "down")
 nd(::Rectangle3D) = 3
-rules(::Rectangle3D) = ConnectionRule([
-    Offset((-1, 0, 0), "north_out", "south_in"),
-    Offset(( 1, 0, 0), "south_out", "north_in"),
-    Offset(( 0, 1, 0), "east_out",  "west_in"),
-    Offset(( 0,-1, 0), "west_out",  "east_in"),
-    Offset(( 0, 0, 1), "up_out",    "down_in"),
-    Offset(( 0, 0,-1), "down_out",  "up_in"),
-]) |> tuple
-
+function rules(::Rectangle3D)
+    return tuple(
+        ConnectionRule([
+            Offset((-1, 0, 0), "north_out", "south_in"),
+            Offset((1, 0, 0), "south_out", "north_in"),
+            Offset((0, 1, 0), "east_out", "west_in"),
+            Offset((0, -1, 0), "west_out", "east_in"),
+            Offset((0, 0, 1), "up_out", "down_in"),
+            Offset((0, 0, -1), "down_out", "up_in"),
+        ]),
+    )
+end
 
 #=
           ____          ____
@@ -77,34 +83,38 @@ rules(::Rectangle3D) = ConnectionRule([
 struct Hexagonal2D <: ArchitectureStyle end
 portnames(::Hexagonal2D) = ("30", "90", "150", "210", "270", "330")
 nd(::Hexagonal2D) = 2
-rules(::Hexagonal2D) = (
-    # Rule to apply if the column address is even.
-    ConnectionRule([
-            Offset((0, 1),  "30_out",  "210_in"),
-            Offset((-1, 0), "90_out",  "270_in"),
-            Offset((0, -1), "150_out", "330_in"),
-            Offset((1, -1), "210_out",  "30_in"),
-            Offset((1, 0),  "270_out",  "90_in"),
-            Offset((1, 1),  "330_out", "150_in"),
-        ];
-        address_filter = x -> iseven(x.I[2]),
-    ),
-    # Rule to apply if the column address is odd.
-    ConnectionRule([
-            Offset((-1, 1),  "30_out",  "210_in"),
-            Offset((-1, 0),  "90_out",  "270_in"),
-            Offset((-1, -1), "150_out", "330_in"),
-            Offset(( 0, -1), "210_out",  "30_in"),
-            Offset(( 1, 0),  "270_out",  "90_in"),
-            Offset(( 0, 1),  "330_out", "150_in"),
-        ];
-        address_filter = x -> isodd(x.I[2]),
-   )
-)
+function rules(::Hexagonal2D)
+    return (
+        # Rule to apply if the column address is even.
+        ConnectionRule(
+            [
+                Offset((0, 1), "30_out", "210_in"),
+                Offset((-1, 0), "90_out", "270_in"),
+                Offset((0, -1), "150_out", "330_in"),
+                Offset((1, -1), "210_out", "30_in"),
+                Offset((1, 0), "270_out", "90_in"),
+                Offset((1, 1), "330_out", "150_in"),
+            ];
+            address_filter = x -> iseven(x.I[2]),
+        ),
+        # Rule to apply if the column address is odd.
+        ConnectionRule(
+            [
+                Offset((-1, 1), "30_out", "210_in"),
+                Offset((-1, 0), "90_out", "270_in"),
+                Offset((-1, -1), "150_out", "330_in"),
+                Offset((0, -1), "210_out", "30_in"),
+                Offset((1, 0), "270_out", "90_in"),
+                Offset((0, 1), "330_out", "150_in"),
+            ];
+            address_filter = x -> isodd(x.I[2]),
+        ),
+    )
+end
 
 # Build mappable component
-function mappable(color :: SquareColor)
-    component = Component("square", metadata = Dict("color" => color))
+function mappable(color::SquareColor)
+    component = Component("square"; metadata = Dict("color" => color))
     add_port(component, "in", Input)
     add_port(component, "out", Output)
 
@@ -112,7 +122,7 @@ function mappable(color :: SquareColor)
 end
 
 # Since Crossbars are Mapper primitives, we are now ready to build our tile.
-function build_tile(color :: SquareColor, style :: ArchitectureStyle)
+function build_tile(color::SquareColor, style::ArchitectureStyle)
     tile = Component("tile")
 
     # Ports
@@ -146,10 +156,8 @@ function build_tile(color :: SquareColor, style :: ArchitectureStyle)
 end
 
 function architecture(
-        tiles_per_side,
-        style :: ArchitectureStyle,
-        color_rule :: ArchitectureColor,
-    )
+    tiles_per_side, style::ArchitectureStyle, color_rule::ArchitectureColor
+)
 
     # Get the number of dimensions for this architecture.
     N = nd(style)

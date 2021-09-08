@@ -6,26 +6,26 @@ function report_routing_stats(m::Map{A,D}) where {A,D}
 
     # Print the total number of communication links in the taskgraph
     num_links = sum(values(histogram))
-    printstyled("Number of communication channels: ", color = :yellow)
-    printstyled(num_links, "\n", color = :white)
+    printstyled("Number of communication channels: "; color = :yellow)
+    printstyled(num_links, "\n"; color = :white)
 
     # Report the total number of links used - this will be the sum of the
     # number of links with a given length multiplied by the length.
-    total = sum(k*v for (k,v) in histogram)
-    printstyled("Total global routing links used: ", color = :yellow)
-    printstyled(total, "\n", color = :white)
+    total = sum(k * v for (k, v) in histogram)
+    printstyled("Total global routing links used: "; color = :yellow)
+    printstyled(total, "\n"; color = :white)
 
     # Report the average link length
     average_length = total / num_links
-    printstyled("Average Link Length: ", color = :yellow)
-    printstyled(average_length, "\n", color = :white)
+    printstyled("Average Link Length: "; color = :yellow)
+    printstyled(average_length, "\n"; color = :white)
 
     # Print the maximum link distance
-    printstyled("Maximum Link Distance: ", color = :yellow)
-    printstyled(maximum(keys(histogram)), "\n", color = :white)
+    printstyled("Maximum Link Distance: "; color = :yellow)
+    printstyled(maximum(keys(histogram)), "\n"; color = :white)
 
     # Display the link histogram
-    printstyled("Link Histogram: \n", color = :yellow)
+    printstyled("Link Histogram: \n"; color = :yellow)
     display(histogram)
     println()
 

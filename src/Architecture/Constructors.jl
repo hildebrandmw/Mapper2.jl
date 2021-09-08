@@ -3,17 +3,17 @@
 ################################################################################
 
 function add_port(component::Component, name, class; metadata = emptymeta())
-    add_port(component, Port(name, class; metadata = metadata))
+    return add_port(component, Port(name, class; metadata = metadata))
 end
 
 function add_port(component::Component, name, class, number; metadata = emptymeta())
-    for i in 0:number-1
+    for i in 0:(number - 1)
         portname = "$name[$(i)]"
         # Choose whether to iterate through metadata or not.
         if typeof(metadata) <: Dict
-            port = Port(portname, class, metadata = metadata)
+            port = Port(portname, class; metadata = metadata)
         else
-            port = Port(portname, class, metadata = metadata[i+1])
+            port = Port(portname, class; metadata = metadata[i + 1])
         end
         add_port(component, port)
     end
@@ -24,7 +24,7 @@ function add_port(component::Component, port::Port)
     if haskey(component.ports, port.name)
         error("Port: $(port.name) already exists in component $(component.name)")
     end
-    component.ports[port.name] = port
+    return component.ports[port.name] = port
 end
 
 ################################################################################
@@ -32,7 +32,7 @@ end
 ################################################################################
 
 function add_child(component::Component, child::Component, name::String, number)
-    for i in 0:number-1
+    for i in 0:(number - 1)
         add_child(component, child, "$name[$i]")
     end
     return nothing
@@ -47,12 +47,8 @@ function add_child(component::Component, child::Component, name::String)
 end
 
 function add_child(
-        toplevel :: TopLevel, 
-        child :: Component, 
-        address :: Address, 
-        name :: String = string(address)
-    )
-    
+    toplevel::TopLevel, child::Component, address::Address, name::String = string(address)
+)
     if haskey(toplevel.children, name)
         error("TopLevel $(toplevel.name) already has a child named $name.")
     end
@@ -78,11 +74,11 @@ end
 #   - String, vector of string, PortPath, vector of PortPath and have
 #   everything just work correctly. Maps all of these to a vector of portpaths.
 portpath_promote(s::Vector{Path{Port}}) = identity(s)
-portpath_promote(s::Path{Port})         = [s]
-portpath_promote(s::String)             = [Path{Port}(s)]
-portpath_promote(s::Vector{String})     = [Path{Port}(i) for i in s]
+portpath_promote(s::Path{Port}) = [s]
+portpath_promote(s::String) = [Path{Port}(s)]
+portpath_promote(s::Vector{String}) = [Path{Port}(i) for i in s]
 
-function check_directions(component, sources, sinks) 
+function check_directions(component, sources, sinks)
     for source in sources
         port = relative_port(component, source)
         if !checkclass(port, Source)
@@ -98,13 +94,13 @@ function check_directions(component, sources, sinks)
 end
 
 function add_link(
-        component :: AbstractComponent, 
-        src_any, 
-        dest_any, 
-        safe = false; 
-        metadata = emptymeta(), 
-        linkname = nothing,
-    )
+    component::AbstractComponent,
+    src_any,
+    dest_any,
+    safe = false;
+    metadata = emptymeta(),
+    linkname = nothing,
+)
 
     # Promote the passed sources and destinations to Vector{Path{Port}}
     sources = portpath_promote(src_any)
@@ -165,31 +161,24 @@ Single rule for connecting ports at the [`TopLevel`](@ref)
 """
 struct Offset
     "Offset to add to a source address to reach a destination address"
-    offset      :: Address
+    offset::Address
 
     "Name of the source port to start a link at."
-    source_port :: String
+    source_port::String
 
     "Name of the destination port to end a link at."
-    dest_port   :: String
+    dest_port::String
 
     # Do conversions to correct types.
     function Offset(
-            offset :: Union{Address,Tuple},
-            source_port :: AbstractString, 
-            dest_port :: AbstractString
-        ) 
-
-        new(
-            Address(offset),
-            string(source_port),
-            string(dest_port),
-        )
+        offset::Union{Address,Tuple}, source_port::AbstractString, dest_port::AbstractString
+    )
+        return new(Address(offset), string(source_port), string(dest_port))
     end
 end
 
 # Allow passing of iterators as a constructor.
-Offset(A, B, C) = [Offset(a, b, c) for (a,b,c) in zip(A, B, C)]
+Offset(A, B, C) = [Offset(a, b, c) for (a, b, c) in zip(A, B, C)]
 
 """
 Global connection rule for connecting ports at the [`TopLevel`](@ref)
@@ -199,25 +188,21 @@ struct ConnectionRule
     `Vector{Offset}` - Collection of [`Offset`] rules to be applied to all
     source addresses that pass the filtering stage.
     """
-    offsets :: Vector{Offset}
+    offsets::Vector{Offset}
 
     "`Function` - Filter for source addresses. Default: `true`"
-    address_filter :: Function
+    address_filter::Function
     "`Function` - Filter for source components. Default: `true`"
-    source_filter :: Function
+    source_filter::Function
     "`Function` - Filter for destination components. Default: `true`"
-    dest_filter :: Function
+    dest_filter::Function
 end
 
 # Provide KeyWord alternative.
 function ConnectionRule(
-        offsets; 
-        address_filter = tautology,
-        source_filter = tautology,
-        dest_filter = tautology,
-    )
-
-    ConnectionRule(offsets, address_filter, source_filter, dest_filter)
+    offsets; address_filter = tautology, source_filter = tautology, dest_filter = tautology
+)
+    return ConnectionRule(offsets, address_filter, source_filter, dest_filter)
 end
 
 Base.iterate(c::ConnectionRule) = (c, nothing)
@@ -239,18 +224,14 @@ safe to do so.
 Method List
 -----------
 $(METHODLIST)
-""" 
+"""
 function connection_rule end
 
-function connection_rule(toplevel::TopLevel, rule :: Vector{Offset}; kwargs...)
-    connection_rule(toplevel, ConnectionRule(rule); kwargs...)
+function connection_rule(toplevel::TopLevel, rule::Vector{Offset}; kwargs...)
+    return connection_rule(toplevel, ConnectionRule(rule); kwargs...)
 end
 
-function connection_rule(
-        toplevel::TopLevel, 
-        rule::ConnectionRule; 
-        metadata = emptymeta()
-    )
+function connection_rule(toplevel::TopLevel, rule::ConnectionRule; metadata = emptymeta())
     # Count variable for verification - reports the number of links created.
     count = 0
 
@@ -304,9 +285,9 @@ end
 ##############################
 function build_mux(inputs, outputs; metadata = emptymeta())
     name = "mux_" * string(inputs) * "_" * string(outputs)
-    component = Component(name, primitive = "mux", metadata = metadata)
-    add_port(component, "in", Input, inputs, metadata = metadata)
-    add_port(component, "out", Output, outputs, metadata = metadata)
+    component = Component(name; primitive = "mux", metadata = metadata)
+    add_port(component, "in", Input, inputs; metadata = metadata)
+    add_port(component, "out", Output, outputs; metadata = metadata)
     return component
 end
 

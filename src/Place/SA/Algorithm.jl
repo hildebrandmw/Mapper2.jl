@@ -7,21 +7,20 @@ Simulated Annealing placement.
 ################################################################################
 abstract type AbstractCookie end
 mutable struct MoveCookie{T} <: AbstractCookie
-   cost_of_move            ::Float64
-   index_of_moved_node     ::Int64
-   move_was_swap           ::Bool
-   index_of_other_node     ::Int64
-   old_location            ::T
+    cost_of_move::Float64
+    index_of_moved_node::Int64
+    move_was_swap::Bool
+    index_of_other_node::Int64
+    old_location::T
 end
 
-function MoveCookie(sa_struct :: SAStruct)
-    MoveCookie(0.0, 0, false, 0, zero(eltype(sa_struct)))
+function MoveCookie(sa_struct::SAStruct)
+    return MoveCookie(0.0, 0, false, 0, zero(eltype(sa_struct)))
 end
 
 ################################################################################
 # Types that control various parameters of the placement.
 ################################################################################
-
 
 ##########
 # SAWarm #
@@ -69,15 +68,14 @@ To prevent unbounded warming, the `ratio` field is multiplied by the `decay`
 field on each invocation.
 """
 mutable struct DefaultSAWarm <: SAWarm
-    ratio       ::Float64
-    multiplier  ::Float64
-    decay       ::Float64
+    ratio::Float64
+    multiplier::Float64
+    decay::Float64
 end
 
 @inline function warm!(w::DefaultSAWarm, state::SAState)
     # Compute acceptance ratio from the state
-    acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_successful_moves
+    acceptance_ratio = state.recent_accepted_moves / state.recent_successful_moves
 
     # Update temperature
     state.temperature *= w.multiplier
@@ -177,22 +175,19 @@ Default distance limit updater. Will adjust the distance limit so approximate
 `ratio` of moves are accepted. Will not set `state.limit` lower than `minimum`.
 """
 struct DefaultSALimit <: SALimit
-    ratio :: Float64
+    ratio::Float64
     # Minimum allows distance limit.
-    minimum :: Int
+    minimum::Int
 end
 DefaultSALimit(ratio::Float64) = DefaultSALimit(ratio, 1)
 
 function limit!(l::DefaultSALimit, state::SAState)
     # Compute acceptance ratio from state
-    acceptance_ratio = state.recent_accepted_moves /
-                       state.recent_successful_moves
+    acceptance_ratio = state.recent_accepted_moves / state.recent_successful_moves
     # Update distance limit
     temporary = (1 - l.ratio + acceptance_ratio)
     state.distance_limit = clamp(
-        state.distance_limit * temporary,
-        l.minimum,
-        state.max_distance_limit
+        state.distance_limit * temporary, l.minimum, state.max_distance_limit
     )
     return nothing
 end
@@ -235,7 +230,7 @@ Default end detection. Will return `true` when objective deviation is
 less than `atol`.
 """
 struct DefaultSADone <: SADone
-    atol :: Float64
+    atol::Float64
 end
 
 @inline function sa_done(d::DefaultSADone, state::SAState)
@@ -247,20 +242,19 @@ end
 ################################################################################
 
 function place!(
-        sa_struct :: SAStruct{A,U,D};
-        # Number of moves before doing a parameter update.
-        move_attempts       = 20000,
-        initial_temperature = 1.0,
-        supplied_state      = nothing,
-        movegen :: MoveGenerator = CachedMoveGenerator(sa_struct),
-        # Parameters for high-level control
-        warmer :: SAWarm  = DefaultSAWarm(0.96, 2.0, 0.97),
-        cooler :: SACool  = DefaultSACool(0.999),
-        doner :: SADone  = DefaultSADone(10.0^-5),
-        limiter :: SALimit = DefaultSALimit(0.44, 2),
-        kwargs...
-    ) where {A,U,D}
-
+    sa_struct::SAStruct{A,U,D};
+    # Number of moves before doing a parameter update.
+    move_attempts = 20000,
+    initial_temperature = 1.0,
+    supplied_state = nothing,
+    movegen::MoveGenerator = CachedMoveGenerator(sa_struct),
+    # Parameters for high-level control
+    warmer::SAWarm = DefaultSAWarm(0.96, 2.0, 0.97),
+    cooler::SACool = DefaultSACool(0.999),
+    doner::SADone = DefaultSADone(10.0^-5),
+    limiter::SALimit = DefaultSALimit(0.44, 2),
+    kwargs...,
+) where {A,U,D}
     @info "Running Simulated Annealing Placement."
     # Set the random number generator for repeatable results.
 
@@ -304,9 +298,9 @@ function place!(
         # Invert temperature to perform floating point multiplication rather
         # than division. Set local counters for this iteration.
         one_over_T = 1 / state.temperature
-        accepted_moves      = 0
-        successful_moves    = 0
-        objective           = state.objective
+        accepted_moves = 0
+        successful_moves = 0
+        objective = state.objective
         sum_cost_difference = zero(typeof(cost))
 
         ##############
@@ -324,7 +318,7 @@ function place!(
             # Get the cost of the move
             cost_of_move = cookie.cost_of_move
             if cost_of_move <= zero(typeof(cost_of_move)) ||
-                    rand() < exp(-cost_of_move * one_over_T)
+               rand() < exp(-cost_of_move * one_over_T)
                 accepted_moves += 1
 
                 if cost_of_move > 0
@@ -353,9 +347,9 @@ function place!(
         end
 
         # Update some statistics in the state variable
-        state.recent_move_attempts      = move_attempts
-        state.recent_successful_moves   = successful_moves
-        state.recent_accepted_moves     = accepted_moves
+        state.recent_move_attempts = move_attempts
+        state.recent_successful_moves = successful_moves
+        state.recent_accepted_moves = accepted_moves
         # Quick check to avoid NaN's showing up in the case of zero accepted
         # moves.
         if iszero(accepted_moves)
@@ -391,12 +385,8 @@ end
 # Movement related functions
 ################################################################################
 @propagate_inbounds function move_with_undo(
-        sa_struct::SAStruct,
-        cookie,
-        index::Int64,
-        new_location
-    )
-
+    sa_struct::SAStruct, cookie, index::Int64, new_location
+)
     node = sa_struct.nodes[index]
 
     # Store the old information
@@ -420,7 +410,7 @@ end
         isvalid(sa_struct.maptable, getclass(occupying_node), old_location) || return false
         cookie.move_was_swap = true
         # Save the index of the occupying node
-        cookie.index_of_other_node  = occupying_node_index
+        cookie.index_of_other_node = occupying_node_index
         # Compute the cost before the move
         base_cost = node_pair_cost(sa_struct, index, occupying_node_index)
         # Swap nodes
@@ -436,7 +426,7 @@ end
     # If the last move was a swap, need a swap in order to undo it.
     if cookie.move_was_swap
         swap(sa_struct, cookie.index_of_moved_node, cookie.index_of_other_node)
-    # Otherwise, a simple move is just fine.
+        # Otherwise, a simple move is just fine.
     else
         move(sa_struct, cookie.index_of_moved_node, cookie.old_location)
     end

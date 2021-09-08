@@ -28,11 +28,7 @@
     end
     # Test dictionaries
     let
-        paths = [
-            Path{Nothing}("a.b.c"),
-            Path{Int}("a.b.c"),
-            Path{Nothing}("r"),
-        ]
+        paths = [Path{Nothing}("a.b.c"), Path{Int}("a.b.c"), Path{Nothing}("r")]
 
         d = Dict(paths[i] => i for i in 1:length(paths))
 
@@ -61,13 +57,12 @@ end
     @test MapperCore.invert(MapperCore.invert(p)) == p
 end
 
-
 @testset "Testing Architecture Modeling" begin
     # Use Example1 for this testing.
     # Test General primitive
     let
         p = build_general_primitive()
-        @test sort(collect(keys(p.ports))) == ["in[0]","in[1]","out[0]","out[1]"]
+        @test sort(collect(keys(p.ports))) == ["in[0]", "in[1]", "out[0]", "out[1]"]
         @test assert_no_children(p)
         @test assert_no_intrarouting(p)
     end
@@ -88,7 +83,7 @@ end
         "east_out",
         "east_in",
         "west_out",
-        "west_in"
+        "west_in",
     ])
 
     let
@@ -133,4 +128,3 @@ end
         @test search_metadata!(t, "task", "general") == true
     end
 end
-

@@ -10,29 +10,31 @@ $(METHODLIST)
 """
 struct BasicRoutingLink <: RoutingLink
     "Vector of channels curently assigned to the link."
-    channels :: Vector{ChannelIndex}
+    channels::Vector{ChannelIndex}
 
     "Base cost of using this link."
-    cost :: Float64
+    cost::Float64
 
     """
     Number of channels that can be mapped to this link without it being 
     considered congested.
     """
-    capacity :: Int64
+    capacity::Int64
 end
-BasicRoutingLink(;cost = 1.0, capacity = 1) = BasicRoutingLink(ChannelIndex[], cost, capacity)
+function BasicRoutingLink(; cost = 1.0, capacity = 1)
+    return BasicRoutingLink(ChannelIndex[], cost, capacity)
+end
 
 # API Methods
-@inline channels(a::RoutingLink)   = a.channels
-@inline cost(a::RoutingLink)       = a.cost
-@inline capacity(a::RoutingLink)   = a.capacity
-@inline occupancy(a::RoutingLink)  = length(a.channels)
+@inline channels(a::RoutingLink) = a.channels
+@inline cost(a::RoutingLink) = a.cost
+@inline capacity(a::RoutingLink) = a.capacity
+@inline occupancy(a::RoutingLink) = length(a.channels)
 
-addchannel(a::RoutingLink, c) = push!(channels(a),c)
+addchannel(a::RoutingLink, c) = push!(channels(a), c)
 
-function remchannel(a::RoutingLink, c) 
-    deleteat!(a.channels,findfirst(x -> x == c, a.channels))
+function remchannel(a::RoutingLink, c)
+    return deleteat!(a.channels, findfirst(x -> x == c, a.channels))
 end
 
 # Derived Methods
@@ -42,7 +44,6 @@ iscongested(links::Vector{<:RoutingLink}) = any(iscongested, links)
 ################################################################################
 # Routing Link Documentation
 ################################################################################
-
 
 @doc """
     channels(link::RoutingLink) :: Vector{ChannelIndex}

@@ -19,7 +19,7 @@ include("Architecture.jl")
 include("Taskgraph.jl")
 
 # With the Architecture and Taskgraph defined, creating a Map is easy!.
-function make_map(;width = 4, height = 4, ntasks = 10, nedges = 20)
+function make_map(; width = 4, height = 4, ntasks = 10, nedges = 20)
     arch = build_arch(width, height)
     taskgraph = make_taskgraph(ntasks, nedges)
 
