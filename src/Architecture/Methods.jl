@@ -1,5 +1,5 @@
 function getoffset(a::TopLevel{D}) where D
-    return one(Address{D}) - Address(dim_min(addresses(a)))
+    return oneunit(Address{D}) - Address(dim_min(addresses(a)))
 end
 
 """
@@ -56,7 +56,7 @@ end
 @doc """
     visible_ports(component::AbstractComponent)
 
-Return `Vector{PortPath}` of the ports of `component` and the ports of the 
+Return `Vector{PortPath}` of the ports of `component` and the ports of the
 children of `component`.
 """ visible_ports
 
@@ -66,8 +66,8 @@ children of `component`.
 ################################################################################
 
 function connectedlink(
-        toplevel :: TopLevel, 
-        portpath :: Path{Port}, 
+        toplevel :: TopLevel,
+        portpath :: Path{Port},
         portclass :: PortClass
     )
     # Extract the port type of the top level definition.
@@ -80,7 +80,7 @@ function connectedlink(
     split_amount = up_one ? 2 : 1
     cpath, ppath = splitpath(portpath, split_amount)
 
-    # Get the component type and look up the port name in the "portlink" 
+    # Get the component type and look up the port name in the "portlink"
     # dictionary to get its connected link.
     component = toplevel[cpath]
     link = component.portlink[ppath]
@@ -91,8 +91,8 @@ function connectedlink(
 end
 
 function connectedports(
-        toplevel :: TopLevel, 
-        linkpath :: Path{Link}, 
+        toplevel :: TopLevel,
+        linkpath :: Path{Link},
         class :: PortClass
     )
     link = toplevel[linkpath]
@@ -132,8 +132,8 @@ function isconnected(t::TopLevel, a::Path, b::Path)
 end
 
 function isconnected(
-        toplevel :: TopLevel, 
-        portpath :: Path{Port}, 
+        toplevel :: TopLevel,
+        portpath :: Path{Port},
         linkpath :: Path{Link}
     )
 
@@ -159,8 +159,8 @@ function isconnected(
 end
 
 function isconnected(
-        toplevel :: TopLevel, 
-        linkpath :: Path{Link}, 
+        toplevel :: TopLevel,
+        linkpath :: Path{Link},
         portpath :: Path{Port}
     )
     # Get the output link connected to the port

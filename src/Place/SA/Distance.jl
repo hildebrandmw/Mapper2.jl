@@ -63,7 +63,8 @@ end
 
 # Unwrap and
 @propagate_inbounds @inline function getdistance(A::BasicDistance, a, b)
-    A.table[location(a), location(b)]
+    # Constant propgation doesn't take this all the way for higher dimensions
+    A.table[Tuple(location(a))..., Tuple(location(b))...]
 end
 maxdistance(sa_struct, A::BasicDistance) = maximum(A.table)
 

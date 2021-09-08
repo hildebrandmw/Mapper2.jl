@@ -283,7 +283,7 @@ function place!(
 
     # Initialize the main state variable. State variable's timer begins when
     # the structure is created.
-    if supplied_state == nothing
+    if supplied_state === nothing
         state = SAState(initial_temperature, Float64(initial_move_limit), cost)
     else
         state = supplied_state
